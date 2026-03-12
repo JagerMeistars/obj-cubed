@@ -4,7 +4,7 @@ A [BlockBench](https://www.blockbench.net/) plugin for exporting arbitrary 3D mo
 
 Forked from [Godlander's objmc](https://github.com/Godlander/objmc) — the original Python-based tool that pioneered the technique of encoding OBJ mesh data into textures and decoding it in vanilla Minecraft shaders.
 
-**obj^3** replaces the Python script + CLI workflow with a single BlockBench plugin: model, rig, animate, and export — all inside BlockBench.
+**obj³** replaces the Python script + CLI workflow with a single BlockBench plugin: model, rig, animate, and export — all inside BlockBench.
 
 ## How it works
 
@@ -12,7 +12,7 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 
 ## Features
 
-- **Direct BlockBench export** — File > Export as obj^3
+- **Direct BlockBench export** — File > Export as obj³...
 - **Keyframe animation baking** — BB animations are baked frame-by-frame into the encoded texture
 - **Armature & bone skinning** — weighted vertex skinning from BB Generic Model rigs
 - **Multi-texture atlas** — combine multiple textures into one atlas automatically
@@ -23,8 +23,8 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 ## Requirements
 
 - BlockBench 4.8.0+ (desktop variant)
-- Minecraft 1.21+ (core shaders)
-- Compatible with 26.1-snapshot-9 and later
+- Minecraft 26.1+ (core shaders)
+- Compatible with 26.1-snapshot-10 and later
 
 Modded compatibility is not guaranteed. Core shaders are a vanilla resource pack feature.
 
