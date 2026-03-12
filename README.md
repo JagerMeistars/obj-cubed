@@ -1,4 +1,4 @@
-# obj^3 (objcubed)
+# obj³ (objcubed)
 
 A [BlockBench](https://www.blockbench.net/) plugin for exporting arbitrary 3D models into Minecraft resource packs using custom core shaders.
 
