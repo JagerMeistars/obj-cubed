@@ -1,10 +1,10 @@
-# obj³ (objcubed)
+# obj^3 (objcubed)
 
 A [BlockBench](https://www.blockbench.net/) plugin for exporting arbitrary 3D models into Minecraft resource packs using custom core shaders.
 
 Forked from [Godlander's objmc](https://github.com/Godlander/objmc) — the original Python-based tool that pioneered the technique of encoding OBJ mesh data into textures and decoding it in vanilla Minecraft shaders.
 
-**obj³** replaces the Python script + CLI workflow with a single BlockBench plugin: model, rig, animate, and export — all inside BlockBench.
+**obj^3** replaces the Python script + CLI workflow with a single BlockBench plugin.
 
 ## How it works
 
@@ -12,7 +12,7 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 
 ## Features
 
-- **Direct BlockBench export** — File > Export as obj³...
+- **Direct BlockBench export** — File > Export as obj^3
 - **Keyframe animation baking** — BB animations are baked frame-by-frame into the encoded texture
 - **Armature & bone skinning** — weighted vertex skinning from BB Generic Model rigs
 - **Multi-texture atlas** — combine multiple textures into one atlas automatically
@@ -23,8 +23,8 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 ## Requirements
 
 - BlockBench 4.8.0+ (desktop variant)
-- Minecraft 26.1+ (core shaders)
-- Compatible with 26.1-snapshot-10 and later
+- Minecraft 1.21+ (core shaders)
+- Compatible with 26.1-snapshot-9 and later
 
 Modded compatibility is not guaranteed. Core shaders are a vanilla resource pack feature.
 
@@ -56,7 +56,7 @@ Modded compatibility is not guaranteed. Core shaders are a vanilla resource pack
 | **Autoplay** | Animation loops automatically using GameTime |
 | **Easing** | Interpolation between vertex frames: none, linear, cubic ease-in-out, bezier |
 | **Interpolation** | Interpolation between texture frames: none, linear fade |
-| **Color behavior** | What each RGB byte of overlay color controls (pitch/yaw/roll/time/scale/overlay/hurt) |
+| **Color behavior** | What each RGB byte of overlay color controls (direct/time/scale/overlay/hurt) |
 | **Auto Rotate** | Shader estimates rotation from normals (yaw, pitch, or both) |
 | **No Shadow** | Disable face-normal shading |
 | **Flip UV** | Flip texture UVs vertically (try if model looks wrong) |
@@ -115,17 +115,24 @@ objmc models add minimal overhead — mostly extra texture fetches. Performance 
 
 High face counts (50K+) in a single chunk section can hit the UberGpuBuffer 2MB limit and crash the game. Use blockstate overrides to redirect high-poly block models if needed.
 
-## Controlling animation via color
+## Controlling models via color
 
 Items with overlay color (potions, dyed leather armor) can pass data to the shader through RGB bytes. The `colorbehavior` setting defines what each byte controls:
 
-- `pitch` / `yaw` / `roll` — rotation angles
+- `direct` — passes the channel value directly as model color (tint). With all three channels set to direct, `custom_color` is used as an RGB tint multiplied with the texture. White (`0xFFFFFF`) preserves the original texture; other values tint it.
 - `time` — animation time offset
 - `scale` — model scale
-- `overlay` — overlay color hue
-- `hurt` — hurt flash
+- `overlay` — overlay color hue (converts value to HSV palette color)
+- `hurt` — hurt flash (red tint)
 
-When `colorbehavior = time/time/time`, the shader uses `potion_contents.custom_color` as a 24-bit animation control value. Values below 8388608 are autoplay offsets; values above are manual frame indices.
+Default is `direct/direct/direct`.
+
+Example — tint a model red:
+```mcfunction
+give @s minecraft:potion[potion_contents={custom_color:16711680}]
+```
+
+When `colorbehavior = time/time/time` (set automatically when generating a datapack), the shader uses `potion_contents.custom_color` as a 24-bit animation control value. Values below 8388608 are autoplay offsets; values above are manual frame indices.
 
 ## Notes
 

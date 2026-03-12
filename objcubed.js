@@ -930,7 +930,7 @@
         if (!cfg.nopow) ty = 1 << Math.ceil(Math.log2(ty || 1));
 
 
-        const cbArr = ['pitch','yaw','roll','time','scale','overlay','hurt'];
+        const cbArr = ['direct','time','scale','overlay','hurt'];
         const ca = cfg.colorbehavior.map(x => {
             const idx = cbArr.indexOf(x);
             if (idx < 0) throw new Error('Unknown colorbehavior: ' + x);
@@ -1405,7 +1405,7 @@
                         showAdvanced:  false,
                         easing:        1,
                         interpolation: 1,
-                        cbR: 'pitch', cbG: 'yaw', cbB: 'roll',
+                        cbR: 'direct', cbG: 'direct', cbB: 'direct',
                         autorotate:    1,
                         flipuv:        false,
                         noshadow:      false,
@@ -1796,20 +1796,17 @@
         <div style="font-size:12px;color:#aaa;margin-bottom:3px;">Color Behavior (R / G / B)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
           <select v-model="cbR" style="padding:3px;">
-            <option value="pitch">Pitch</option><option value="yaw">Yaw</option>
-            <option value="roll">Roll</option><option value="time">Time</option>
+            <option value="direct">Direct</option><option value="time">Time</option>
             <option value="scale">Scale</option><option value="overlay">Overlay</option>
             <option value="hurt">Hurt</option>
           </select>
           <select v-model="cbG" style="padding:3px;">
-            <option value="pitch">Pitch</option><option value="yaw">Yaw</option>
-            <option value="roll">Roll</option><option value="time">Time</option>
+            <option value="direct">Direct</option><option value="time">Time</option>
             <option value="scale">Scale</option><option value="overlay">Overlay</option>
             <option value="hurt">Hurt</option>
           </select>
           <select v-model="cbB" style="padding:3px;">
-            <option value="pitch">Pitch</option><option value="yaw">Yaw</option>
-            <option value="roll">Roll</option><option value="time">Time</option>
+            <option value="direct">Direct</option><option value="time">Time</option>
             <option value="scale">Scale</option><option value="overlay">Overlay</option>
             <option value="hurt">Hurt</option>
           </select>

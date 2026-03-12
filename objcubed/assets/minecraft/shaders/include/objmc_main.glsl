@@ -32,13 +32,11 @@ if (marker == ivec4(12,34,56,78)) {
     //| marker | tex size | nvertices | npos | nuvs | nobjs, duration | colorbehavior, autoplay, easing, autorotate, noshadow, visibility |
 
     //colorbehavior
-    // 0: nothing
-    // 1, 2, 3: rotation xyz
-    // 7: scale
-    // 8: time
-    // 9: texture variant
-    // 10: hue/tint
-    // 11: armor model
+    // 0: direct color
+    // 1: time
+    // 2: scale
+    // 3: hue/tint (overlay)
+    // 4: hurt
 
     for (int i = 1; i < 8; i++) {
         t[i] = getmeta(topleft, i);
@@ -78,60 +76,56 @@ if (marker == ivec4(12,34,56,78)) {
     if (((isGUI + isHand == 0) && visibility.x) || (bool(isHand) && visibility.y) || (bool(isGUI) && visibility.z)) {
         //colorbehavior
         overlayColor = vec4(1);
-        if (colorbehavior == 219) { //animation frames 0-8388607
+        vec3 directColor = vec3(1);
+        bool hasDirectColor = false;
+        if (colorbehavior == 73) { //all three channels = time, animation frames 0-8388607
             tcolor = (int(Color.r*255.0+0.5)*65536)%32768 + int(Color.g*255.0+0.5)*256 + int(Color.b*255.0+0.5);
             //interpolation disabled past 8388608, suso's idea to define starting tick with color
             autoplay = (Color.r <= 0.5);
         } else {
             //bits from colorbehavior
-            vec3 accuracy = vec3(255./256.);
             vec2 tscale = vec2(0, 255./256.);
             vec2 thue = vec2(0, 255./256.);
             switch ((colorbehavior>>6)&7) { //first 3 bits, r
-                //rotation
-                case 0: rotation.x += Color.r*255; accuracy.r *= 256; break;
-                case 1: rotation.y += Color.r*255; accuracy.g *= 256; break;
-                case 2: rotation.z += Color.r*255; accuracy.b *= 256; break;
+                //direct color
+                case 0: directColor.r = Color.r; hasDirectColor = true; break;
                 //time
-                case 3: tcolor = tcolor*256 + int(Color.r*255); break;
+                case 1: tcolor = tcolor*256 + int(Color.r*255); break;
                 //scale
-                case 4: tscale.x = Color.r*255; tscale.y *= 256; break;
+                case 2: tscale.x = Color.r*255; tscale.y *= 256; break;
                 //hue
-                case 5: thue.x = Color.r*255; thue.y *= 256; break;
+                case 3: thue.x = Color.r*255; thue.y *= 256; break;
                 //hurt tint
-                case 6: if (Color.r != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+                case 4: if (Color.r != 0) overlayColor = vec4(1,0.7,0.7,1); break;
             }
             switch ((colorbehavior>>3)&7) { //second 3 bits, g
-                //rotation
-                case 0: rotation.x = rotation.x*256 + Color.g*255; accuracy.r *= 256; break;
-                case 1: rotation.y = rotation.y*256 + Color.g*255; accuracy.g *= 256; break;
-                case 2: rotation.z = rotation.z*256 + Color.g*255; accuracy.b *= 256; break;
+                //direct color
+                case 0: directColor.g = Color.g; hasDirectColor = true; break;
                 //time
-                case 3: tcolor = tcolor*256 + int(Color.g*255); break;
+                case 1: tcolor = tcolor*256 + int(Color.g*255); break;
                 //scale
-                case 4: tscale.x = tscale.x*256 + Color.g*255; tscale.y *= 256; break;
+                case 2: tscale.x = tscale.x*256 + Color.g*255; tscale.y *= 256; break;
                 //hue
-                case 5: thue.x = thue.x*256 + Color.g*255; thue.y *= 256; break;
+                case 3: thue.x = thue.x*256 + Color.g*255; thue.y *= 256; break;
                 //hurt tint
-                case 6: if (Color.g != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+                case 4: if (Color.g != 0) overlayColor = vec4(1,0.7,0.7,1); break;
             }
             switch (colorbehavior&7) { //third 3 bits, b
-                //rotation
-                case 0: rotation.x = rotation.x*256 + Color.b*255; accuracy.r *= 256; break;
-                case 1: rotation.y = rotation.y*256 + Color.b*255; accuracy.g *= 256; break;
-                case 2: rotation.z = rotation.z*256 + Color.b*255; accuracy.b *= 256; break;
+                //direct color
+                case 0: directColor.b = Color.b; hasDirectColor = true; break;
                 //time
-                case 3: tcolor = tcolor*256 + int(Color.b*255); break;
+                case 1: tcolor = tcolor*256 + int(Color.b*255); break;
                 //scale
-                case 4: tscale.x = tscale.x*256 + Color.b*255; tscale.y *= 256; break;
+                case 2: tscale.x = tscale.x*256 + Color.b*255; tscale.y *= 256; break;
                 //hue
-                case 5: thue.x = thue.x*256 + Color.b*255; thue.y *= 256; break;
+                case 3: thue.x = thue.x*256 + Color.b*255; thue.y *= 256; break;
                 //hurt tint
-                case 6: if (Color.b != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+                case 4: if (Color.b != 0) overlayColor = vec4(1,0.7,0.7,1); break;
             }
-            rotation = rotation/accuracy * 2*PI;
             if (tscale.x > 0) scale = tscale.x/tscale.y;
             if (thue.x > 0) overlayColor = vec4(hrgb(thue.x/thue.y),1);
+            //apply direct color: tint the model via overlayColor
+            if (hasDirectColor) overlayColor = vec4(directColor, 1.0);
         }
 #endif
         int frame;
@@ -211,10 +205,6 @@ if (marker == ivec4(12,34,56,78)) {
                 vPos2 = normalize(vPos0 - vPos2);
                 mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
                 posoffset = scale * fullRotation * posoffset;
-            }
-            //pure color rotation
-            else {
-                posoffset = rotate(rotation) * posoffset;
             }
         }
     }
