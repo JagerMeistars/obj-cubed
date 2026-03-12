@@ -1,0 +1,8 @@
+{
+  "pack": {
+    "pack_format": 81,
+    "min_format": 70,
+    "max_format": 9999,
+    "description": "example objmc pack"
+  }
+}
