@@ -54,6 +54,19 @@
             transition:background 120ms, color 120ms;
         }
         .oc-help:hover { background:#5a8cc0; color:#fff; }
+        .oc-err {
+            outline: 1.5px solid #c44 !important;
+            outline-offset: 1px;
+            background: rgba(204,68,68,0.07) !important;
+        }
+        .oc-err-badge {
+            display:inline-flex; align-items:center; gap:3px;
+            padding:3px 9px; border-radius:11px;
+            background:rgba(204,68,68,0.18); color:#f99;
+            border:1px solid #c44;
+            font-size:12px; font-weight:600;
+            cursor:help; user-select:none;
+        }
     `;
     function installStylesheet() {
         if (document.getElementById(STYLESHEET_ID)) return;
@@ -1889,22 +1902,30 @@
                     validationErrors() {
                         const errs = [];
                         if (this.useAtlas && this.multiTex && !this.atlasTexChecked.some(v => v))
-                            errs.push('Выберите хотя бы одну текстуру для атласа');
+                            errs.push({ field:'atlas', msg:'Выберите хотя бы одну текстуру для атласа' });
                         if (+this.scale <= 0)
-                            errs.push('Scale должен быть положительным');
+                            errs.push({ field:'scale', msg:'Масштаб должен быть положительным' });
                         if (this.hasAnims && this.animationEnabled) {
                             if (+this.animEnd <= +this.animStart)
-                                errs.push('Время End должно быть больше Start');
+                                errs.push({ field:'animEnd', msg:'Время Конец должно быть больше Старт' });
                             if (+this.animFps < 1)
-                                errs.push('FPS должен быть не меньше 1');
+                                errs.push({ field:'animFps', msg:'FPS должен быть не меньше 1' });
                         }
                         if (this.generateDatapack && this.showDatapackOption) {
                             if (!this.datapackAnimId.trim())
-                                errs.push('Нужен Animation ID');
+                                errs.push({ field:'datapackAnimId', msg:'Нужен Animation ID' });
                             if (!this.datapackNamespace.trim())
-                                errs.push('Нужен Namespace');
+                                errs.push({ field:'datapackNamespace', msg:'Нужен Namespace' });
                         }
                         return errs;
+                    },
+                    fieldErrorMap() {
+                        const m = {};
+                        for (const e of this.validationErrors) m[e.field] = e.msg;
+                        return m;
+                    },
+                    errorBadgeTitle() {
+                        return this.validationErrors.map(e => '• ' + e.msg).join('\n');
                     },
                 },
                 watch: {
@@ -1914,6 +1935,7 @@
                 },
                 methods: {
                     help(k) { return OBJCUBED_HELP[k] || ''; },
+                    hasErr(field) { return !!this.fieldErrorMap[field]; },
 
                     // ---- Preset management ----
                     // Reload all persisted fields from the given preset index
@@ -2110,6 +2132,9 @@
                         } catch(err) {
                             this.status = 'Error: ' + err.message;
                             console.error('[objmc]', err);
+                            if (typeof Blockbench !== 'undefined' && Blockbench.showQuickMessage) {
+                                Blockbench.showQuickMessage('Экспорт не удался: ' + err.message, 4000);
+                            }
                         }
                         this.running = false;
                     },
@@ -2182,7 +2207,7 @@
           <select v-if="!useAtlas" v-model="selectedTex" style="margin-left:8px;padding:3px 6px;">
             <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
           </select>
-          <div v-if="useAtlas" style="margin-top:4px;padding-left:20px;">
+          <div v-if="useAtlas" :class="hasErr('atlas') ? 'oc-err' : ''" style="margin-top:4px;padding-left:20px;padding:4px 4px 4px 20px;border-radius:3px;">
             <label v-for="(t, i) in texOptions" :key="t.value" style="display:block;line-height:1.8;">
               <input type="checkbox" v-model="atlasTexChecked[i]"/> {{t.label}}
             </label>
@@ -2196,7 +2221,7 @@
   <div style="margin-bottom:12px;">
     <div style="font-weight:600;margin-bottom:4px;color:#ddd;">\u0422\u0440\u0430\u043D\u0441\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
-      <label style="font-size:12px;color:#aaa;">\u041C\u0430\u0441\u0448\u0442\u0430\u0431<span class="oc-help" :title="help('scale')">?</span><br/><input v-model="scale" type="number" step="0.1" style="width:100%;"/></label>
+      <label style="font-size:12px;color:#aaa;">\u041C\u0430\u0441\u0448\u0442\u0430\u0431<span class="oc-help" :title="help('scale')">?</span><br/><input v-model="scale" type="number" step="0.1" style="width:100%;" :class="hasErr('scale') ? 'oc-err' : ''"/></label>
       <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 X<span class="oc-help" :title="help('offset')">?</span><br/><input v-model="offsetX" type="number" step="0.1" style="width:100%;"/></label>
       <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 Y<br/><input v-model="offsetY" type="number" step="0.1" style="width:100%;"/></label>
       <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 Z<br/><input v-model="offsetZ" type="number" step="0.1" style="width:100%;"/></label>
@@ -2220,12 +2245,12 @@
             <option v-for="a in animOptions" :key="a.value" :value="a.value">{{a.label}}</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">FPS<span class="oc-help" :title="help('animFps')">?</span><br/><input v-model="animFps" type="number" min="1" max="60" style="width:100%;"/></label>
+        <label style="font-size:12px;color:#aaa;">FPS<span class="oc-help" :title="help('animFps')">?</span><br/><input v-model="animFps" type="number" min="1" max="60" style="width:100%;" :class="hasErr('animFps') ? 'oc-err' : ''"/></label>
       </div>
       <div v-if="frameCountPreview" style="font-size:11px;color:#8af;margin-top:4px;">{{frameCountPreview}}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">
         <label style="font-size:12px;color:#aaa;">\u0421\u0442\u0430\u0440\u0442 (\u0441)<span class="oc-help" :title="help('animRange')">?</span><br/><input v-model="animStart" type="number" step="0.05" style="width:100%;"/></label>
-        <label style="font-size:12px;color:#aaa;">\u041A\u043E\u043D\u0435\u0446 (\u0441)<br/><input v-model="animEnd" type="number" step="0.05" style="width:100%;"/></label>
+        <label style="font-size:12px;color:#aaa;">\u041A\u043E\u043D\u0435\u0446 (\u0441)<br/><input v-model="animEnd" type="number" step="0.05" style="width:100%;" :class="hasErr('animEnd') ? 'oc-err' : ''"/></label>
         <label style="font-size:12px;color:#aaa;">\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C (\u0442\u0438\u043A\u0438)<span class="oc-help" :title="help('duration')">?</span><br/><input v-model="duration" type="number" min="0" :disabled="generateDatapack" :placeholder="generateDatapack ? '\u0430\u0432\u0442\u043E (= \u043A\u0430\u0434\u0440\u044B)' : '0 = \u0430\u0432\u0442\u043E'" style="width:100%;"/></label>
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
@@ -2246,10 +2271,10 @@
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
         <label style="color:#aaa;">Animation ID<span class="oc-help" :title="help('datapackAnimId')">?</span><br/>
-          <input v-model="datapackAnimId" style="width:100%;margin-top:2px;" placeholder="anim" maxlength="12"/>
+          <input v-model="datapackAnimId" style="width:100%;margin-top:2px;" placeholder="anim" maxlength="12" :class="hasErr('datapackAnimId') ? 'oc-err' : ''"/>
         </label>
         <label style="color:#aaa;">Namespace<span class="oc-help" :title="help('datapackNamespace')">?</span><br/>
-          <input v-model="datapackNamespace" style="width:100%;margin-top:2px;" placeholder="objmc"/>
+          <input v-model="datapackNamespace" style="width:100%;margin-top:2px;" placeholder="objmc" :class="hasErr('datapackNamespace') ? 'oc-err' : ''"/>
         </label>
         <label style="color:#aaa;">\u041A\u043E\u043C\u0443 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0442\u044C<span class="oc-help" :title="help('datapackTargetType')">?</span><br/>
           <select v-model="datapackTargetType" style="width:100%;margin-top:2px;padding:3px;">
@@ -2483,11 +2508,8 @@
     </div>
   </div>
 
-  <!-- ======== VALIDATION + EXPORT ======== -->
-  <div v-if="validationErrors.length" style="margin-bottom:6px;">
-    <div v-for="e in validationErrors" :key="e" style="color:#f66;font-size:12px;line-height:1.6;">{{e}}</div>
-  </div>
-  <div style="display:flex;gap:10px;align-items:center;">
+  <!-- ======== EXPORT ======== -->
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
     <button @click="doExport" :disabled="running || validationErrors.length > 0" style="padding:6px 24px;font-size:14px;">
       {{running ? '\u0420\u0430\u0431\u043E\u0442\u0430\u044E\u2026' : ('\u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u00AB' + (presetNames[activePresetIdx] || '') + '\u00BB')}}
     </button>
@@ -2495,7 +2517,10 @@
             style="padding:6px 16px;font-size:13px;cursor:pointer;background:#2a3e5a;border:1px solid #5a8cc0;color:#cde;border-radius:3px;">
       \u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432\u0441\u0435 ({{presetNames.length}})
     </button>
-    <span :style="{color: status.startsWith('Error')?'#f66' : status.startsWith('Done')?'#6f6' : '#aaa', fontSize:'12px', flex:1}">
+    <span v-if="validationErrors.length" class="oc-err-badge" :title="errorBadgeTitle">
+      \u26A0 {{validationErrors.length}} {{validationErrors.length === 1 ? '\u043F\u0440\u043E\u0431\u043B\u0435\u043C\u0430' : (validationErrors.length < 5 ? '\u043F\u0440\u043E\u0431\u043B\u0435\u043C\u044B' : '\u043F\u0440\u043E\u0431\u043B\u0435\u043C')}}
+    </span>
+    <span :style="{color: status.startsWith('Error')?'#f66' : status.startsWith('\u0413\u043E\u0442\u043E\u0432\u043E') || status.startsWith('Done')?'#6f6' : '#aaa', fontSize:'12px', flex:1}">
       {{status}}
     </span>
   </div>
