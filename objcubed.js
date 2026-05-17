@@ -4,8 +4,75 @@
     const PLUGIN_ID = 'objcubed';
 
     // =========================================================
-    // Constants
+    // Constants (HOISTED — must be declared before Plugin Registration
+    // so that the Vue dialog component, which captures them via closure,
+    // sees them initialized regardless of any pre-render passes Blockbench
+    // performs on component.data() during plugin install.)
     // =========================================================
+
+    // Fields that are user-configurable and should persist between sessions.
+    // Anything not in this list (texOptions, hasAnims, status, etc.) stays
+    // ephemeral.
+    const PERSISTABLE_FIELDS = [
+        // Texture
+        'selectedTex', 'useAtlas', 'atlasTexChecked',
+        // Transform
+        'scale', 'offsetX', 'offsetY', 'offsetZ',
+        // Animation
+        'animationEnabled', 'animationIndex', 'animFps', 'animStart', 'animEnd',
+        'duration', 'autoplay',
+        // Datapack
+        'generateDatapack', 'datapackNamespace', 'datapackAnimId',
+        'datapackTargetType', 'datapackEquipSlot', 'datapackOutputDir',
+        // Display — right hand & shared
+        'showDisplay', 'useSeparateLefthand',
+        'dThirdRX','dThirdRY','dThirdRZ','dThirdTX','dThirdTY','dThirdTZ',
+        // Display — left hand (independent when useSeparateLefthand=true)
+        'dLeftRX','dLeftRY','dLeftRZ','dLeftTX','dLeftTY','dLeftTZ',
+        // Display — head/ground/fixed
+        'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ',
+        'dGroundRX','dGroundRY','dGroundRZ','dGroundTX','dGroundTY','dGroundTZ',
+        'dFixedRX','dFixedRY','dFixedRZ','dFixedTX','dFixedTY','dFixedTZ',
+        // Color & Tinting
+        'cbR', 'cbG', 'cbB',
+        // Advanced
+        'showAdvanced', 'easing', 'interpolation', 'autorotate',
+        'flipuv', 'noshadow', 'nopow', 'filterArmature',
+    ];
+
+    // Russian help tooltip strings — see Section 1.4 for details.
+    const OBJCUBED_HELP = {
+        useAtlas: 'Объединить несколько текстур в один большой PNG. Полезно когда модель состоит из частей с разными текстурами.',
+        atlasTexChecked: 'Какие именно текстуры включить в атлас.',
+        selectedTex: 'Текстура которая накладывается на модель.',
+        scale: 'Множитель размера всей модели. 1 = исходный, 2 = вдвое больше. Внимание: финальный размер ещё умножается на масштаб слота отображения.',
+        offset: 'Сдвиг всех вершин в мировых координатах (до кодирования). Полезно если модель смещена от центра.',
+        animationEnabled: 'Включить запись анимации в текстуру. Без этого экспортируется только одна (текущая) поза.',
+        animationIndex: 'Какую BlockBench-анимацию запекать. В одном файле — одна анимация.',
+        animFps: 'Сколько кадров анимации в секунду запекать. Больше FPS = плавнее но картинка крупнее. 20–30 обычно хватает.',
+        animRange: 'Какой кусок анимации экспортировать (в секундах). По умолчанию — вся длина.',
+        duration: 'Сколько игровых тиков (1/20 секунды) длится один цикл анимации. 0 = автоматически (длина в кадрах).',
+        autoplay: 'Анимация играет сама по себе, синхронизируясь с GameTime. Если выключить — управление только через датапак.',
+        generateDatapack: 'Создать датапак с командами play/stop/set/play_from/play_once для управления анимацией прямо в игре.',
+        datapackAnimId: 'Короткое имя анимации (a-z, 0-9, _). Будет использовано в путях функций.',
+        datapackNamespace: 'Namespace датапака. Команды вызываются как «function <namespace>:animations/<id>/play».',
+        datapackTargetType: 'Кому применяется анимация: сущности с экипировкой (зомби, скелет), сущность item_display, или игроку.',
+        datapackEquipSlot: 'Какой слот экипировки используется для модели — рука/шлем/нагрудник/штаны/сапоги.',
+        datapackOutputDir: 'Куда положить папку датапака. Пусто = рядом с PNG.',
+        useSeparateLefthand: 'По умолчанию левая рука копирует настройки правой. Включи если хочешь настроить её отдельно.',
+        display_third: 'Поворот и сдвиг модели когда она видна в руке другого игрока (от 3-го лица).',
+        display_head: 'Поворот и сдвиг модели когда она надета на голову (player_head).',
+        display_ground: 'Поворот и сдвиг модели когда она лежит на земле (выпавшая).',
+        display_fixed: 'Поворот и сдвиг модели в item frame на стене.',
+        cb_general: 'Каждый канал цвета зелья (R/G/B) можно использовать как переключатель: тинт, время анимации, масштаб, оттенок или вспышка урона. Клик меняет значение.',
+        easing: 'Сглаживание между кадрами анимации вершин. Линейная — обычное усреднение. Кубическая/Bezier — плавнее на стыках.',
+        interpolation: 'Сглаживание между кадрами текстуры. Линейная даёт fade-эффект между кадрами.',
+        autorotate: 'Шейдер определяет поворот модели по нормалям. Yaw = только горизонтальный, Pitch = только вертикальный.',
+        noshadow: 'Отключить затемнение граней по их направлению. Полезно для светящихся моделей.',
+        flipuv: 'Перевернуть текстуру по вертикали. Используй если модель отрендерилась перевёрнуто.',
+        nopow: 'Не округлять высоту PNG до степени двойки. Экономит место, но древние GPU могут отказаться рендерить.',
+        filterArmature: 'Скрыть «кости» (диамантики арматуры) из экспорта. Включай для моделей с арматурой Generic Model.',
+    };
 
     // =========================================================
     // Plugin Registration
@@ -134,84 +201,10 @@
     }
 
     // =========================================================
-    // Section 1.4: Help Tooltips
-    // =========================================================
-    // Russian descriptions shown when the user hovers the ? icon next to a
-    // field. Keys correspond to dialog field names (or grouping ids for
-    // section-level tooltips like 'display_third').
-    const OBJCUBED_HELP = {
-        // Texture
-        useAtlas: 'Объединить несколько текстур в один большой PNG. Полезно когда модель состоит из частей с разными текстурами.',
-        atlasTexChecked: 'Какие именно текстуры включить в атлас.',
-        selectedTex: 'Текстура которая накладывается на модель.',
-        // Transform
-        scale: 'Множитель размера всей модели. 1 = исходный, 2 = вдвое больше. Внимание: финальный размер ещё умножается на масштаб слота отображения.',
-        offset: 'Сдвиг всех вершин в мировых координатах (до кодирования). Полезно если модель смещена от центра.',
-        // Animation
-        animationEnabled: 'Включить запись анимации в текстуру. Без этого экспортируется только одна (текущая) поза.',
-        animationIndex: 'Какую BlockBench-анимацию запекать. В одном файле — одна анимация.',
-        animFps: 'Сколько кадров анимации в секунду запекать. Больше FPS = плавнее но картинка крупнее. 20–30 обычно хватает.',
-        animRange: 'Какой кусок анимации экспортировать (в секундах). По умолчанию — вся длина.',
-        duration: 'Сколько игровых тиков (1/20 секунды) длится один цикл анимации. 0 = автоматически (длина в кадрах).',
-        autoplay: 'Анимация играет сама по себе, синхронизируясь с GameTime. Если выключить — управление только через датапак.',
-        // Datapack
-        generateDatapack: 'Создать датапак с командами play/stop/set/play_from/play_once для управления анимацией прямо в игре.',
-        datapackAnimId: 'Короткое имя анимации (a-z, 0-9, _). Будет использовано в путях функций.',
-        datapackNamespace: 'Namespace датапака. Команды вызываются как «function <namespace>:animations/<id>/play».',
-        datapackTargetType: 'Кому применяется анимация: сущности с экипировкой (зомби, скелет), сущность item_display, или игроку.',
-        datapackEquipSlot: 'Какой слот экипировки используется для модели — рука/шлем/нагрудник/штаны/сапоги.',
-        datapackOutputDir: 'Куда положить папку датапака. Пусто = рядом с PNG.',
-        // Display
-        useSeparateLefthand: 'По умолчанию левая рука копирует настройки правой. Включи если хочешь настроить её отдельно.',
-        display_third: 'Поворот и сдвиг модели когда она видна в руке другого игрока (от 3-го лица).',
-        display_head: 'Поворот и сдвиг модели когда она надета на голову (player_head).',
-        display_ground: 'Поворот и сдвиг модели когда она лежит на земле (выпавшая).',
-        display_fixed: 'Поворот и сдвиг модели в item frame на стене.',
-        // Color & Tinting
-        cb_general: 'Каждый канал цвета зелья (R/G/B) можно использовать как переключатель: тинт, время анимации, масштаб, оттенок или вспышка урона. Клик меняет значение.',
-        // Advanced
-        easing: 'Сглаживание между кадрами анимации вершин. Линейная — обычное усреднение. Кубическая/Bezier — плавнее на стыках.',
-        interpolation: 'Сглаживание между кадрами текстуры. Линейная даёт fade-эффект между кадрами.',
-        autorotate: 'Шейдер определяет поворот модели по нормалям. Yaw = только горизонтальный, Pitch = только вертикальный.',
-        noshadow: 'Отключить затемнение граней по их направлению. Полезно для светящихся моделей.',
-        flipuv: 'Перевернуть текстуру по вертикали. Используй если модель отрендерилась перевёрнуто.',
-        nopow: 'Не округлять высоту PNG до степени двойки. Экономит место, но древние GPU могут отказаться рендерить.',
-        filterArmature: 'Скрыть «кости» (диамантики арматуры) из экспорта. Включай для моделей с арматурой Generic Model.',
-    };
-
-    // =========================================================
     // Section 1.5: Persistent Settings (stored inside .bbmodel)
     // =========================================================
-    // Fields that are user-configurable and should persist between sessions.
-    // Anything not in this list (texOptions, hasAnims, status, etc.) stays
-    // ephemeral.
-    const PERSISTABLE_FIELDS = [
-        // Texture
-        'selectedTex', 'useAtlas', 'atlasTexChecked',
-        // Transform
-        'scale', 'offsetX', 'offsetY', 'offsetZ',
-        // Animation
-        'animationEnabled', 'animationIndex', 'animFps', 'animStart', 'animEnd',
-        'duration', 'autoplay',
-        // Datapack
-        'generateDatapack', 'datapackNamespace', 'datapackAnimId',
-        'datapackTargetType', 'datapackEquipSlot', 'datapackOutputDir',
-        // Display — right hand & shared
-        'showDisplay', 'useSeparateLefthand',
-        'dThirdRX','dThirdRY','dThirdRZ','dThirdTX','dThirdTY','dThirdTZ',
-        // Display — left hand (independent when useSeparateLefthand=true)
-        'dLeftRX','dLeftRY','dLeftRZ','dLeftTX','dLeftTY','dLeftTZ',
-        // Display — head/ground/fixed
-        'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ',
-        'dGroundRX','dGroundRY','dGroundRZ','dGroundTX','dGroundTY','dGroundTZ',
-        'dFixedRX','dFixedRY','dFixedRZ','dFixedTX','dFixedTY','dFixedTZ',
-        // Color & Tinting
-        'cbR', 'cbG', 'cbB',
-        // Advanced
-        'showAdvanced', 'easing', 'interpolation', 'autorotate',
-        'flipuv', 'noshadow', 'nopow', 'filterArmature',
-    ];
-
+    // (PERSISTABLE_FIELDS and OBJCUBED_HELP are hoisted above the
+    // BBPlugin.register call — see top of file.)
     // Settings live on the active Project (Project.objcubed_data) and get
     // serialized into the .bbmodel via Codecs.project compile/parse hooks.
     //
