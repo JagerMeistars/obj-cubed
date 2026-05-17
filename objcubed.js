@@ -27,12 +27,91 @@
             });
             MenuBar.addAction(this.exportAction, 'file.export');
             installProjectPersistence();
+            installStylesheet();
         },
         onunload() {
             if (this.exportAction) this.exportAction.delete();
             uninstallProjectPersistence();
+            uninstallStylesheet();
         },
     });
+
+    // =========================================================
+    // Section 1.3: Plugin Stylesheet (injected once on load)
+    // =========================================================
+    // Classes used inside the dialog template. Keeping styles centralized
+    // here lets Stage 7 (polish) extend them without touching the template.
+    const STYLESHEET_ID = 'objcubed-styles';
+    const STYLESHEET = `
+        .oc-help {
+            display:inline-block; width:14px; height:14px;
+            margin-left:4px; vertical-align:middle;
+            border-radius:50%;
+            background:#3a3a3a; color:#ccc;
+            font-size:10px; font-weight:700; font-family:sans-serif;
+            text-align:center; line-height:14px;
+            cursor:help; user-select:none;
+            transition:background 120ms, color 120ms;
+        }
+        .oc-help:hover { background:#5a8cc0; color:#fff; }
+    `;
+    function installStylesheet() {
+        if (document.getElementById(STYLESHEET_ID)) return;
+        const el = document.createElement('style');
+        el.id = STYLESHEET_ID;
+        el.textContent = STYLESHEET;
+        document.head.appendChild(el);
+    }
+    function uninstallStylesheet() {
+        const el = document.getElementById(STYLESHEET_ID);
+        if (el) el.remove();
+    }
+
+    // =========================================================
+    // Section 1.4: Help Tooltips
+    // =========================================================
+    // Russian descriptions shown when the user hovers the ? icon next to a
+    // field. Keys correspond to dialog field names (or grouping ids for
+    // section-level tooltips like 'display_third').
+    const OBJCUBED_HELP = {
+        // Texture
+        useAtlas: 'Объединить несколько текстур в один большой PNG. Полезно когда модель состоит из частей с разными текстурами.',
+        atlasTexChecked: 'Какие именно текстуры включить в атлас.',
+        selectedTex: 'Текстура которая накладывается на модель.',
+        // Transform
+        scale: 'Множитель размера всей модели. 1 = исходный, 2 = вдвое больше. Внимание: финальный размер ещё умножается на масштаб слота отображения.',
+        offset: 'Сдвиг всех вершин в мировых координатах (до кодирования). Полезно если модель смещена от центра.',
+        // Animation
+        animationEnabled: 'Включить запись анимации в текстуру. Без этого экспортируется только одна (текущая) поза.',
+        animationIndex: 'Какую BlockBench-анимацию запекать. В одном файле — одна анимация.',
+        animFps: 'Сколько кадров анимации в секунду запекать. Больше FPS = плавнее но картинка крупнее. 20–30 обычно хватает.',
+        animRange: 'Какой кусок анимации экспортировать (в секундах). По умолчанию — вся длина.',
+        duration: 'Сколько игровых тиков (1/20 секунды) длится один цикл анимации. 0 = автоматически (длина в кадрах).',
+        autoplay: 'Анимация играет сама по себе, синхронизируясь с GameTime. Если выключить — управление только через датапак.',
+        // Datapack
+        generateDatapack: 'Создать датапак с командами play/stop/set/play_from/play_once для управления анимацией прямо в игре.',
+        datapackAnimId: 'Короткое имя анимации (a-z, 0-9, _). Будет использовано в путях функций.',
+        datapackNamespace: 'Namespace датапака. Команды вызываются как «function <namespace>:animations/<id>/play».',
+        datapackTargetType: 'Кому применяется анимация: сущности с экипировкой (зомби, скелет), сущность item_display, или игроку.',
+        datapackEquipSlot: 'Какой слот экипировки используется для модели — рука/шлем/нагрудник/штаны/сапоги.',
+        datapackOutputDir: 'Куда положить папку датапака. Пусто = рядом с PNG.',
+        // Display
+        useSeparateLefthand: 'По умолчанию левая рука копирует настройки правой. Включи если хочешь настроить её отдельно.',
+        display_third: 'Поворот и сдвиг модели когда она видна в руке другого игрока (от 3-го лица).',
+        display_head: 'Поворот и сдвиг модели когда она надета на голову (player_head).',
+        display_ground: 'Поворот и сдвиг модели когда она лежит на земле (выпавшая).',
+        display_fixed: 'Поворот и сдвиг модели в item frame на стене.',
+        // Color & Tinting
+        cb_general: 'Каждый канал цвета зелья (R/G/B) можно использовать как переключатель: тинт, время анимации, масштаб, оттенок или вспышка урона. Клик меняет значение.',
+        // Advanced
+        easing: 'Сглаживание между кадрами анимации вершин. Линейная — обычное усреднение. Кубическая/Bezier — плавнее на стыках.',
+        interpolation: 'Сглаживание между кадрами текстуры. Линейная даёт fade-эффект между кадрами.',
+        autorotate: 'Шейдер определяет поворот модели по нормалям. Yaw = только горизонтальный, Pitch = только вертикальный.',
+        noshadow: 'Отключить затемнение граней по их направлению. Полезно для светящихся моделей.',
+        flipuv: 'Перевернуть текстуру по вертикали. Используй если модель отрендерилась перевёрнуто.',
+        nopow: 'Не округлять высоту PNG до степени двойки. Экономит место, но древние GPU могут отказаться рендерить.',
+        filterArmature: 'Скрыть «кости» (диамантики арматуры) из экспорта. Включай для моделей с арматурой Generic Model.',
+    };
 
     // =========================================================
     // Section 1.5: Persistent Settings (stored inside .bbmodel)
@@ -1658,6 +1737,7 @@
                     // path applies time/time/time + autoplay=false in doExport.
                 },
                 methods: {
+                    help(k) { return OBJCUBED_HELP[k] || ''; },
                     browseDatapackDir() {
                         const dir = Blockbench.pickDirectory({
                             title: 'Select datapack output directory',
@@ -1776,7 +1856,7 @@
 
   <!-- ======== TEXTURE ======== -->
   <div style="margin-bottom:12px;">
-    <div style="font-weight:600;margin-bottom:4px;color:#ddd;">\u0422\u0435\u043A\u0441\u0442\u0443\u0440\u0430</div>
+    <div style="font-weight:600;margin-bottom:4px;color:#ddd;">\u0422\u0435\u043A\u0441\u0442\u0443\u0440\u0430<span class="oc-help" :title="help('selectedTex')">?</span></div>
     <div style="display:flex;align-items:flex-start;gap:8px;">
       <img v-if="selectedTexThumb && !useAtlas"
            :src="selectedTexThumb"
@@ -1789,7 +1869,7 @@
         </template>
         <template v-else>
           <label style="display:inline-flex;align-items:center;gap:4px;">
-            <input type="checkbox" v-model="useAtlas"/> \u0410\u0442\u043B\u0430\u0441 (\u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0442\u0435\u043A\u0441\u0442\u0443\u0440\u044B)
+            <input type="checkbox" v-model="useAtlas"/> \u0410\u0442\u043B\u0430\u0441 (\u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0442\u0435\u043A\u0441\u0442\u0443\u0440\u044B)<span class="oc-help" :title="help('useAtlas')">?</span>
           </label>
           <select v-if="!useAtlas" v-model="selectedTex" style="margin-left:8px;padding:3px 6px;">
             <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
@@ -1808,8 +1888,8 @@
   <div style="margin-bottom:12px;">
     <div style="font-weight:600;margin-bottom:4px;color:#ddd;">\u0422\u0440\u0430\u043D\u0441\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
-      <label style="font-size:12px;color:#aaa;">\u041C\u0430\u0441\u0448\u0442\u0430\u0431<br/><input v-model="scale" type="number" step="0.1" style="width:100%;"/></label>
-      <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 X<br/><input v-model="offsetX" type="number" step="0.1" style="width:100%;"/></label>
+      <label style="font-size:12px;color:#aaa;">\u041C\u0430\u0441\u0448\u0442\u0430\u0431<span class="oc-help" :title="help('scale')">?</span><br/><input v-model="scale" type="number" step="0.1" style="width:100%;"/></label>
+      <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 X<span class="oc-help" :title="help('offset')">?</span><br/><input v-model="offsetX" type="number" step="0.1" style="width:100%;"/></label>
       <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 Y<br/><input v-model="offsetY" type="number" step="0.1" style="width:100%;"/></label>
       <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 Z<br/><input v-model="offsetZ" type="number" step="0.1" style="width:100%;"/></label>
     </div>
@@ -1820,7 +1900,7 @@
     <div v-if="hasAnims" style="display:flex;align-items:center;gap:6px;">
       <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;flex:1;">
         <input v-model="animationEnabled" type="checkbox"/>
-        \u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F
+        \u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F<span class="oc-help" :title="help('animationEnabled')">?</span>
       </label>
     </div>
     <div v-else style="color:#666;font-size:12px;">\u0412 \u043F\u0440\u043E\u0435\u043A\u0442\u0435 \u043D\u0435\u0442 \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0439</div>
@@ -1832,16 +1912,16 @@
             <option v-for="a in animOptions" :key="a.value" :value="a.value">{{a.label}}</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">FPS<br/><input v-model="animFps" type="number" min="1" max="60" style="width:100%;"/></label>
+        <label style="font-size:12px;color:#aaa;">FPS<span class="oc-help" :title="help('animFps')">?</span><br/><input v-model="animFps" type="number" min="1" max="60" style="width:100%;"/></label>
       </div>
       <div v-if="frameCountPreview" style="font-size:11px;color:#8af;margin-top:4px;">{{frameCountPreview}}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">
-        <label style="font-size:12px;color:#aaa;">\u0421\u0442\u0430\u0440\u0442 (\u0441)<br/><input v-model="animStart" type="number" step="0.05" style="width:100%;"/></label>
+        <label style="font-size:12px;color:#aaa;">\u0421\u0442\u0430\u0440\u0442 (\u0441)<span class="oc-help" :title="help('animRange')">?</span><br/><input v-model="animStart" type="number" step="0.05" style="width:100%;"/></label>
         <label style="font-size:12px;color:#aaa;">\u041A\u043E\u043D\u0435\u0446 (\u0441)<br/><input v-model="animEnd" type="number" step="0.05" style="width:100%;"/></label>
-        <label style="font-size:12px;color:#aaa;">\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C (\u0442\u0438\u043A\u0438)<br/><input v-model="duration" type="number" min="0" :disabled="generateDatapack" :placeholder="generateDatapack ? '\u0430\u0432\u0442\u043E (= \u043A\u0430\u0434\u0440\u044B)' : '0 = \u0430\u0432\u0442\u043E'" style="width:100%;"/></label>
+        <label style="font-size:12px;color:#aaa;">\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C (\u0442\u0438\u043A\u0438)<span class="oc-help" :title="help('duration')">?</span><br/><input v-model="duration" type="number" min="0" :disabled="generateDatapack" :placeholder="generateDatapack ? '\u0430\u0432\u0442\u043E (= \u043A\u0430\u0434\u0440\u044B)' : '0 = \u0430\u0432\u0442\u043E'" style="width:100%;"/></label>
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="autoplay" type="checkbox" :disabled="generateDatapack"/> \u0410\u0432\u0442\u043E\u0437\u0430\u043F\u0443\u0441\u043A</label>
+        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="autoplay" type="checkbox" :disabled="generateDatapack"/> \u0410\u0432\u0442\u043E\u0437\u0430\u043F\u0443\u0441\u043A<span class="oc-help" :title="help('autoplay')">?</span></label>
       </div>
     </div>
   </div>
@@ -1849,7 +1929,7 @@
   <!-- ======== DATAPACK (top-level) ======== -->
   <div v-if="showDatapackOption" style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px;">
     <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;">
-      <input v-model="generateDatapack" type="checkbox"/> \u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A \u0434\u043B\u044F \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0435\u0439
+      <input v-model="generateDatapack" type="checkbox"/> \u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A \u0434\u043B\u044F \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0435\u0439<span class="oc-help" :title="help('generateDatapack')">?</span>
     </label>
     <div v-if="generateDatapack" style="margin-top:6px;font-size:12px;">
       <div style="color:#daa520;background:rgba(218,165,32,0.08);border:1px solid rgba(218,165,32,0.2);padding:5px 8px;border-radius:3px;margin-bottom:6px;line-height:1.4;">
@@ -1857,20 +1937,20 @@
         Color Behavior = \u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F, \u0430\u0432\u0442\u043E\u0437\u0430\u043F\u0443\u0441\u043A \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D, \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C = \u0447\u0438\u0441\u043B\u043E \u043A\u0430\u0434\u0440\u043E\u0432.
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-        <label style="color:#aaa;">Animation ID<br/>
+        <label style="color:#aaa;">Animation ID<span class="oc-help" :title="help('datapackAnimId')">?</span><br/>
           <input v-model="datapackAnimId" style="width:100%;margin-top:2px;" placeholder="anim" maxlength="12"/>
         </label>
-        <label style="color:#aaa;">Namespace<br/>
+        <label style="color:#aaa;">Namespace<span class="oc-help" :title="help('datapackNamespace')">?</span><br/>
           <input v-model="datapackNamespace" style="width:100%;margin-top:2px;" placeholder="objmc"/>
         </label>
-        <label style="color:#aaa;">\u041A\u043E\u043C\u0443 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0442\u044C<br/>
+        <label style="color:#aaa;">\u041A\u043E\u043C\u0443 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0442\u044C<span class="oc-help" :title="help('datapackTargetType')">?</span><br/>
           <select v-model="datapackTargetType" style="width:100%;margin-top:2px;padding:3px;">
             <option value="equipment">\u0421\u0443\u0449\u043D\u043E\u0441\u0442\u0438 \u0441 \u044D\u043A\u0438\u043F\u0438\u0440\u043E\u0432\u043A\u043E\u0439</option>
             <option value="item_display">Item display-\u0441\u0443\u0449\u043D\u043E\u0441\u0442\u044C</option>
             <option value="player">\u0418\u0433\u0440\u043E\u043A\u0443</option>
           </select>
         </label>
-        <label v-if="datapackTargetType !== 'item_display'" style="color:#aaa;">\u0421\u043B\u043E\u0442<br/>
+        <label v-if="datapackTargetType !== 'item_display'" style="color:#aaa;">\u0421\u043B\u043E\u0442<span class="oc-help" :title="help('datapackEquipSlot')">?</span><br/>
           <select v-model="datapackEquipSlot" style="width:100%;margin-top:2px;padding:3px;">
             <option value="mainhand">\u0433\u043B\u0430\u0432\u043D\u0430\u044F \u0440\u0443\u043A\u0430</option>
             <option value="offhand">\u0432\u0442\u043E\u0440\u0430\u044F \u0440\u0443\u043A\u0430</option>
@@ -1880,7 +1960,7 @@
             <option value="feet">\u0441\u0430\u043F\u043E\u0433\u0438</option>
           </select>
         </label>
-        <label style="color:#aaa;grid-column:1/-1;">\u041A\u0443\u0434\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A<br/>
+        <label style="color:#aaa;grid-column:1/-1;">\u041A\u0443\u0434\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A<span class="oc-help" :title="help('datapackOutputDir')">?</span><br/>
           <div style="display:flex;gap:4px;margin-top:2px;">
             <input v-model="datapackOutputDir" style="flex:1;" placeholder="(\u0440\u044F\u0434\u043E\u043C \u0441 PNG)"/>
             <button @click="browseDatapackDir" style="padding:2px 8px;cursor:pointer;">\u2026</button>
@@ -1909,9 +1989,9 @@
 
       <div style="margin-bottom:8px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-          <span style="color:#aaa;font-weight:600;">3-\u0435 \u043B\u0438\u0446\u043E{{ useSeparateLefthand ? ' \u2014 \u043F\u0440\u0430\u0432\u0430\u044F \u0440\u0443\u043A\u0430' : ' (\u043E\u0431\u0435 \u0440\u0443\u043A\u0438)' }}</span>
+          <span style="color:#aaa;font-weight:600;">3-\u0435 \u043B\u0438\u0446\u043E{{ useSeparateLefthand ? ' \u2014 \u043F\u0440\u0430\u0432\u0430\u044F \u0440\u0443\u043A\u0430' : ' (\u043E\u0431\u0435 \u0440\u0443\u043A\u0438)' }}<span class="oc-help" :title="help('display_third')">?</span></span>
           <label style="font-size:11px;color:#888;display:inline-flex;align-items:center;gap:3px;margin-left:auto;">
-            <input v-model="useSeparateLefthand" type="checkbox"/> \u041D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u044C \u043B\u0435\u0432\u0443\u044E \u0440\u0443\u043A\u0443 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u043E
+            <input v-model="useSeparateLefthand" type="checkbox"/> \u041D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u044C \u043B\u0435\u0432\u0443\u044E \u0440\u0443\u043A\u0443 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u043E<span class="oc-help" :title="help('useSeparateLefthand')">?</span>
           </label>
         </div>
         <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
@@ -1953,7 +2033,7 @@
       </div>
 
       <div style="margin-bottom:8px;">
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u0413\u043E\u043B\u043E\u0432\u0430 (head)</div>
+        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u0413\u043E\u043B\u043E\u0432\u0430 (head)<span class="oc-help" :title="help('display_head')">?</span></div>
         <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
           <span style="color:#888;font-size:11px;">Rot</span>
           <div style="display:flex;gap:4px;">
@@ -1973,7 +2053,7 @@
       </div>
 
       <div style="margin-bottom:8px;">
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u041D\u0430 \u0437\u0435\u043C\u043B\u0435 (ground)</div>
+        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u041D\u0430 \u0437\u0435\u043C\u043B\u0435 (ground)<span class="oc-help" :title="help('display_ground')">?</span></div>
         <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
           <span style="color:#888;font-size:11px;">Rot</span>
           <div style="display:flex;gap:4px;">
@@ -1993,7 +2073,7 @@
       </div>
 
       <div>
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u0412 \u0440\u0430\u043C\u043A\u0435 (item frame)</div>
+        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u0412 \u0440\u0430\u043C\u043A\u0435 (item frame)<span class="oc-help" :title="help('display_fixed')">?</span></div>
         <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
           <span style="color:#888;font-size:11px;">Rot</span>
           <div style="display:flex;gap:4px;">
@@ -2018,7 +2098,7 @@
   <div style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px;"
        :style="colorBehaviorForcedByDatapack ? 'opacity:0.55;pointer-events:none;' : ''">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-      <span style="font-weight:600;color:#ddd;">\u0426\u0432\u0435\u0442 \u0438 \u043F\u043E\u0434\u0441\u0432\u0435\u0442\u043A\u0430</span>
+      <span style="font-weight:600;color:#ddd;">\u0426\u0432\u0435\u0442 \u0438 \u043F\u043E\u0434\u0441\u0432\u0435\u0442\u043A\u0430<span class="oc-help" :title="help('cb_general')">?</span></span>
       <span style="font-size:11px;color:#888;">\u2014 \u0447\u0442\u043E \u0443\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442 \u043C\u043E\u0434\u0435\u043B\u044C\u044E \u0447\u0435\u0440\u0435\u0437 \u0446\u0432\u0435\u0442 \u0437\u0435\u043B\u044C\u044F</span>
     </div>
 
@@ -2063,7 +2143,7 @@
     </div>
     <div v-show="showAdvanced" style="padding:0 10px 10px 10px;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
-        <label style="font-size:12px;color:#aaa;">\u041F\u043B\u0430\u0432\u043D\u043E\u0441\u0442\u044C (easing)<br/>
+        <label style="font-size:12px;color:#aaa;">\u041F\u043B\u0430\u0432\u043D\u043E\u0441\u0442\u044C (easing)<span class="oc-help" :title="help('easing')">?</span><br/>
           <select v-model="easing" style="width:100%;padding:3px;">
             <option :value="0">\u041D\u0435\u0442</option>
             <option :value="1">\u041B\u0438\u043D\u0435\u0439\u043D\u0430\u044F</option>
@@ -2071,13 +2151,13 @@
             <option :value="3">Bezier</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">\u0418\u043D\u0442\u0435\u0440\u043F\u043E\u043B\u044F\u0446\u0438\u044F \u0442\u0435\u043A\u0441\u0442\u0443\u0440<br/>
+        <label style="font-size:12px;color:#aaa;">\u0418\u043D\u0442\u0435\u0440\u043F\u043E\u043B\u044F\u0446\u0438\u044F \u0442\u0435\u043A\u0441\u0442\u0443\u0440<span class="oc-help" :title="help('interpolation')">?</span><br/>
           <select v-model="interpolation" style="width:100%;padding:3px;">
             <option :value="0">\u041D\u0435\u0442</option>
             <option :value="1">\u041B\u0438\u043D\u0435\u0439\u043D\u0430\u044F</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">\u0410\u0432\u0442\u043E\u043F\u043E\u0432\u043E\u0440\u043E\u0442<br/>
+        <label style="font-size:12px;color:#aaa;">\u0410\u0432\u0442\u043E\u043F\u043E\u0432\u043E\u0440\u043E\u0442<span class="oc-help" :title="help('autorotate')">?</span><br/>
           <select v-model="autorotate" style="width:100%;padding:3px;">
             <option :value="0">\u0412\u044B\u043A\u043B</option>
             <option :value="1">Yaw</option>
@@ -2087,10 +2167,10 @@
         </label>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px 16px;">
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="noshadow" type="checkbox"/> \u0411\u0435\u0437 \u0442\u0435\u043D\u0438</label>
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="flipuv" type="checkbox"/> \u041F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C UV</label>
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="nopow" type="checkbox"/> \u041D\u0435 \u043E\u043A\u0440\u0443\u0433\u043B\u044F\u0442\u044C \u0434\u043E \u0441\u0442\u0435\u043F\u0435\u043D\u0438 2</label>
-        <label v-if="hasArmature" style="display:inline-flex;align-items:center;gap:4px;"><input v-model="filterArmature" type="checkbox"/> \u0421\u043A\u0440\u044B\u0442\u044C \u043A\u043E\u0441\u0442\u0438 \u0430\u0440\u043C\u0430\u0442\u0443\u0440\u044B</label>
+        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="noshadow" type="checkbox"/> \u0411\u0435\u0437 \u0442\u0435\u043D\u0438<span class="oc-help" :title="help('noshadow')">?</span></label>
+        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="flipuv" type="checkbox"/> \u041F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C UV<span class="oc-help" :title="help('flipuv')">?</span></label>
+        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="nopow" type="checkbox"/> \u041D\u0435 \u043E\u043A\u0440\u0443\u0433\u043B\u044F\u0442\u044C \u0434\u043E \u0441\u0442\u0435\u043F\u0435\u043D\u0438 2<span class="oc-help" :title="help('nopow')">?</span></label>
+        <label v-if="hasArmature" style="display:inline-flex;align-items:center;gap:4px;"><input v-model="filterArmature" type="checkbox"/> \u0421\u043A\u0440\u044B\u0442\u044C \u043A\u043E\u0441\u0442\u0438 \u0430\u0440\u043C\u0430\u0442\u0443\u0440\u044B<span class="oc-help" :title="help('filterArmature')">?</span></label>
       </div>
     </div>
   </div>
