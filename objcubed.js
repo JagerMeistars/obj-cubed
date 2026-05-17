@@ -74,34 +74,12 @@
         filterArmature: 'Скрыть «кости» (диамантики арматуры) из экспорта. Включай для моделей с арматурой Generic Model.',
     };
 
-    // =========================================================
-    // Plugin Registration
-    // =========================================================
-    BBPlugin.register(PLUGIN_ID, {
-        title: 'obj³',
-        author: 'JagerMeistars, fork of Godlander\'s objmc',
-        description: 'Export the current model with obj³ encoding for Minecraft resource packs',
-        icon: 'icon',
-        version: '0.1.0',
-        min_version: '4.8.0',
-        variant: 'desktop',
-        onload() {
-            this.exportAction = new Action(PLUGIN_ID + '_export', {
-                name: 'Export as obj³…',
-                description: 'Encode current model + texture into objcubed format',
-                icon: 'icon',
-                click: showDialog,
-            });
-            MenuBar.addAction(this.exportAction, 'file.export');
-            installProjectPersistence();
-            installStylesheet();
-        },
-        onunload() {
-            if (this.exportAction) this.exportAction.delete();
-            uninstallProjectPersistence();
-            uninstallStylesheet();
-        },
-    });
+    // (BBPlugin.register lives at the very END of the IIFE so that every
+    // helper and module-level let/const it touches via onload/onunload
+    // — installProjectPersistence, _compileHandler, installStylesheet,
+    // STYLESHEET_ID, etc. — has been declared and initialized by the time
+    // Blockbench synchronously fires those lifecycle callbacks during the
+    // plugin reload.)
 
     // =========================================================
     // Section 1.3: Plugin Stylesheet (injected once on load)
@@ -2598,5 +2576,34 @@
 
         dialog.show();
     }
+
+    // =========================================================
+    // Plugin Registration (at end of IIFE — see note near top of file)
+    // =========================================================
+    BBPlugin.register(PLUGIN_ID, {
+        title: 'obj³',
+        author: 'JagerMeistars, fork of Godlander\'s objmc',
+        description: 'Export the current model with obj³ encoding for Minecraft resource packs',
+        icon: 'icon',
+        version: '0.1.0',
+        min_version: '4.8.0',
+        variant: 'desktop',
+        onload() {
+            this.exportAction = new Action(PLUGIN_ID + '_export', {
+                name: 'Export as obj³…',
+                description: 'Encode current model + texture into objcubed format',
+                icon: 'icon',
+                click: showDialog,
+            });
+            MenuBar.addAction(this.exportAction, 'file.export');
+            installProjectPersistence();
+            installStylesheet();
+        },
+        onunload() {
+            if (this.exportAction) this.exportAction.delete();
+            uninstallProjectPersistence();
+            uninstallStylesheet();
+        },
+    });
 
 })();
