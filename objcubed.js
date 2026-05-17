@@ -969,6 +969,57 @@
         return walk(Outliner.root);
     }
 
+    // Rough face count of the visible geometry — used by the preview banner.
+    // Walks Outliner, skipping armature_bone/locator/null_object subtrees when
+    // filterArmature is on (mirrors withArmatureHidden() visibility hack).
+    // Quads count as 1 (matches Codecs.obj.compile output).
+    function estimateFaceCount(filterArmature) {
+        const SKIP_TYPES = filterArmature
+            ? new Set(['armature_bone', 'locator', 'null_object'])
+            : new Set(['locator', 'null_object']);
+        let total = 0;
+        function walk(children) {
+            for (const el of (children || [])) {
+                const t = (el.type || '').toLowerCase();
+                if (SKIP_TYPES.has(t)) continue;
+                if (el.visibility === false) continue;
+                if (t === 'cube') {
+                    // Standard cube has 6 faces; respect per-face texture==null hidden faces.
+                    if (el.faces) {
+                        for (const key of ['north','east','south','west','up','down']) {
+                            if (el.faces[key] && el.faces[key].texture !== null) total++;
+                        }
+                    } else total += 6;
+                } else if (t === 'mesh') {
+                    if (el.faces) total += Object.keys(el.faces).length;
+                }
+                if (el.children) walk(el.children);
+            }
+        }
+        walk(Outliner.root);
+        return total;
+    }
+
+    // Estimate the encoded PNG dimensions and byte size given face count,
+    // frame count and texture dimensions. Mirrors the math in buildOutput()
+    // (Section 8) but uses face count as a proxy for positions/uvs/vertices.
+    function estimateOutputPng(faces, frames, tw, th, nopow) {
+        if (!faces || !tw || !th) return null;
+        // Per buildOutput(): vertices = nfaces * 4 per frame; positions/uvs roughly bounded by nfaces.
+        const nverts = faces * 4;
+        const uvH = Math.ceil(faces / tw);
+        const texH = th;
+        const vpH = Math.ceil(faces * 3 / tw);          // positions ≈ nfaces (3 bytes/vert × 1 vert/face overcounts; OK for warning math)
+        const vtH = Math.ceil(faces * 2 / tw);
+        const vH  = Math.ceil(nverts * frames * 2 / tw);
+        let ty = 1 + uvH + texH + vpH + vtH + vH;
+        if (!nopow) ty = 1 << Math.ceil(Math.log2(ty || 1));
+        const rawBytes = tw * ty * 4;
+        // PNG with zlib level 6 typically compresses pixel data to ~30-50%.
+        const approxBytes = Math.round(rawBytes * 0.4);
+        return { tw, ty, rawBytes, approxBytes };
+    }
+
 
     // Temporarily adjust visibility for OBJ export:
     //   - SHOW armature container (so child visibility is respected by codec)
@@ -1678,6 +1729,83 @@
                         const n = Math.max(1, Math.floor((end - start) * fps) + 1);
                         return n + ' кадр' + (n === 1 ? '' : (n < 5 ? 'а' : 'ов'));
                     },
+                    // ---- Preview banner ----
+                    previewFaceCount() {
+                        return estimateFaceCount(!!this.filterArmature);
+                    },
+                    previewFrameCount() {
+                        if (!this.hasAnims || !this.animationEnabled) return 1;
+                        const fps = +this.animFps || 1;
+                        const start = +this.animStart || 0;
+                        const end = +this.animEnd || 0;
+                        if (end <= start) return 1;
+                        return Math.max(1, Math.floor((end - start) * fps) + 1);
+                    },
+                    previewTexSize() {
+                        // Returns {w, h} based on current texture/atlas choice.
+                        if (this.useAtlas) {
+                            const selected = this.atlasTexChecked
+                                .map((v,i)=>v?Texture.all[i]:null)
+                                .filter(Boolean);
+                            if (!selected.length) return null;
+                            let w = 0, h = 0;
+                            for (const t of selected) {
+                                const tw = (t.img && t.img.naturalWidth) || t.width || 16;
+                                const th = (t.img && t.img.naturalHeight) || t.height || 16;
+                                if (tw > w) w = tw;
+                                h += th;
+                            }
+                            return { w, h };
+                        }
+                        const tex = Texture.all[this.selectedTex];
+                        if (!tex) return null;
+                        return {
+                            w: (tex.img && tex.img.naturalWidth) || tex.width || 16,
+                            h: (tex.img && tex.img.naturalHeight) || tex.height || 16,
+                        };
+                    },
+                    previewPngSize() {
+                        const ts = this.previewTexSize;
+                        if (!ts) return null;
+                        return estimateOutputPng(this.previewFaceCount, this.previewFrameCount,
+                                                  ts.w, ts.h, !!this.nopow);
+                    },
+                    previewPngSizePretty() {
+                        const e = this.previewPngSize;
+                        if (!e) return '';
+                        const kb = e.approxBytes / 1024;
+                        if (kb < 1) return `~${e.approxBytes} Б`;
+                        if (kb < 1024) return `~${kb.toFixed(1)} КБ`;
+                        return `~${(kb/1024).toFixed(2)} МБ`;
+                    },
+                    previewWarnings() {
+                        const w = [];
+                        if (this.previewFaceCount === 0) {
+                            w.push({ level:'error', msg:'Модель пуста — нечего экспортировать' });
+                            return w;
+                        }
+                        if (this.previewFaceCount > 20000) {
+                            w.push({ level:'warn',
+                                msg:`Очень много граней (${this.previewFaceCount}). На 50K+ можно упереться в лимит UberGpuBuffer (2 МБ) и крашнуть игру.` });
+                        }
+                        const ts = this.previewTexSize;
+                        if (ts && ts.w > 512) {
+                            w.push({ level:'warn',
+                                msg:`Текстура шире 512px (${ts.w}px). На MC 1.21.11 такие модели могут быть невидимы (objmc issue #107).` });
+                        }
+                        if (ts && ts.w < 8) {
+                            w.push({ level:'error',
+                                msg:`Минимальная ширина текстуры — 8px (сейчас ${ts.w}px). Экспорт упадёт.` });
+                        }
+                        if (this.filterArmature && !this.hasArmature) {
+                            w.push({ level:'warn',
+                                msg:'«Скрыть кости арматуры» включено, но в проекте нет арматуры.' });
+                        }
+                        if (this.useAtlas && this.multiTex && !this.atlasTexChecked.some(v=>v)) {
+                            w.push({ level:'error', msg:'Атлас включён, но не выбрана ни одна текстура.' });
+                        }
+                        return w;
+                    },
                     // Color & Tinting: pretty Russian description of what each channel does.
                     colorBehaviorPretty() {
                         const effective = this.generateDatapack && this.showDatapackOption
@@ -1853,6 +1981,33 @@
                 },
                 template: `
 <div style="padding:14px 16px;font-size:13px;line-height:1.6;">
+
+  <!-- ======== PREVIEW BANNER ======== -->
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:12px;background:linear-gradient(to right, rgba(90,140,192,0.10), rgba(90,140,192,0.02));border:1px solid rgba(90,140,192,0.25);border-radius:4px;">
+    <img v-if="selectedTexThumb" :src="selectedTexThumb"
+         style="width:42px;height:42px;image-rendering:pixelated;border:1px solid rgba(255,255,255,0.2);border-radius:3px;object-fit:contain;background:#1a1a1a;flex-shrink:0;"/>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;">Сводка экспорта</div>
+      <div style="font-size:13px;color:#ddd;">
+        <b>{{previewFaceCount}}</b> грани
+        <span v-if="previewFrameCount > 1"> · <b>{{previewFrameCount}}</b> кадров</span>
+        <span v-if="previewPngSize"> · картинка <b>{{previewPngSize.tw}}×{{previewPngSize.ty}}px</b> {{previewPngSizePretty}}</span>
+      </div>
+    </div>
+    <div v-if="previewWarnings.length" style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;max-width:50%;">
+      <div v-for="(w, wi) in previewWarnings" :key="wi"
+           :title="w.msg"
+           :style="{
+             fontSize:'11px', padding:'2px 8px', borderRadius:'10px',
+             background: w.level==='error' ? 'rgba(204,68,68,0.15)' : 'rgba(218,165,32,0.15)',
+             border: '1px solid ' + (w.level==='error' ? '#c44' : '#daa520'),
+             color: w.level==='error' ? '#f99' : '#fc9',
+             cursor:'help', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'220px'
+           }">
+        {{w.level==='error' ? '⛔' : '⚠'}} {{w.msg}}
+      </div>
+    </div>
+  </div>
 
   <!-- ======== TEXTURE ======== -->
   <div style="margin-bottom:12px;">
