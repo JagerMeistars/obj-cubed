@@ -1719,6 +1719,10 @@
         }
 
         const hasAnims    = Animation.all.length > 0;
+        // Closure state — kept outside Vue.data because Vue 2 doesn't proxy
+        // _-prefixed names, which would silently break access from methods.
+        let dialogDefaults = {};
+        let suspendPersist = false;
 
         const dialog = new Dialog({
             id:    PLUGIN_ID + '_dialog',
@@ -1790,11 +1794,12 @@
                         filterArmature: hasArm,
                     };
 
-                    // Snapshot of the freshly-built defaults — used when
-                    // creating a new preset (so 'New' starts from clean state,
-                    // not from whatever the user just had).
-                    state._defaults = {};
-                    for (const k of PERSISTABLE_FIELDS) state._defaults[k] = state[k];
+                    // Snapshot of the freshly-built defaults — stashed on the
+                    // closure (NOT on Vue state) because Vue 2 doesn't proxy
+                    // property names starting with _ or $, which would silently
+                    // leave them undefined when accessed as this._defaults.
+                    dialogDefaults = {};
+                    for (const k of PERSISTABLE_FIELDS) dialogDefaults[k] = state[k];
 
                     // Overlay any persisted values from the active preset.
                     const persisted = loadActiveSettings();
@@ -1809,15 +1814,15 @@
                     // Preset bar state (mirror of Project.objcubed_data root).
                     state.presetNames = getPresetNames();
                     state.activePresetIdx = getActivePresetIndex();
-                    state._suspendPersist = false;
+                    suspendPersist = false;
                     return state;
                 },
                 created() {
-                    // Auto-save every persisted field to Project.objcubed_data on
-                    // change. This means closing the project after just opening
-                    // the dialog is enough to preserve current settings.
+                    // Auto-save every persisted field to Project.objcubed_data
+                    // on change. This means closing the project after just
+                    // opening the dialog is enough to preserve current settings.
                     const persist = () => {
-                        if (this._suspendPersist) return;
+                        if (suspendPersist) return;
                         const snap = {};
                         for (const k of PERSISTABLE_FIELDS) snap[k] = this[k];
                         saveActiveSettings(snap);
@@ -1998,17 +2003,17 @@
                         const root = ensureDataRoot();
                         if (!root || !root.presets[idx]) return;
                         const settings = root.presets[idx].settings || {};
-                        this._suspendPersist = true;
+                        suspendPersist = true;
                         try {
                             for (const k of PERSISTABLE_FIELDS) {
                                 if (Object.prototype.hasOwnProperty.call(settings, k)) {
                                     this[k] = settings[k];
-                                } else if (this._defaults && Object.prototype.hasOwnProperty.call(this._defaults, k)) {
-                                    this[k] = this._defaults[k];
+                                } else if (dialogDefaults && Object.prototype.hasOwnProperty.call(dialogDefaults, k)) {
+                                    this[k] = dialogDefaults[k];
                                 }
                             }
                         } finally {
-                            this.$nextTick(() => { this._suspendPersist = false; });
+                            this.$nextTick(() => { suspendPersist = false; });
                         }
                     },
                     onPresetChange() {
