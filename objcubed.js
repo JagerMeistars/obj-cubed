@@ -201,6 +201,42 @@
         root.presets[root.activePresetIndex].settings = settings;
     }
 
+    // Preset management helpers — operate on Project.objcubed_data directly.
+    function getPresetNames() {
+        const root = ensureDataRoot();
+        return root ? root.presets.map(p => p.name) : [];
+    }
+    function getActivePresetIndex() {
+        const root = ensureDataRoot();
+        return root ? root.activePresetIndex : 0;
+    }
+    function setActivePresetIndex(i) {
+        const root = ensureDataRoot();
+        if (!root) return;
+        if (i < 0 || i >= root.presets.length) return;
+        root.activePresetIndex = i;
+    }
+    function addPreset(name, settings) {
+        const root = ensureDataRoot();
+        if (!root) return -1;
+        root.presets.push({ name: name || `preset ${root.presets.length+1}`, settings: settings || {} });
+        return root.presets.length - 1;
+    }
+    function removePreset(i) {
+        const root = ensureDataRoot();
+        if (!root || root.presets.length <= 1) return false;
+        if (i < 0 || i >= root.presets.length) return false;
+        root.presets.splice(i, 1);
+        if (root.activePresetIndex >= root.presets.length)
+            root.activePresetIndex = root.presets.length - 1;
+        return true;
+    }
+    function renamePresetAt(i, newName) {
+        const root = ensureDataRoot();
+        if (!root || i < 0 || i >= root.presets.length) return;
+        root.presets[i].name = newName;
+    }
+
     // Codec hooks — installed in onload, removed in onunload to keep plugin
     // reload idempotent.
     let _compileHandler = null;
@@ -1688,6 +1724,12 @@
                         filterArmature: hasArm,
                     };
 
+                    // Snapshot of the freshly-built defaults — used when
+                    // creating a new preset (so 'New' starts from clean state,
+                    // not from whatever the user just had).
+                    state._defaults = {};
+                    for (const k of PERSISTABLE_FIELDS) state._defaults[k] = state[k];
+
                     // Overlay any persisted values from the active preset.
                     const persisted = loadActiveSettings();
                     if (persisted) {
@@ -1697,6 +1739,11 @@
                             }
                         }
                     }
+
+                    // Preset bar state (mirror of Project.objcubed_data root).
+                    state.presetNames = getPresetNames();
+                    state.activePresetIdx = getActivePresetIndex();
+                    state._suspendPersist = false;
                     return state;
                 },
                 created() {
@@ -1704,6 +1751,7 @@
                     // change. This means closing the project after just opening
                     // the dialog is enough to preserve current settings.
                     const persist = () => {
+                        if (this._suspendPersist) return;
                         const snap = {};
                         for (const k of PERSISTABLE_FIELDS) snap[k] = this[k];
                         saveActiveSettings(snap);
@@ -1866,6 +1914,93 @@
                 },
                 methods: {
                     help(k) { return OBJCUBED_HELP[k] || ''; },
+
+                    // ---- Preset management ----
+                    // Reload all persisted fields from the given preset index
+                    // (writing to this.* values). Suspends auto-persist so the
+                    // load doesn't bounce back into the old preset.
+                    loadPresetIntoForm(idx) {
+                        const root = ensureDataRoot();
+                        if (!root || !root.presets[idx]) return;
+                        const settings = root.presets[idx].settings || {};
+                        this._suspendPersist = true;
+                        try {
+                            for (const k of PERSISTABLE_FIELDS) {
+                                if (Object.prototype.hasOwnProperty.call(settings, k)) {
+                                    this[k] = settings[k];
+                                } else if (this._defaults && Object.prototype.hasOwnProperty.call(this._defaults, k)) {
+                                    this[k] = this._defaults[k];
+                                }
+                            }
+                        } finally {
+                            this.$nextTick(() => { this._suspendPersist = false; });
+                        }
+                    },
+                    onPresetChange() {
+                        const idx = +this.activePresetIdx;
+                        setActivePresetIndex(idx);
+                        this.loadPresetIntoForm(idx);
+                    },
+                    addPreset() {
+                        const name = window.prompt('Имя нового пресета:', 'preset ' + (this.presetNames.length + 1));
+                        if (!name) return;
+                        // Snapshot current dialog state as the new preset (so
+                        // user doesn't lose tweaks when creating a sibling).
+                        const snap = {};
+                        for (const k of PERSISTABLE_FIELDS) snap[k] = this[k];
+                        const idx = addPreset(name.trim() || 'preset', snap);
+                        this.presetNames = getPresetNames();
+                        this.activePresetIdx = idx;
+                        setActivePresetIndex(idx);
+                    },
+                    duplicatePreset() {
+                        const cur = this.presetNames[this.activePresetIdx] || 'preset';
+                        const name = window.prompt('Имя копии:', cur + ' (копия)');
+                        if (!name) return;
+                        const snap = {};
+                        for (const k of PERSISTABLE_FIELDS) snap[k] = this[k];
+                        const idx = addPreset(name.trim() || 'preset', snap);
+                        this.presetNames = getPresetNames();
+                        this.activePresetIdx = idx;
+                        setActivePresetIndex(idx);
+                    },
+                    renameCurrentPreset() {
+                        const cur = this.presetNames[this.activePresetIdx] || 'preset';
+                        const name = window.prompt('Новое имя пресета:', cur);
+                        if (!name || name === cur) return;
+                        renamePresetAt(this.activePresetIdx, name.trim() || cur);
+                        this.presetNames = getPresetNames();
+                    },
+                    deleteCurrentPreset() {
+                        if (this.presetNames.length <= 1) return;
+                        const cur = this.presetNames[this.activePresetIdx] || 'preset';
+                        if (!window.confirm(`Удалить пресет «${cur}»?`)) return;
+                        if (!removePreset(this.activePresetIdx)) return;
+                        this.presetNames = getPresetNames();
+                        const newIdx = getActivePresetIndex();
+                        this.activePresetIdx = newIdx;
+                        this.loadPresetIntoForm(newIdx);
+                    },
+                    async exportAll() {
+                        if (this.presetNames.length < 2) return;
+                        const total = this.presetNames.length;
+                        for (let i = 0; i < total; i++) {
+                            this.activePresetIdx = i;
+                            setActivePresetIndex(i);
+                            this.loadPresetIntoForm(i);
+                            await this.$nextTick();
+                            // Skip presets whose state has validation errors —
+                            // batch shouldn't be derailed by one bad one.
+                            if (this.validationErrors.length) {
+                                this.status = `Пропускаю «${this.presetNames[i]}» (есть ошибки)`;
+                                continue;
+                            }
+                            this.status = `Пресет ${i+1}/${total}: ${this.presetNames[i]}…`;
+                            await this.doExport();
+                        }
+                        this.status = `Готово: экспортировано ${total} пресет(ов)`;
+                    },
+
                     browseDatapackDir() {
                         const dir = Blockbench.pickDirectory({
                             title: 'Select datapack output directory',
@@ -1981,6 +2116,24 @@
                 },
                 template: `
 <div style="padding:14px 16px;font-size:13px;line-height:1.6;">
+
+  <!-- ======== PRESET BAR ======== -->
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+    <span style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Пресет</span>
+    <select v-model.number="activePresetIdx" @change="onPresetChange"
+            style="flex:1;padding:3px 6px;background:#1f1f1f;color:#ddd;border:1px solid rgba(255,255,255,0.15);border-radius:3px;">
+      <option v-for="(n, i) in presetNames" :key="i" :value="i">{{n}}</option>
+    </select>
+    <button @click="addPreset" title="Создать новый пресет"
+            style="padding:3px 9px;cursor:pointer;background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);color:#ddd;border-radius:3px;">+</button>
+    <button @click="duplicatePreset" title="Скопировать текущий"
+            style="padding:3px 9px;cursor:pointer;background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);color:#ddd;border-radius:3px;">⧉</button>
+    <button @click="renameCurrentPreset" title="Переименовать"
+            style="padding:3px 9px;cursor:pointer;background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);color:#ddd;border-radius:3px;">✎</button>
+    <button @click="deleteCurrentPreset" :disabled="presetNames.length < 2"
+            title="Удалить текущий пресет"
+            :style="{padding:'3px 9px',cursor:presetNames.length<2?'not-allowed':'pointer',background:'#2a2a2a',border:'1px solid rgba(255,255,255,0.15)',color:presetNames.length<2?'#555':'#d99',borderRadius:'3px'}">×</button>
+  </div>
 
   <!-- ======== PREVIEW BANNER ======== -->
   <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:12px;background:linear-gradient(to right, rgba(90,140,192,0.10), rgba(90,140,192,0.02));border:1px solid rgba(90,140,192,0.25);border-radius:4px;">
@@ -2336,7 +2489,11 @@
   </div>
   <div style="display:flex;gap:10px;align-items:center;">
     <button @click="doExport" :disabled="running || validationErrors.length > 0" style="padding:6px 24px;font-size:14px;">
-      {{running ? '\u0420\u0430\u0431\u043E\u0442\u0430\u044E\u2026' : '\u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}}
+      {{running ? '\u0420\u0430\u0431\u043E\u0442\u0430\u044E\u2026' : ('\u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u00AB' + (presetNames[activePresetIdx] || '') + '\u00BB')}}
+    </button>
+    <button v-if="presetNames.length > 1" @click="exportAll" :disabled="running"
+            style="padding:6px 16px;font-size:13px;cursor:pointer;background:#2a3e5a;border:1px solid #5a8cc0;color:#cde;border-radius:3px;">
+      \u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432\u0441\u0435 ({{presetNames.length}})
     </button>
     <span :style="{color: status.startsWith('Error')?'#f66' : status.startsWith('Done')?'#6f6' : '#aaa', fontSize:'12px', flex:1}">
       {{status}}
