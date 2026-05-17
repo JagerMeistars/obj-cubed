@@ -67,6 +67,59 @@
             font-size:12px; font-weight:600;
             cursor:help; user-select:none;
         }
+
+        /* Section card */
+        .oc-section {
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 4px;
+            background: rgba(255,255,255,0.015);
+            transition: border-color 150ms;
+        }
+        .oc-section:hover { border-color: rgba(255,255,255,0.13); }
+        .oc-section-head {
+            padding: 8px 10px;
+            display: flex; align-items: center; gap: 8px;
+            font-weight: 600; color: #ddd;
+            user-select: none;
+        }
+        .oc-section-head.clickable { cursor: pointer; transition: background 120ms; }
+        .oc-section-head.clickable:hover { background: rgba(255,255,255,0.04); }
+        .oc-section-head .material-icons {
+            font-size: 18px;
+            color: #5a8cc0;
+            opacity: 0.85;
+        }
+        .oc-section-body { padding: 0 12px 10px 12px; }
+
+        /* Inline buttons (preset bar etc.) */
+        .oc-btn {
+            padding: 3px 9px; cursor: pointer;
+            background: #2a2a2a; border: 1px solid rgba(255,255,255,0.15);
+            color: #ddd; border-radius: 3px;
+            transition: background 100ms, border-color 100ms, color 100ms;
+            font-family: inherit; font-size: 12px;
+        }
+        .oc-btn:hover:not(:disabled) {
+            background: #383838; border-color: rgba(255,255,255,0.28); color: #fff;
+        }
+        .oc-btn:active:not(:disabled) { background: #222; }
+        .oc-btn:disabled { color: #555; cursor: not-allowed; opacity: 0.55; }
+        .oc-btn-danger:hover:not(:disabled) {
+            background: #4a2222; border-color: #c44; color: #fdd;
+        }
+        .oc-btn-primary {
+            background: #2a3e5a; border-color: #5a8cc0; color: #cde;
+        }
+        .oc-btn-primary:hover:not(:disabled) {
+            background: #3a4f72; border-color: #7aacd0; color: #fff;
+        }
+
+        /* Collapse transition */
+        .oc-collapse-enter-active, .oc-collapse-leave-active {
+            transition: opacity 150ms ease;
+        }
+        .oc-collapse-enter, .oc-collapse-leave-to { opacity: 0; }
     `;
     function installStylesheet() {
         if (document.getElementById(STYLESHEET_ID)) return;
@@ -2144,20 +2197,17 @@
 
   <!-- ======== PRESET BAR ======== -->
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+    <i class="material-icons" style="font-size:16px;color:#888;">bookmarks</i>
     <span style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Пресет</span>
     <select v-model.number="activePresetIdx" @change="onPresetChange"
             style="flex:1;padding:3px 6px;background:#1f1f1f;color:#ddd;border:1px solid rgba(255,255,255,0.15);border-radius:3px;">
       <option v-for="(n, i) in presetNames" :key="i" :value="i">{{n}}</option>
     </select>
-    <button @click="addPreset" title="Создать новый пресет"
-            style="padding:3px 9px;cursor:pointer;background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);color:#ddd;border-radius:3px;">+</button>
-    <button @click="duplicatePreset" title="Скопировать текущий"
-            style="padding:3px 9px;cursor:pointer;background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);color:#ddd;border-radius:3px;">⧉</button>
-    <button @click="renameCurrentPreset" title="Переименовать"
-            style="padding:3px 9px;cursor:pointer;background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);color:#ddd;border-radius:3px;">✎</button>
-    <button @click="deleteCurrentPreset" :disabled="presetNames.length < 2"
-            title="Удалить текущий пресет"
-            :style="{padding:'3px 9px',cursor:presetNames.length<2?'not-allowed':'pointer',background:'#2a2a2a',border:'1px solid rgba(255,255,255,0.15)',color:presetNames.length<2?'#555':'#d99',borderRadius:'3px'}">×</button>
+    <button class="oc-btn" @click="addPreset" title="Создать новый пресет">+</button>
+    <button class="oc-btn" @click="duplicatePreset" title="Скопировать текущий">⧉</button>
+    <button class="oc-btn" @click="renameCurrentPreset" title="Переименовать">✎</button>
+    <button class="oc-btn oc-btn-danger" @click="deleteCurrentPreset" :disabled="presetNames.length < 2"
+            title="Удалить текущий пресет">×</button>
   </div>
 
   <!-- ======== PREVIEW BANNER ======== -->
@@ -2188,8 +2238,11 @@
   </div>
 
   <!-- ======== TEXTURE ======== -->
-  <div style="margin-bottom:12px;">
-    <div style="font-weight:600;margin-bottom:4px;color:#ddd;">\u0422\u0435\u043A\u0441\u0442\u0443\u0440\u0430<span class="oc-help" :title="help('selectedTex')">?</span></div>
+  <div class="oc-section" style="padding:10px 12px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-weight:600;color:#ddd;">
+      <i class="material-icons" style="font-size:18px;color:#5a8cc0;">image</i>
+      \u0422\u0435\u043A\u0441\u0442\u0443\u0440\u0430<span class="oc-help" :title="help('selectedTex')">?</span>
+    </div>
     <div style="display:flex;align-items:flex-start;gap:8px;">
       <img v-if="selectedTexThumb && !useAtlas"
            :src="selectedTexThumb"
@@ -2218,8 +2271,11 @@
   </div>
 
   <!-- ======== TRANSFORM ======== -->
-  <div style="margin-bottom:12px;">
-    <div style="font-weight:600;margin-bottom:4px;color:#ddd;">\u0422\u0440\u0430\u043D\u0441\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F</div>
+  <div class="oc-section" style="padding:10px 12px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-weight:600;color:#ddd;">
+      <i class="material-icons" style="font-size:18px;color:#5a8cc0;">transform</i>
+      \u0422\u0440\u0430\u043D\u0441\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
       <label style="font-size:12px;color:#aaa;">\u041C\u0430\u0441\u0448\u0442\u0430\u0431<span class="oc-help" :title="help('scale')">?</span><br/><input v-model="scale" type="number" step="0.1" style="width:100%;" :class="hasErr('scale') ? 'oc-err' : ''"/></label>
       <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 X<span class="oc-help" :title="help('offset')">?</span><br/><input v-model="offsetX" type="number" step="0.1" style="width:100%;"/></label>
@@ -2229,14 +2285,18 @@
   </div>
 
   <!-- ======== ANIMATION (\u0431\u0435\u0437 datapack) ======== -->
-  <div style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px;">
-    <div v-if="hasAnims" style="display:flex;align-items:center;gap:6px;">
+  <div class="oc-section" style="padding:8px 12px;">
+    <div v-if="hasAnims" style="display:flex;align-items:center;gap:8px;">
+      <i class="material-icons" style="font-size:18px;color:#5a8cc0;">play_circle_outline</i>
       <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;flex:1;">
         <input v-model="animationEnabled" type="checkbox"/>
         \u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F<span class="oc-help" :title="help('animationEnabled')">?</span>
       </label>
     </div>
-    <div v-else style="color:#666;font-size:12px;">\u0412 \u043F\u0440\u043E\u0435\u043A\u0442\u0435 \u043D\u0435\u0442 \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0439</div>
+    <div v-else style="display:flex;align-items:center;gap:8px;color:#666;font-size:12px;">
+      <i class="material-icons" style="font-size:18px;color:#444;">play_disabled</i>
+      \u0412 \u043F\u0440\u043E\u0435\u043A\u0442\u0435 \u043D\u0435\u0442 \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0439
+    </div>
 
     <div v-if="hasAnims && animationEnabled" style="margin-top:8px;">
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;">
@@ -2260,10 +2320,13 @@
   </div>
 
   <!-- ======== DATAPACK (top-level) ======== -->
-  <div v-if="showDatapackOption" style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px;">
-    <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;">
-      <input v-model="generateDatapack" type="checkbox"/> \u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A \u0434\u043B\u044F \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0435\u0439<span class="oc-help" :title="help('generateDatapack')">?</span>
-    </label>
+  <div v-if="showDatapackOption" class="oc-section" style="padding:8px 12px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <i class="material-icons" style="font-size:18px;color:#5a8cc0;">terminal</i>
+      <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;">
+        <input v-model="generateDatapack" type="checkbox"/> \u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A \u0434\u043B\u044F \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0435\u0439<span class="oc-help" :title="help('generateDatapack')">?</span>
+      </label>
+    </div>
     <div v-if="generateDatapack" style="margin-top:6px;font-size:12px;">
       <div style="color:#daa520;background:rgba(218,165,32,0.08);border:1px solid rgba(218,165,32,0.2);padding:5px 8px;border-radius:3px;margin-bottom:6px;line-height:1.4;">
         \u26A0 \u0412 \u0440\u0435\u0436\u0438\u043C\u0435 \u0434\u0430\u0442\u0430\u043F\u0430\u043A\u0430 \u044D\u043A\u0441\u043F\u043E\u0440\u0442 \u043F\u0440\u0438\u043D\u0443\u0434\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442:
@@ -2311,14 +2374,15 @@
   </div>
 
   <!-- ======== DISPLAY (collapsible) ======== -->
-  <div style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;">
-    <div @click="showDisplay=!showDisplay"
-         style="padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none;">
-      <span style="font-size:10px;color:#888;width:12px;">{{showDisplay ? '\u25BC' : '\u25B6'}}</span>
-      <span style="font-weight:600;color:#ddd;">Display (\u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0432 \u0441\u043B\u043E\u0442\u0430\u0445)</span>
-      <span style="font-size:11px;color:#666;">3-\u0435 \u043B\u0438\u0446\u043E [{{dThirdRX}}, {{dThirdRY}}, {{dThirdRZ}}]</span>
+  <div class="oc-section">
+    <div class="oc-section-head clickable" @click="showDisplay=!showDisplay">
+      <i class="material-icons">view_in_ar</i>
+      <span style="flex:1;">Display (\u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0432 \u0441\u043B\u043E\u0442\u0430\u0445)</span>
+      <span style="font-size:11px;color:#666;font-weight:400;">3-\u0435 \u043B\u0438\u0446\u043E [{{dThirdRX}}, {{dThirdRY}}, {{dThirdRZ}}]</span>
+      <i class="material-icons" style="font-size:18px;color:#666;">{{showDisplay ? 'expand_less' : 'expand_more'}}</i>
     </div>
-    <div v-show="showDisplay" style="padding:0 10px 10px 10px;font-size:12px;">
+    <transition name="oc-collapse">
+    <div v-show="showDisplay" class="oc-section-body" style="font-size:12px;">
 
       <div style="margin-bottom:8px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
@@ -2425,12 +2489,14 @@
         </div>
       </div>
     </div>
+    </transition>
   </div>
 
   <!-- ======== COLOR & TINTING (\u0432\u0438\u0434\u0436\u0435\u0442) ======== -->
-  <div style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px;"
+  <div class="oc-section" style="padding:8px 12px;"
        :style="colorBehaviorForcedByDatapack ? 'opacity:0.55;pointer-events:none;' : ''">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <i class="material-icons" style="font-size:18px;color:#5a8cc0;">palette</i>
       <span style="font-weight:600;color:#ddd;">\u0426\u0432\u0435\u0442 \u0438 \u043F\u043E\u0434\u0441\u0432\u0435\u0442\u043A\u0430<span class="oc-help" :title="help('cb_general')">?</span></span>
       <span style="font-size:11px;color:#888;">\u2014 \u0447\u0442\u043E \u0443\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442 \u043C\u043E\u0434\u0435\u043B\u044C\u044E \u0447\u0435\u0440\u0435\u0437 \u0446\u0432\u0435\u0442 \u0437\u0435\u043B\u044C\u044F</span>
     </div>
@@ -2468,13 +2534,14 @@
   </div>
 
   <!-- ======== ADVANCED (collapsible) ======== -->
-  <div style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;">
-    <div @click="showAdvanced=!showAdvanced"
-         style="padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none;">
-      <span style="font-size:10px;color:#888;width:12px;">{{showAdvanced ? '\u25BC' : '\u25B6'}}</span>
-      <span style="font-weight:600;color:#ddd;">\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u043E</span>
+  <div class="oc-section">
+    <div class="oc-section-head clickable" @click="showAdvanced=!showAdvanced">
+      <i class="material-icons">tune</i>
+      <span style="flex:1;">\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u043E</span>
+      <i class="material-icons" style="font-size:18px;color:#666;">{{showAdvanced ? 'expand_less' : 'expand_more'}}</i>
     </div>
-    <div v-show="showAdvanced" style="padding:0 10px 10px 10px;">
+    <transition name="oc-collapse">
+    <div v-show="showAdvanced" class="oc-section-body">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
         <label style="font-size:12px;color:#aaa;">\u041F\u043B\u0430\u0432\u043D\u043E\u0441\u0442\u044C (easing)<span class="oc-help" :title="help('easing')">?</span><br/>
           <select v-model="easing" style="width:100%;padding:3px;">
@@ -2506,6 +2573,7 @@
         <label v-if="hasArmature" style="display:inline-flex;align-items:center;gap:4px;"><input v-model="filterArmature" type="checkbox"/> \u0421\u043A\u0440\u044B\u0442\u044C \u043A\u043E\u0441\u0442\u0438 \u0430\u0440\u043C\u0430\u0442\u0443\u0440\u044B<span class="oc-help" :title="help('filterArmature')">?</span></label>
       </div>
     </div>
+    </transition>
   </div>
 
   <!-- ======== EXPORT ======== -->
@@ -2514,7 +2582,7 @@
       {{running ? '\u0420\u0430\u0431\u043E\u0442\u0430\u044E\u2026' : ('\u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u00AB' + (presetNames[activePresetIdx] || '') + '\u00BB')}}
     </button>
     <button v-if="presetNames.length > 1" @click="exportAll" :disabled="running"
-            style="padding:6px 16px;font-size:13px;cursor:pointer;background:#2a3e5a;border:1px solid #5a8cc0;color:#cde;border-radius:3px;">
+            class="oc-btn oc-btn-primary" style="padding:6px 16px;font-size:13px;">
       \u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432\u0441\u0435 ({{presetNames.length}})
     </button>
     <span v-if="validationErrors.length" class="oc-err-badge" :title="errorBadgeTitle">
