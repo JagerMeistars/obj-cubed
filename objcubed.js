@@ -26,11 +26,112 @@
                 click: showDialog,
             });
             MenuBar.addAction(this.exportAction, 'file.export');
+            installProjectPersistence();
         },
         onunload() {
             if (this.exportAction) this.exportAction.delete();
+            uninstallProjectPersistence();
         },
     });
+
+    // =========================================================
+    // Section 1.5: Persistent Settings (stored inside .bbmodel)
+    // =========================================================
+    // Settings live on the active Project (Project.objcubed_data) and get
+    // serialized into the .bbmodel via Codecs.project compile/parse hooks.
+    //
+    // Data shape (forward-compatible with Stage 5 presets):
+    //   {
+    //     version: 1,
+    //     activePresetIndex: 0,
+    //     presets: [ { name: 'default', settings: { ...dialog fields... } } ],
+    //   }
+    //
+    // File key: model.objcubed   ·   Project key: Project.objcubed_data
+    const PROJECT_DATA_KEY = 'objcubed_data';     // Project[key]
+    const FILE_DATA_KEY    = 'objcubed';          // .bbmodel JSON field
+    const DATA_VERSION     = 1;
+    const DEFAULT_PRESET_NAME = 'default';
+
+    function makeEmptyDataRoot() {
+        return {
+            version: DATA_VERSION,
+            activePresetIndex: 0,
+            presets: [{ name: DEFAULT_PRESET_NAME, settings: {} }],
+        };
+    }
+
+    function ensureDataRoot() {
+        if (!Project) return null;
+        if (!Project[PROJECT_DATA_KEY]) Project[PROJECT_DATA_KEY] = makeEmptyDataRoot();
+        const root = Project[PROJECT_DATA_KEY];
+        if (!root.presets || !root.presets.length) {
+            root.presets = [{ name: DEFAULT_PRESET_NAME, settings: {} }];
+            root.activePresetIndex = 0;
+        }
+        if (root.activePresetIndex == null
+            || root.activePresetIndex < 0
+            || root.activePresetIndex >= root.presets.length) {
+            root.activePresetIndex = 0;
+        }
+        return root;
+    }
+
+    // Returns the settings object of the currently selected preset (or null
+    // if no project is open). Mutate in place to update — saveActiveSettings
+    // is provided for replacement semantics.
+    function loadActiveSettings() {
+        const root = ensureDataRoot();
+        if (!root) return null;
+        return root.presets[root.activePresetIndex].settings;
+    }
+
+    function saveActiveSettings(settings) {
+        const root = ensureDataRoot();
+        if (!root) return;
+        root.presets[root.activePresetIndex].settings = settings;
+    }
+
+    // Codec hooks — installed in onload, removed in onunload to keep plugin
+    // reload idempotent.
+    let _compileHandler = null;
+    let _parseHandler = null;
+
+    function installProjectPersistence() {
+        if (typeof Codecs === 'undefined' || !Codecs.project) return;
+        _compileHandler = (data) => {
+            if (!data || !data.model) return;
+            const root = Project && Project[PROJECT_DATA_KEY];
+            if (root) data.model[FILE_DATA_KEY] = root;
+        };
+        _parseHandler = (data) => {
+            if (!data || !data.model) return;
+            const stored = data.model[FILE_DATA_KEY];
+            if (stored && Project) Project[PROJECT_DATA_KEY] = stored;
+        };
+        Codecs.project.on('compile', _compileHandler);
+        Codecs.project.on('parse',   _parseHandler);
+    }
+
+    function uninstallProjectPersistence() {
+        if (typeof Codecs === 'undefined' || !Codecs.project) return;
+        // Blockbench's event API exposes removeListener; guard for older builds.
+        const codec = Codecs.project;
+        if (typeof codec.removeListener === 'function') {
+            if (_compileHandler) codec.removeListener('compile', _compileHandler);
+            if (_parseHandler)   codec.removeListener('parse',   _parseHandler);
+        } else if (codec.events) {
+            // Fallback: clear by reference if events bag is exposed.
+            for (const evt of ['compile', 'parse']) {
+                const arr = codec.events[evt];
+                if (!Array.isArray(arr)) continue;
+                for (let i = arr.length - 1; i >= 0; i--) {
+                    if (arr[i] === _compileHandler || arr[i] === _parseHandler) arr.splice(i, 1);
+                }
+            }
+        }
+        _compileHandler = _parseHandler = null;
+    }
 
     // =========================================================
     // Section 1: PNG Encoder (Node.js zlib — bypasses canvas premultiplied alpha)
