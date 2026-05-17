@@ -37,6 +37,36 @@
     // =========================================================
     // Section 1.5: Persistent Settings (stored inside .bbmodel)
     // =========================================================
+    // Fields that are user-configurable and should persist between sessions.
+    // Anything not in this list (texOptions, hasAnims, status, etc.) stays
+    // ephemeral.
+    const PERSISTABLE_FIELDS = [
+        // Texture
+        'selectedTex', 'useAtlas', 'atlasTexChecked',
+        // Transform
+        'scale', 'offsetX', 'offsetY', 'offsetZ',
+        // Animation
+        'animationEnabled', 'animationIndex', 'animFps', 'animStart', 'animEnd',
+        'duration', 'autoplay',
+        // Datapack
+        'generateDatapack', 'datapackNamespace', 'datapackAnimId',
+        'datapackTargetType', 'datapackEquipSlot', 'datapackOutputDir',
+        // Display — right hand & shared
+        'showDisplay', 'useSeparateLefthand',
+        'dThirdRX','dThirdRY','dThirdRZ','dThirdTX','dThirdTY','dThirdTZ',
+        // Display — left hand (independent when useSeparateLefthand=true)
+        'dLeftRX','dLeftRY','dLeftRZ','dLeftTX','dLeftTY','dLeftTZ',
+        // Display — head/ground/fixed
+        'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ',
+        'dGroundRX','dGroundRY','dGroundRZ','dGroundTX','dGroundTY','dGroundTZ',
+        'dFixedRX','dFixedRY','dFixedRZ','dFixedTX','dFixedTY','dFixedTZ',
+        // Color & Tinting
+        'cbR', 'cbG', 'cbB',
+        // Advanced
+        'showAdvanced', 'easing', 'interpolation', 'autorotate',
+        'flipuv', 'noshadow', 'nopow', 'filterArmature',
+    ];
+
     // Settings live on the active Project (Project.objcubed_data) and get
     // serialized into the .bbmodel via Codecs.project compile/parse hooks.
     //
@@ -1465,26 +1495,34 @@
             component: {
                 data() {
                     const firstAnim = Animation.all[0];
-                    return {
-                        // Texture
+                    const hasArm = hasNonGeometryElements();
+                    const state = {
+                        // ---- Ephemeral (not persisted) ----
                         texOptions:    Texture.all.map((t,i)=>({label:t.name||`Texture ${i}`,value:i})),
-                        selectedTex:   0,
                         multiTex:      Texture.all.length > 1,
+                        animOptions:   Animation.all.map((a,i)=>({label:a.name||`Anim ${i}`,value:i})),
+                        hasAnims,
+                        hasArmature:   hasArm,
+                        status: '',
+                        running: false,
+
+                        // ---- Persisted (PERSISTABLE_FIELDS) ----
+                        // Texture
+                        selectedTex:   0,
                         useAtlas:      Texture.all.length > 1,
                         atlasTexChecked: Texture.all.map(() => true),
                         // Transform
                         scale:         1,
                         offsetX:       0, offsetY: 0, offsetZ: 0,
                         // Animation
-                        hasAnims,
                         animationEnabled: false,
-                        animOptions:   Animation.all.map((a,i)=>({label:a.name||`Anim ${i}`,value:i})),
                         animationIndex:0,
                         animFps:       firstAnim ? (firstAnim.snapping||20) : 20,
                         animStart:     0,
                         animEnd:       firstAnim ? firstAnim.length : 0,
                         duration:      0,
                         autoplay:      true,
+                        // Datapack
                         generateDatapack: false,
                         datapackNamespace: 'objmc',
                         datapackAnimId:  (firstAnim ? (firstAnim.name || 'anim') : 'anim')
@@ -1492,31 +1530,57 @@
                         datapackTargetType: 'equipment',
                         datapackEquipSlot: 'mainhand',
                         datapackOutputDir: '',
-                        // Display (collapsed by default)
+                        // Display — Right hand (also used for left if useSeparateLefthand=false)
                         showDisplay:   false,
+                        useSeparateLefthand: false,
                         dThirdRX: 85, dThirdRY: 0, dThirdRZ: 0,
                         dThirdTX: 0,  dThirdTY: 0, dThirdTZ: 0,
+                        // Display — Left hand (only used when useSeparateLefthand=true)
+                        dLeftRX: 85, dLeftRY: 0, dLeftRZ: 0,
+                        dLeftTX: 0,  dLeftTY: 0, dLeftTZ: 0,
+                        // Display — Head/Ground/Fixed
                         dHeadRX: 0, dHeadRY: 0, dHeadRZ: 0,
                         dHeadTX: 0, dHeadTY: 0, dHeadTZ: 0,
                         dGroundRX: 0, dGroundRY: 0, dGroundRZ: 0,
                         dGroundTX: 0, dGroundTY: 0, dGroundTZ: 0,
                         dFixedRX: 0, dFixedRY: 0, dFixedRZ: 0,
                         dFixedTX: 0, dFixedTY: 0, dFixedTZ: 0,
-                        // Advanced (collapsed by default)
+                        // Color & Tinting
+                        cbR: 'direct', cbG: 'direct', cbB: 'direct',
+                        // Advanced
                         showAdvanced:  false,
                         easing:        1,
                         interpolation: 1,
-                        cbR: 'direct', cbG: 'direct', cbB: 'direct',
                         autorotate:    1,
                         flipuv:        false,
                         noshadow:      false,
                         nopow:         true,
-                        hasArmature:    hasNonGeometryElements(),
-                        filterArmature: hasNonGeometryElements(),
-                        // Status
-                        status: '',
-                        running: false,
+                        filterArmature: hasArm,
                     };
+
+                    // Overlay any persisted values from the active preset.
+                    const persisted = loadActiveSettings();
+                    if (persisted) {
+                        for (const k of PERSISTABLE_FIELDS) {
+                            if (Object.prototype.hasOwnProperty.call(persisted, k)) {
+                                state[k] = persisted[k];
+                            }
+                        }
+                    }
+                    return state;
+                },
+                created() {
+                    // Auto-save every persisted field to Project.objcubed_data on
+                    // change. This means closing the project after just opening
+                    // the dialog is enough to preserve current settings.
+                    const persist = () => {
+                        const snap = {};
+                        for (const k of PERSISTABLE_FIELDS) snap[k] = this[k];
+                        saveActiveSettings(snap);
+                    };
+                    for (const k of PERSISTABLE_FIELDS) {
+                        this.$watch(k, persist, { deep: true });
+                    }
                 },
                 computed: {
                     showDatapackOption() {
@@ -1533,39 +1597,65 @@
                         const end = +this.animEnd || 0;
                         if (end <= start) return '';
                         const n = Math.max(1, Math.floor((end - start) * fps) + 1);
-                        return n + ' frame' + (n !== 1 ? 's' : '');
+                        return n + ' кадр' + (n === 1 ? '' : (n < 5 ? 'а' : 'ов'));
+                    },
+                    // Color & Tinting: pretty Russian description of what each channel does.
+                    colorBehaviorPretty() {
+                        const effective = this.generateDatapack && this.showDatapackOption
+                            ? ['time','time','time'] : [this.cbR, this.cbG, this.cbB];
+                        if (effective.every(v => v === 'direct'))
+                            return 'модель тинтуется напрямую цветом зелья (custom_color)';
+                        if (effective.every(v => v === 'time'))
+                            return 'весь цвет управляет временем анимации (24-битный кадр)';
+                        if (effective.every(v => v === 'scale'))
+                            return 'весь цвет управляет масштабом модели';
+                        if (effective.every(v => v === 'overlay'))
+                            return 'весь цвет работает как HSV-оттенок';
+                        if (effective.every(v => v === 'hurt'))
+                            return 'весь цвет управляет красной вспышкой «получил урон»';
+                        const labels = { direct:'тинт', time:'время', scale:'масштаб', overlay:'оттенок', hurt:'урон' };
+                        return `R: ${labels[effective[0]]}, G: ${labels[effective[1]]}, B: ${labels[effective[2]]}`;
+                    },
+                    // Which preset (if any) the current R/G/B combo matches.
+                    colorBehaviorPreset() {
+                        const k = `${this.cbR}/${this.cbG}/${this.cbB}`;
+                        return ({
+                            'direct/direct/direct': 'tint',
+                            'time/time/time':       'anim',
+                            'scale/scale/scale':    'scale',
+                            'overlay/overlay/overlay': 'overlay',
+                            'hurt/hurt/hurt':       'hurt',
+                        })[k] || null;
+                    },
+                    // True if the datapack-mode side-effects override user color settings.
+                    colorBehaviorForcedByDatapack() {
+                        return this.generateDatapack && this.showDatapackOption;
                     },
                     validationErrors() {
                         const errs = [];
                         if (this.useAtlas && this.multiTex && !this.atlasTexChecked.some(v => v))
-                            errs.push('Select at least one texture for the atlas');
+                            errs.push('Выберите хотя бы одну текстуру для атласа');
                         if (+this.scale <= 0)
-                            errs.push('Scale must be positive');
+                            errs.push('Scale должен быть положительным');
                         if (this.hasAnims && this.animationEnabled) {
                             if (+this.animEnd <= +this.animStart)
-                                errs.push('End time must be after start time');
+                                errs.push('Время End должно быть больше Start');
                             if (+this.animFps < 1)
-                                errs.push('FPS must be at least 1');
+                                errs.push('FPS должен быть не меньше 1');
                         }
                         if (this.generateDatapack && this.showDatapackOption) {
                             if (!this.datapackAnimId.trim())
-                                errs.push('Animation ID is required');
+                                errs.push('Нужен Animation ID');
                             if (!this.datapackNamespace.trim())
-                                errs.push('Namespace is required');
+                                errs.push('Нужен Namespace');
                         }
                         return errs;
                     },
                 },
                 watch: {
-                    generateDatapack(val) {
-                        if (val) {
-                            this.autoplay = false;
-                            this.cbR = 'time';
-                            this.cbG = 'time';
-                            this.cbB = 'time';
-                            this.duration = 0;
-                        }
-                    },
+                    // No implicit side-effects on generateDatapack toggle —
+                    // the dialog now shows an explicit notice and the export
+                    // path applies time/time/time + autoplay=false in doExport.
                 },
                 methods: {
                     browseDatapackDir() {
@@ -1574,6 +1664,33 @@
                             startpath: this.datapackOutputDir || undefined,
                         });
                         if (dir) this.datapackOutputDir = dir;
+                    },
+                    cycleCb(channel) {
+                        // Click a channel button → step through direct→time→scale→overlay→hurt.
+                        if (this.colorBehaviorForcedByDatapack) return;
+                        const ORDER = ['direct','time','scale','overlay','hurt'];
+                        const cur = this[channel];
+                        const next = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length];
+                        this[channel] = next;
+                    },
+                    applyColorPreset(name) {
+                        if (this.colorBehaviorForcedByDatapack) return;
+                        const PRESETS = {
+                            tint:    ['direct','direct','direct'],
+                            anim:    ['time','time','time'],
+                            scale:   ['scale','scale','scale'],
+                            overlay: ['overlay','overlay','overlay'],
+                            hurt:    ['hurt','hurt','hurt'],
+                        };
+                        const v = PRESETS[name];
+                        if (!v) return;
+                        this.cbR = v[0]; this.cbG = v[1]; this.cbB = v[2];
+                    },
+                    cbLabel(value) {
+                        return ({
+                            direct: 'Тинт', time: 'Время',
+                            scale: 'Масштаб', overlay: 'Оттенок', hurt: 'Урон',
+                        })[value] || value;
                     },
                     onAnimChange() {
                         const anim = Animation.all[this.animationIndex];
@@ -1625,7 +1742,10 @@
                                         rotation:    [+this.dThirdRX, +this.dThirdRY, +this.dThirdRZ],
                                         translation: [+this.dThirdTX, +this.dThirdTY, +this.dThirdTZ],
                                     },
-                                    thirdperson_lefthand: {
+                                    thirdperson_lefthand: this.useSeparateLefthand ? {
+                                        rotation:    [+this.dLeftRX, +this.dLeftRY, +this.dLeftRZ],
+                                        translation: [+this.dLeftTX, +this.dLeftTY, +this.dLeftTZ],
+                                    } : {
                                         rotation:    [+this.dThirdRX, +this.dThirdRY, +this.dThirdRZ],
                                         translation: [+this.dThirdTX, +this.dThirdTY, +this.dThirdTZ],
                                     },
@@ -1656,58 +1776,58 @@
 
   <!-- ======== TEXTURE ======== -->
   <div style="margin-bottom:12px;">
-    <div style="font-weight:600;margin-bottom:4px;color:#ddd;">Texture</div>
+    <div style="font-weight:600;margin-bottom:4px;color:#ddd;">\u0422\u0435\u043A\u0441\u0442\u0443\u0440\u0430</div>
     <div style="display:flex;align-items:flex-start;gap:8px;">
       <img v-if="selectedTexThumb && !useAtlas"
            :src="selectedTexThumb"
            style="width:48px;height:48px;image-rendering:pixelated;border:1px solid rgba(255,255,255,0.15);border-radius:3px;object-fit:contain;background:#1a1a1a;flex-shrink:0;"/>
       <div style="flex:1;min-width:0;">
-    <template v-if="!multiTex">
-      <select v-model="selectedTex" style="padding:3px 6px;width:100%;">
-        <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
-      </select>
-    </template>
-    <template v-else>
-      <label style="display:inline-flex;align-items:center;gap:4px;">
-        <input type="checkbox" v-model="useAtlas"/> Atlas (combine textures)
-      </label>
-      <select v-if="!useAtlas" v-model="selectedTex" style="margin-left:8px;padding:3px 6px;">
-        <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
-      </select>
-      <div v-if="useAtlas" style="margin-top:4px;padding-left:20px;">
-        <label v-for="(t, i) in texOptions" :key="t.value" style="display:block;line-height:1.8;">
-          <input type="checkbox" v-model="atlasTexChecked[i]"/> {{t.label}}
-        </label>
-      </div>
-    </template>
+        <template v-if="!multiTex">
+          <select v-model="selectedTex" style="padding:3px 6px;width:100%;">
+            <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
+          </select>
+        </template>
+        <template v-else>
+          <label style="display:inline-flex;align-items:center;gap:4px;">
+            <input type="checkbox" v-model="useAtlas"/> \u0410\u0442\u043B\u0430\u0441 (\u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0442\u0435\u043A\u0441\u0442\u0443\u0440\u044B)
+          </label>
+          <select v-if="!useAtlas" v-model="selectedTex" style="margin-left:8px;padding:3px 6px;">
+            <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
+          </select>
+          <div v-if="useAtlas" style="margin-top:4px;padding-left:20px;">
+            <label v-for="(t, i) in texOptions" :key="t.value" style="display:block;line-height:1.8;">
+              <input type="checkbox" v-model="atlasTexChecked[i]"/> {{t.label}}
+            </label>
+          </div>
+        </template>
       </div>
     </div>
   </div>
 
   <!-- ======== TRANSFORM ======== -->
   <div style="margin-bottom:12px;">
-    <div style="font-weight:600;margin-bottom:4px;color:#ddd;">Transform</div>
+    <div style="font-weight:600;margin-bottom:4px;color:#ddd;">\u0422\u0440\u0430\u043D\u0441\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
-      <label style="font-size:12px;color:#aaa;">Scale<br/><input v-model="scale" type="number" step="0.1" style="width:100%;"/></label>
-      <label style="font-size:12px;color:#aaa;">Offset X<br/><input v-model="offsetX" type="number" step="0.1" style="width:100%;"/></label>
-      <label style="font-size:12px;color:#aaa;">Offset Y<br/><input v-model="offsetY" type="number" step="0.1" style="width:100%;"/></label>
-      <label style="font-size:12px;color:#aaa;">Offset Z<br/><input v-model="offsetZ" type="number" step="0.1" style="width:100%;"/></label>
+      <label style="font-size:12px;color:#aaa;">\u041C\u0430\u0441\u0448\u0442\u0430\u0431<br/><input v-model="scale" type="number" step="0.1" style="width:100%;"/></label>
+      <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 X<br/><input v-model="offsetX" type="number" step="0.1" style="width:100%;"/></label>
+      <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 Y<br/><input v-model="offsetY" type="number" step="0.1" style="width:100%;"/></label>
+      <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 Z<br/><input v-model="offsetZ" type="number" step="0.1" style="width:100%;"/></label>
     </div>
   </div>
 
-  <!-- ======== ANIMATION ======== -->
+  <!-- ======== ANIMATION (\u0431\u0435\u0437 datapack) ======== -->
   <div style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px;">
     <div v-if="hasAnims" style="display:flex;align-items:center;gap:6px;">
       <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;flex:1;">
         <input v-model="animationEnabled" type="checkbox"/>
-        Animation
+        \u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F
       </label>
     </div>
-    <div v-else style="color:#666;font-size:12px;">No animations in project</div>
+    <div v-else style="color:#666;font-size:12px;">\u0412 \u043F\u0440\u043E\u0435\u043A\u0442\u0435 \u043D\u0435\u0442 \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0439</div>
 
     <div v-if="hasAnims && animationEnabled" style="margin-top:8px;">
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;">
-        <label style="font-size:12px;color:#aaa;">Animation<br/>
+        <label style="font-size:12px;color:#aaa;">\u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F<br/>
           <select v-model="animationIndex" @change="onAnimChange" style="width:100%;padding:3px;">
             <option v-for="a in animOptions" :key="a.value" :value="a.value">{{a.label}}</option>
           </select>
@@ -1716,58 +1836,63 @@
       </div>
       <div v-if="frameCountPreview" style="font-size:11px;color:#8af;margin-top:4px;">{{frameCountPreview}}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">
-        <label style="font-size:12px;color:#aaa;">Start (s)<br/><input v-model="animStart" type="number" step="0.05" style="width:100%;"/></label>
-        <label style="font-size:12px;color:#aaa;">End (s)<br/><input v-model="animEnd" type="number" step="0.05" style="width:100%;"/></label>
-        <label style="font-size:12px;color:#aaa;">Duration (ticks)<br/><input v-model="duration" type="number" min="0" :disabled="generateDatapack" :placeholder="generateDatapack ? 'auto (= nframes)' : '0 = auto'" style="width:100%;"/></label>
+        <label style="font-size:12px;color:#aaa;">\u0421\u0442\u0430\u0440\u0442 (\u0441)<br/><input v-model="animStart" type="number" step="0.05" style="width:100%;"/></label>
+        <label style="font-size:12px;color:#aaa;">\u041A\u043E\u043D\u0435\u0446 (\u0441)<br/><input v-model="animEnd" type="number" step="0.05" style="width:100%;"/></label>
+        <label style="font-size:12px;color:#aaa;">\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C (\u0442\u0438\u043A\u0438)<br/><input v-model="duration" type="number" min="0" :disabled="generateDatapack" :placeholder="generateDatapack ? '\u0430\u0432\u0442\u043E (= \u043A\u0430\u0434\u0440\u044B)' : '0 = \u0430\u0432\u0442\u043E'" style="width:100%;"/></label>
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="autoplay" type="checkbox"/> Autoplay</label>
+        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="autoplay" type="checkbox" :disabled="generateDatapack"/> \u0410\u0432\u0442\u043E\u0437\u0430\u043F\u0443\u0441\u043A</label>
       </div>
-      <div v-if="showDatapackOption" style="margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:3px;">
-        <label style="display:inline-flex;align-items:center;gap:4px;">
-          <input v-model="generateDatapack" type="checkbox"/> Generate datapack
+    </div>
+  </div>
+
+  <!-- ======== DATAPACK (top-level) ======== -->
+  <div v-if="showDatapackOption" style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px;">
+    <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;">
+      <input v-model="generateDatapack" type="checkbox"/> \u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A \u0434\u043B\u044F \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0435\u0439
+    </label>
+    <div v-if="generateDatapack" style="margin-top:6px;font-size:12px;">
+      <div style="color:#daa520;background:rgba(218,165,32,0.08);border:1px solid rgba(218,165,32,0.2);padding:5px 8px;border-radius:3px;margin-bottom:6px;line-height:1.4;">
+        \u26A0 \u0412 \u0440\u0435\u0436\u0438\u043C\u0435 \u0434\u0430\u0442\u0430\u043F\u0430\u043A\u0430 \u044D\u043A\u0441\u043F\u043E\u0440\u0442 \u043F\u0440\u0438\u043D\u0443\u0434\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442:
+        Color Behavior = \u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F, \u0430\u0432\u0442\u043E\u0437\u0430\u043F\u0443\u0441\u043A \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D, \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C = \u0447\u0438\u0441\u043B\u043E \u043A\u0430\u0434\u0440\u043E\u0432.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <label style="color:#aaa;">Animation ID<br/>
+          <input v-model="datapackAnimId" style="width:100%;margin-top:2px;" placeholder="anim" maxlength="12"/>
         </label>
-        <div v-if="generateDatapack" style="margin-top:6px;font-size:12px;">
-          <div style="color:#888;margin-bottom:4px;">Smooth autoplay via GameTime, colorbehavior = time/time/time, duration = nframes</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-            <label style="color:#aaa;">Animation ID<br/>
-              <input v-model="datapackAnimId" style="width:100%;margin-top:2px;" placeholder="anim" maxlength="12"/>
-            </label>
-            <label style="color:#aaa;">Namespace<br/>
-              <input v-model="datapackNamespace" style="width:100%;margin-top:2px;" placeholder="objmc"/>
-            </label>
-            <label style="color:#aaa;">Target type<br/>
-              <select v-model="datapackTargetType" style="width:100%;margin-top:2px;padding:3px;">
-                <option value="equipment">Equipment entity</option>
-                <option value="item_display">Item display</option>
-                <option value="player">Player</option>
-              </select>
-            </label>
-            <label v-if="datapackTargetType !== 'item_display'" style="color:#aaa;">Slot<br/>
-              <select v-model="datapackEquipSlot" style="width:100%;margin-top:2px;padding:3px;">
-                <option value="mainhand">mainhand</option>
-                <option value="offhand">offhand</option>
-                <option value="head">head</option>
-                <option value="chest">chest</option>
-                <option value="legs">legs</option>
-                <option value="feet">feet</option>
-              </select>
-            </label>
-            <label style="color:#aaa;grid-column:1/-1;">Output directory<br/>
-              <div style="display:flex;gap:4px;margin-top:2px;">
-                <input v-model="datapackOutputDir" style="flex:1;" placeholder="(next to exported PNG)"/>
-                <button @click="browseDatapackDir" style="padding:2px 8px;cursor:pointer;">...</button>
-              </div>
-            </label>
+        <label style="color:#aaa;">Namespace<br/>
+          <input v-model="datapackNamespace" style="width:100%;margin-top:2px;" placeholder="objmc"/>
+        </label>
+        <label style="color:#aaa;">\u041A\u043E\u043C\u0443 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0442\u044C<br/>
+          <select v-model="datapackTargetType" style="width:100%;margin-top:2px;padding:3px;">
+            <option value="equipment">\u0421\u0443\u0449\u043D\u043E\u0441\u0442\u0438 \u0441 \u044D\u043A\u0438\u043F\u0438\u0440\u043E\u0432\u043A\u043E\u0439</option>
+            <option value="item_display">Item display-\u0441\u0443\u0449\u043D\u043E\u0441\u0442\u044C</option>
+            <option value="player">\u0418\u0433\u0440\u043E\u043A\u0443</option>
+          </select>
+        </label>
+        <label v-if="datapackTargetType !== 'item_display'" style="color:#aaa;">\u0421\u043B\u043E\u0442<br/>
+          <select v-model="datapackEquipSlot" style="width:100%;margin-top:2px;padding:3px;">
+            <option value="mainhand">\u0433\u043B\u0430\u0432\u043D\u0430\u044F \u0440\u0443\u043A\u0430</option>
+            <option value="offhand">\u0432\u0442\u043E\u0440\u0430\u044F \u0440\u0443\u043A\u0430</option>
+            <option value="head">\u0448\u043B\u0435\u043C</option>
+            <option value="chest">\u043D\u0430\u0433\u0440\u0443\u0434\u043D\u0438\u043A</option>
+            <option value="legs">\u0448\u0442\u0430\u043D\u044B</option>
+            <option value="feet">\u0441\u0430\u043F\u043E\u0433\u0438</option>
+          </select>
+        </label>
+        <label style="color:#aaa;grid-column:1/-1;">\u041A\u0443\u0434\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A<br/>
+          <div style="display:flex;gap:4px;margin-top:2px;">
+            <input v-model="datapackOutputDir" style="flex:1;" placeholder="(\u0440\u044F\u0434\u043E\u043C \u0441 PNG)"/>
+            <button @click="browseDatapackDir" style="padding:2px 8px;cursor:pointer;">\u2026</button>
           </div>
-          <div v-if="datapackTargetType === 'player'" style="color:#c90;margin-top:4px;font-size:11px;">
-            Player mode uses a temporary armor stand for color modification.
-          </div>
-          <div style="color:#666;margin-top:4px;font-size:11px;line-height:1.5;">
-            Functions: init, play, stop, set, play_from, play_once<br/>
-            <span style="color:#aaa;font-family:monospace;">execute as @e[...] run function {{datapackNamespace}}:animations/{{datapackAnimId}}/play</span>
-          </div>
-        </div>
+        </label>
+      </div>
+      <div v-if="datapackTargetType === 'player'" style="color:#c90;margin-top:4px;font-size:11px;">
+        \u0414\u043B\u044F \u0438\u0433\u0440\u043E\u043A\u0430 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0439 armor stand (\u043D\u0443\u0436\u0435\u043D \u0434\u043B\u044F \u0441\u043C\u0435\u043D\u044B custom_color).
+      </div>
+      <div style="color:#666;margin-top:4px;font-size:11px;line-height:1.5;">
+        \u0424\u0443\u043D\u043A\u0446\u0438\u0438: init, play, stop, set, play_from, play_once<br/>
+        <span style="color:#aaa;font-family:monospace;">execute as @e[\u2026] run function {{datapackNamespace}}:animations/{{datapackAnimId}}/play</span>
       </div>
     </div>
   </div>
@@ -1777,12 +1902,18 @@
     <div @click="showDisplay=!showDisplay"
          style="padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none;">
       <span style="font-size:10px;color:#888;width:12px;">{{showDisplay ? '\u25BC' : '\u25B6'}}</span>
-      <span style="font-weight:600;color:#ddd;">Display</span>
-      <span style="font-size:11px;color:#666;">thirdperson [{{dThirdRX}}, {{dThirdRY}}, {{dThirdRZ}}]</span>
+      <span style="font-weight:600;color:#ddd;">Display (\u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0432 \u0441\u043B\u043E\u0442\u0430\u0445)</span>
+      <span style="font-size:11px;color:#666;">3-\u0435 \u043B\u0438\u0446\u043E [{{dThirdRX}}, {{dThirdRY}}, {{dThirdRZ}}]</span>
     </div>
     <div v-show="showDisplay" style="padding:0 10px 10px 10px;font-size:12px;">
+
       <div style="margin-bottom:8px;">
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">Thirdperson</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+          <span style="color:#aaa;font-weight:600;">3-\u0435 \u043B\u0438\u0446\u043E{{ useSeparateLefthand ? ' \u2014 \u043F\u0440\u0430\u0432\u0430\u044F \u0440\u0443\u043A\u0430' : ' (\u043E\u0431\u0435 \u0440\u0443\u043A\u0438)' }}</span>
+          <label style="font-size:11px;color:#888;display:inline-flex;align-items:center;gap:3px;margin-left:auto;">
+            <input v-model="useSeparateLefthand" type="checkbox"/> \u041D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u044C \u043B\u0435\u0432\u0443\u044E \u0440\u0443\u043A\u0443 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u043E
+          </label>
+        </div>
         <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
           <span style="color:#888;font-size:11px;">Rot</span>
           <div style="display:flex;gap:4px;">
@@ -1800,8 +1931,29 @@
           </div>
         </div>
       </div>
+
+      <div v-if="useSeparateLefthand" style="margin-bottom:8px;">
+        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">3-\u0435 \u043B\u0438\u0446\u043E \u2014 \u043B\u0435\u0432\u0430\u044F \u0440\u0443\u043A\u0430</div>
+        <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
+          <span style="color:#888;font-size:11px;">Rot</span>
+          <div style="display:flex;gap:4px;">
+            <div v-for="(ax,ai) in ['dLeftRX','dLeftRY','dLeftRZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
+              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1" style="flex:1;"/>
+              <input type="number" v-model.number="$data[ax]" step="1" style="width:44px;"/>
+            </div>
+          </div>
+          <span style="color:#888;font-size:11px;">Pos</span>
+          <div style="display:flex;gap:4px;">
+            <div v-for="(ax,ai) in ['dLeftTX','dLeftTY','dLeftTZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
+              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5" style="flex:1;"/>
+              <input type="number" v-model.number="$data[ax]" step="0.5" style="width:44px;"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div style="margin-bottom:8px;">
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">Head</div>
+        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u0413\u043E\u043B\u043E\u0432\u0430 (head)</div>
         <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
           <span style="color:#888;font-size:11px;">Rot</span>
           <div style="display:flex;gap:4px;">
@@ -1819,8 +1971,9 @@
           </div>
         </div>
       </div>
+
       <div style="margin-bottom:8px;">
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">Ground</div>
+        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u041D\u0430 \u0437\u0435\u043C\u043B\u0435 (ground)</div>
         <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
           <span style="color:#888;font-size:11px;">Rot</span>
           <div style="display:flex;gap:4px;">
@@ -1838,8 +1991,9 @@
           </div>
         </div>
       </div>
+
       <div>
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">Fixed (item frame)</div>
+        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u0412 \u0440\u0430\u043C\u043A\u0435 (item frame)</div>
         <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
           <span style="color:#888;font-size:11px;">Rot</span>
           <div style="display:flex;gap:4px;">
@@ -1860,76 +2014,94 @@
     </div>
   </div>
 
+  <!-- ======== COLOR & TINTING (\u0432\u0438\u0434\u0436\u0435\u0442) ======== -->
+  <div style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px;"
+       :style="colorBehaviorForcedByDatapack ? 'opacity:0.55;pointer-events:none;' : ''">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+      <span style="font-weight:600;color:#ddd;">\u0426\u0432\u0435\u0442 \u0438 \u043F\u043E\u0434\u0441\u0432\u0435\u0442\u043A\u0430</span>
+      <span style="font-size:11px;color:#888;">\u2014 \u0447\u0442\u043E \u0443\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442 \u043C\u043E\u0434\u0435\u043B\u044C\u044E \u0447\u0435\u0440\u0435\u0437 \u0446\u0432\u0435\u0442 \u0437\u0435\u043B\u044C\u044F</span>
+    </div>
+
+    <div v-if="colorBehaviorForcedByDatapack" style="font-size:11px;color:#daa520;margin-bottom:6px;">
+      \u0417\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u043E: \u0432 \u0440\u0435\u0436\u0438\u043C\u0435 \u0434\u0430\u0442\u0430\u043F\u0430\u043A\u0430 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u043F\u0440\u0438\u043D\u0443\u0434\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u00AB\u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F\u00BB.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <button v-for="cn in [{k:'cbR',col:'#d44'},{k:'cbG',col:'#4d4'},{k:'cbB',col:'#48f'}]" :key="cn.k"
+              @click="cycleCb(cn.k)"
+              :style="{padding:'10px 6px',cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer',background:'#2a2a2a',border:'1px solid '+cn.col,borderRadius:'3px',color:'#ddd',textAlign:'center'}">
+        <div :style="{fontSize:'18px',fontWeight:'700',color:cn.col,marginBottom:'2px'}">{{cn.k.slice(-1)}}</div>
+        <div style="font-size:12px;">{{cbLabel($data[cn.k])}}</div>
+      </button>
+    </div>
+
+    <div style="margin-top:8px;font-size:12px;color:#cde;line-height:1.4;">
+      \uD83D\uDCCC \u0421\u0435\u0439\u0447\u0430\u0441: {{colorBehaviorPretty}}
+    </div>
+
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">
+      <span style="font-size:11px;color:#888;margin-right:4px;">\u0413\u043E\u0442\u043E\u0432\u044B\u0435 \u043D\u0430\u0431\u043E\u0440\u044B:</span>
+      <button v-for="p in [
+                {k:'tint',label:'\u041F\u0440\u043E\u0441\u0442\u043E \u0442\u0438\u043D\u0442'},
+                {k:'anim',label:'\u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F'},
+                {k:'scale',label:'\u041C\u0430\u0441\u0448\u0442\u0430\u0431'},
+                {k:'overlay',label:'\u041E\u0442\u0442\u0435\u043D\u043E\u043A (HSV)'},
+                {k:'hurt',label:'\u0423\u0440\u043E\u043D'}]" :key="p.k"
+              @click="applyColorPreset(p.k)"
+              :style="{padding:'2px 8px',fontSize:'11px',cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer',background: colorBehaviorPreset===p.k ? '#3a5c8a' : '#2a2a2a',border:'1px solid '+(colorBehaviorPreset===p.k?'#5a8cc0':'rgba(255,255,255,0.15)'),borderRadius:'3px',color:'#ddd'}">
+        {{p.label}}
+      </button>
+    </div>
+  </div>
+
   <!-- ======== ADVANCED (collapsible) ======== -->
   <div style="margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;">
     <div @click="showAdvanced=!showAdvanced"
          style="padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none;">
       <span style="font-size:10px;color:#888;width:12px;">{{showAdvanced ? '\u25BC' : '\u25B6'}}</span>
-      <span style="font-weight:600;color:#ddd;">Advanced</span>
+      <span style="font-weight:600;color:#ddd;">\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u043E</span>
     </div>
     <div v-show="showAdvanced" style="padding:0 10px 10px 10px;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
-        <label style="font-size:12px;color:#aaa;">Easing<br/>
+        <label style="font-size:12px;color:#aaa;">\u041F\u043B\u0430\u0432\u043D\u043E\u0441\u0442\u044C (easing)<br/>
           <select v-model="easing" style="width:100%;padding:3px;">
-            <option :value="0">None</option>
-            <option :value="1">Linear</option>
-            <option :value="2">Cubic</option>
+            <option :value="0">\u041D\u0435\u0442</option>
+            <option :value="1">\u041B\u0438\u043D\u0435\u0439\u043D\u0430\u044F</option>
+            <option :value="2">\u041A\u0443\u0431\u0438\u0447\u0435\u0441\u043A\u0430\u044F</option>
             <option :value="3">Bezier</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">Interpolation<br/>
+        <label style="font-size:12px;color:#aaa;">\u0418\u043D\u0442\u0435\u0440\u043F\u043E\u043B\u044F\u0446\u0438\u044F \u0442\u0435\u043A\u0441\u0442\u0443\u0440<br/>
           <select v-model="interpolation" style="width:100%;padding:3px;">
-            <option :value="0">None</option>
-            <option :value="1">Linear</option>
+            <option :value="0">\u041D\u0435\u0442</option>
+            <option :value="1">\u041B\u0438\u043D\u0435\u0439\u043D\u0430\u044F</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">Auto Rotate<br/>
+        <label style="font-size:12px;color:#aaa;">\u0410\u0432\u0442\u043E\u043F\u043E\u0432\u043E\u0440\u043E\u0442<br/>
           <select v-model="autorotate" style="width:100%;padding:3px;">
-            <option :value="0">Off</option>
+            <option :value="0">\u0412\u044B\u043A\u043B</option>
             <option :value="1">Yaw</option>
             <option :value="2">Pitch</option>
-            <option :value="3">Both</option>
+            <option :value="3">\u041E\u0431\u0430</option>
           </select>
         </label>
       </div>
-
-      <div style="margin-bottom:8px;">
-        <div style="font-size:12px;color:#aaa;margin-bottom:3px;">Color Behavior (R / G / B)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-          <select v-model="cbR" style="padding:3px;">
-            <option value="direct">Direct</option><option value="time">Time</option>
-            <option value="scale">Scale</option><option value="overlay">Overlay</option>
-            <option value="hurt">Hurt</option>
-          </select>
-          <select v-model="cbG" style="padding:3px;">
-            <option value="direct">Direct</option><option value="time">Time</option>
-            <option value="scale">Scale</option><option value="overlay">Overlay</option>
-            <option value="hurt">Hurt</option>
-          </select>
-          <select v-model="cbB" style="padding:3px;">
-            <option value="direct">Direct</option><option value="time">Time</option>
-            <option value="scale">Scale</option><option value="overlay">Overlay</option>
-            <option value="hurt">Hurt</option>
-          </select>
-        </div>
-      </div>
-
       <div style="display:flex;flex-wrap:wrap;gap:8px 16px;">
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="noshadow" type="checkbox"/> No Shadow</label>
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="flipuv" type="checkbox"/> Flip UV</label>
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="nopow" type="checkbox"/> No PoT</label>
-        <label v-if="hasArmature" style="display:inline-flex;align-items:center;gap:4px;"><input v-model="filterArmature" type="checkbox"/> Filter Armature</label>
+        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="noshadow" type="checkbox"/> \u0411\u0435\u0437 \u0442\u0435\u043D\u0438</label>
+        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="flipuv" type="checkbox"/> \u041F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C UV</label>
+        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="nopow" type="checkbox"/> \u041D\u0435 \u043E\u043A\u0440\u0443\u0433\u043B\u044F\u0442\u044C \u0434\u043E \u0441\u0442\u0435\u043F\u0435\u043D\u0438 2</label>
+        <label v-if="hasArmature" style="display:inline-flex;align-items:center;gap:4px;"><input v-model="filterArmature" type="checkbox"/> \u0421\u043A\u0440\u044B\u0442\u044C \u043A\u043E\u0441\u0442\u0438 \u0430\u0440\u043C\u0430\u0442\u0443\u0440\u044B</label>
       </div>
     </div>
   </div>
 
-  <!-- ======== EXPORT BUTTON ======== -->
+  <!-- ======== VALIDATION + EXPORT ======== -->
   <div v-if="validationErrors.length" style="margin-bottom:6px;">
     <div v-for="e in validationErrors" :key="e" style="color:#f66;font-size:12px;line-height:1.6;">{{e}}</div>
   </div>
   <div style="display:flex;gap:10px;align-items:center;">
     <button @click="doExport" :disabled="running || validationErrors.length > 0" style="padding:6px 24px;font-size:14px;">
-      {{running ? 'Working\u2026' : 'Export'}}
+      {{running ? '\u0420\u0430\u0431\u043E\u0442\u0430\u044E\u2026' : '\u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}}
     </button>
     <span :style="{color: status.startsWith('Error')?'#f66' : status.startsWith('Done')?'#6f6' : '#aaa', fontSize:'12px', flex:1}">
       {{status}}
