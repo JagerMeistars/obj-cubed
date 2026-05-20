@@ -141,7 +141,7 @@
         .oc-btn {
             padding: 3px 9px; cursor: pointer;
             background: #2a2a2a; border: 1px solid rgba(255,255,255,0.15);
-            color: #ddd; border-radius: 3px;
+            color: #ddd; border-radius: 4px;
             transition: background 100ms, border-color 100ms, color 100ms;
             font-family: inherit; font-size: 12px;
         }
@@ -1961,6 +1961,18 @@
                     // No implicit side-effects on generateDatapack toggle —
                     // the dialog now shows an explicit notice and the export
                     // path applies time/time/time + autoplay=false in doExport.
+                    animationEnabled(val) {
+                        if (!val) return;
+                        const anim = Animation.all[this.animationIndex];
+                        if (!anim) return;
+                        if (+this.animEnd <= +this.animStart) {
+                            this.animFps   = anim.snapping || this.animFps || 20;
+                            this.animStart = 0;
+                            this.animEnd   = anim.length || this.animEnd;
+                            this.datapackAnimId = (anim.name || 'anim')
+                                .replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 12) || 'anim';
+                        }
+                    },
                 },
                 methods: {
                     help(k) { return OBJCUBED_HELP[k] || ''; },
@@ -2176,7 +2188,7 @@
     <i class="material-icons" style="font-size:16px;color:#888;">bookmarks</i>
     <span style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Пресет</span>
     <select v-model.number="activePresetIdx" @change="onPresetChange"
-            style="flex:1;padding:3px 6px;background:#1f1f1f;color:#ddd;border:1px solid rgba(255,255,255,0.15);border-radius:3px;">
+            style="flex:1;padding:3px 6px;background:#1f1f1f;color:#ddd;border:1px solid rgba(255,255,255,0.15);border-radius:4px;">
       <option v-for="(n, i) in presetNames" :key="i" :value="i">{{n}}</option>
     </select>
     <button class="oc-btn" @click="addPreset" title="Создать новый пресет">+</button>
@@ -2189,7 +2201,7 @@
   <!-- ======== PREVIEW BANNER ======== -->
   <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:12px;background:linear-gradient(to right, rgba(90,140,192,0.10), rgba(90,140,192,0.02));border:1px solid rgba(90,140,192,0.25);border-radius:4px;">
     <img v-if="selectedTexThumb" :src="selectedTexThumb"
-         style="width:42px;height:42px;image-rendering:pixelated;border:1px solid rgba(255,255,255,0.2);border-radius:3px;object-fit:contain;background:#1a1a1a;flex-shrink:0;"/>
+         style="width:42px;height:42px;image-rendering:pixelated;border:1px solid rgba(255,255,255,0.2);border-radius:4px;object-fit:contain;background:#1a1a1a;flex-shrink:0;"/>
     <div style="flex:1;min-width:0;">
       <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;">Сводка экспорта</div>
       <div style="font-size:13px;color:#ddd;">
@@ -2222,7 +2234,7 @@
     <div style="display:flex;align-items:flex-start;gap:8px;">
       <img v-if="selectedTexThumb && !useAtlas"
            :src="selectedTexThumb"
-           style="width:48px;height:48px;image-rendering:pixelated;border:1px solid rgba(255,255,255,0.15);border-radius:3px;object-fit:contain;background:#1a1a1a;flex-shrink:0;"/>
+           style="width:48px;height:48px;image-rendering:pixelated;border:1px solid rgba(255,255,255,0.15);border-radius:4px;object-fit:contain;background:#1a1a1a;flex-shrink:0;"/>
       <div style="flex:1;min-width:0;">
         <template v-if="!multiTex">
           <select v-model="selectedTex" style="padding:3px 6px;width:100%;">
@@ -2236,7 +2248,7 @@
           <select v-if="!useAtlas" v-model="selectedTex" style="margin-left:8px;padding:3px 6px;">
             <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
           </select>
-          <div v-if="useAtlas" :class="hasErr('atlas') ? 'oc-err' : ''" style="margin-top:4px;padding-left:20px;padding:4px 4px 4px 20px;border-radius:3px;">
+          <div v-if="useAtlas" :class="hasErr('atlas') ? 'oc-err' : ''" style="margin-top:4px;padding-left:20px;padding:4px 4px 4px 20px;border-radius:4px;">
             <label v-for="(t, i) in texOptions" :key="t.value" style="display:block;line-height:1.8;">
               <input type="checkbox" v-model="atlasTexChecked[i]"/> {{t.label}}
             </label>
@@ -2304,7 +2316,7 @@
       </label>
     </div>
     <div v-if="generateDatapack" style="margin-top:6px;font-size:12px;">
-      <div style="color:#daa520;background:rgba(218,165,32,0.08);border:1px solid rgba(218,165,32,0.2);padding:5px 8px;border-radius:3px;margin-bottom:6px;line-height:1.4;">
+      <div style="color:#daa520;background:rgba(218,165,32,0.08);border:1px solid rgba(218,165,32,0.2);padding:5px 8px;border-radius:4px;margin-bottom:6px;line-height:1.4;">
         \u26A0 \u0412 \u0440\u0435\u0436\u0438\u043C\u0435 \u0434\u0430\u0442\u0430\u043F\u0430\u043A\u0430 \u044D\u043A\u0441\u043F\u043E\u0440\u0442 \u043F\u0440\u0438\u043D\u0443\u0434\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442:
         Color Behavior = \u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F, \u0430\u0432\u0442\u043E\u0437\u0430\u043F\u0443\u0441\u043A \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D, \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C = \u0447\u0438\u0441\u043B\u043E \u043A\u0430\u0434\u0440\u043E\u0432.
       </div>
@@ -2484,9 +2496,9 @@
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
       <button v-for="cn in [{k:'cbR',col:'#d44'},{k:'cbG',col:'#4d4'},{k:'cbB',col:'#48f'}]" :key="cn.k"
               @click="cycleCb(cn.k)"
-              :style="{padding:'10px 6px',cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer',background:'#2a2a2a',border:'1px solid '+cn.col,borderRadius:'3px',color:'#ddd',textAlign:'center'}">
+              :style="{padding:'10px 6px',cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer',background:'#2a2a2a',border:'1px solid '+cn.col,borderRadius:'4px',color:'#ddd',textAlign:'center'}">
         <div :style="{fontSize:'18px',fontWeight:'700',color:cn.col,marginBottom:'2px'}">{{cn.k.slice(-1)}}</div>
-        <div style="font-size:12px;">{{cbLabel($data[cn.k])}}</div>
+        <div style="font-size:12px;">{{cbLabel(colorBehaviorForcedByDatapack ? 'time' : $data[cn.k])}}</div>
       </button>
     </div>
 
@@ -2503,7 +2515,7 @@
                 {k:'overlay',label:'\u041E\u0442\u0442\u0435\u043D\u043E\u043A (HSV)'},
                 {k:'hurt',label:'\u0423\u0440\u043E\u043D'}]" :key="p.k"
               @click="applyColorPreset(p.k)"
-              :style="{padding:'2px 8px',fontSize:'11px',cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer',background: colorBehaviorPreset===p.k ? '#3a5c8a' : '#2a2a2a',border:'1px solid '+(colorBehaviorPreset===p.k?'#5a8cc0':'rgba(255,255,255,0.15)'),borderRadius:'3px',color:'#ddd'}">
+              :style="{padding:'2px 8px',fontSize:'11px',cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer',background: colorBehaviorPreset===p.k ? '#3a5c8a' : '#2a2a2a',border:'1px solid '+(colorBehaviorPreset===p.k?'#5a8cc0':'rgba(255,255,255,0.15)'),borderRadius:'4px',color:'#ddd'}">
         {{p.label}}
       </button>
     </div>
