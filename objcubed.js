@@ -1697,7 +1697,7 @@
 
         const dialog = new Dialog({
             id:    PLUGIN_ID + '_dialog',
-            title: 'Export as objmc',
+            title: 'Экспорт obj³',
             width: 620,
             component: {
                 data() {
@@ -1977,6 +1977,12 @@
                 methods: {
                     help(k) { return OBJCUBED_HELP[k] || ''; },
                     hasErr(field) { return !!this.fieldErrorMap[field]; },
+                    pluralize(n, one, few, many) {
+                        const m10 = n % 10, m100 = n % 100;
+                        if (m10 === 1 && m100 !== 11) return one;
+                        if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+                        return many;
+                    },
 
                     // ---- Preset management ----
                     // Reload all persisted fields from the given preset index
@@ -2205,8 +2211,8 @@
     <div style="flex:1;min-width:0;">
       <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;">Сводка экспорта</div>
       <div style="font-size:13px;color:#ddd;">
-        <b>{{previewFaceCount}}</b> грани
-        <span v-if="previewFrameCount > 1"> · <b>{{previewFrameCount}}</b> кадров</span>
+        <b>{{previewFaceCount}}</b> {{pluralize(previewFaceCount, 'грань', 'грани', 'граней')}}
+        <span v-if="previewFrameCount > 1"> · <b>{{previewFrameCount}}</b> {{pluralize(previewFrameCount, 'кадр', 'кадра', 'кадров')}}</span>
         <span v-if="previewPngSize"> · картинка <b>{{previewPngSize.tw}}×{{previewPngSize.ty}}px</b> {{previewPngSizePretty}}</span>
       </div>
     </div>
@@ -2365,7 +2371,7 @@
   <div class="oc-section">
     <div class="oc-section-head clickable" @click="showDisplay=!showDisplay">
       <i class="material-icons">view_in_ar</i>
-      <span style="flex:1;">Display (\u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0432 \u0441\u043B\u043E\u0442\u0430\u0445)</span>
+      <span style="flex:1;">\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0432 \u0441\u043B\u043E\u0442\u0430\u0445</span>
       <span style="font-size:11px;color:#666;font-weight:400;">3-\u0435 \u043B\u0438\u0446\u043E [{{dThirdRX}}, {{dThirdRY}}, {{dThirdRZ}}]</span>
       <i class="material-icons" style="font-size:18px;color:#666;">{{showDisplay ? 'expand_less' : 'expand_more'}}</i>
     </div>
