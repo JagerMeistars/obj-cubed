@@ -213,33 +213,7 @@ if (marker == ivec4(12,34,56,78)) {
     }
 #endif
     //final pos and uv
-    // Position from VBO is in a per-slot transformed space (camera+display
-    // rotation applied, no translation). posoffset is in raw object space.
-    // We derive the rotation+scale matrix from the placeholder face's 4
-    // corners (we know their object-space coordinates) and apply the same
-    // transform to posoffset so its orientation matches the anchor.
-    //
-    // Placeholder geometry: from:[8,0,8] to:[24,16,8].
-    // Object-space corners: (8,0,8), (24,0,8), (24,16,8), (8,16,8).
-    // Edge in X = +16 BB, edge in Y = +16 BB, face on Z=8 plane.
-    vec3 vP0 = subgroupQuadBroadcast(Pos, 0);
-    vec3 vP1 = subgroupQuadBroadcast(Pos, 1);
-    vec3 vP2 = subgroupQuadBroadcast(Pos, 2);
-    vec3 vP3 = subgroupQuadBroadcast(Pos, 3);
-    vec3 center_new = (vP0 + vP1 + vP2 + vP3) * 0.25;
-    // Use vP1-vP0 / 16 as the transformed X basis vector and vP3-vP0 / 16
-    // as Y basis vector (assuming vertex order 0-1-2-3 cycles the quad).
-    // Cross gives Z. If the subgroup vertex ordering is shuffled per slot,
-    // we may need to re-derive these from a different pairing — but try
-    // this first.
-    vec3 R_x = (vP1 - vP0) / 16.0;
-    vec3 R_y = (vP3 - vP0) / 16.0;
-    vec3 R_z = cross(R_x, R_y);
-    mat3 R = mat3(R_x, R_y, R_z);
-    // posoffset is in object-space (vertex offset from object origin).
-    // Object-space center of placeholder = (16, 8, 8). Pull posoffset
-    // relative to that center, rotate, place around new center.
-    Pos = center_new + R * (posoffset - vec3(16.0, 8.0, 8.0));
+    Pos = subgroupQuadBroadcast(Pos, 2) + posoffset;
     texCoord = (vec2(topleft.x,topleft.y+headerheight) + texCoord*size)/atlasSize
                 //make sure that faces with same uv beginning/ending renders
                 + vec2(onepixel.x*0.0001*corner,onepixel.y*0.0001*((corner+1)%4));
