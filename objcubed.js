@@ -1552,15 +1552,8 @@
         for (let i = 0; i < nfaces; i++) {
             const px = i%tw, py = Math.floor(i/tw)+1;
             put(px, py, Math.trunc(px/256)%256, px%256, Math.trunc(py/256)%256, py%256);
-            // Placeholder face — full 16x16 BB units (standard block size)
-            // centred horizontally on (8, 0, 8). Centroid Y=0 puts the
-            // shader-computed anchor at the floor of the standard block,
-            // matching how users model items in Blockbench (origin at floor).
-            // No empirical -1.7 shift here — that compensation will be
-            // applied per-slot inside the shader if needed (different render
-            // slots seem to have different intrinsic offsets).
             elements.push({
-                from: [0,-8,8], to: [16,8,8],
+                from: [8,0,8], to: [24,16,8],
                 faces: { north: {
                     uv: [(px+0.1)*16/tw,(py+0.1)*16/ty,(px+0.9)*16/tw,(py+0.9)*16/ty],
                     texture: '#0', tintindex: 0,
@@ -1760,11 +1753,6 @@
                     const dir     = path.dirname(pngPath);
                     const pngName = path.basename(pngPath, '.png');
                     const model = {
-                        // No parent — match a bare JSON-cube reference that
-                        // doesn't inherit display defaults. User controls
-                        // display fully via the native Blockbench Display
-                        // editor. If we ever want vanilla 3D-block behaviour
-                        // out of the box, set parent: 'minecraft:block/block'.
                         textures: { 0: `block/${pngName}` },
                         elements: result.elements,
                         display:  displayTransforms,
