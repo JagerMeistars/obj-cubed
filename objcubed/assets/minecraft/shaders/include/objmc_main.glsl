@@ -232,49 +232,53 @@ if (marker == ivec4(12,34,56,78)) {
     //
     // RANGE_HINT below sets X for each preset.
 #ifdef ENTITY
-    // To make debug color dominate over texture and lighting we override:
-    //   vertexColor → debug RGB (instead of lit Color)
-    //   lightColor  → full white (kills shadow modulation)
-    //   overlayColor → transparent (no damage tint)
-    // Final pixel ≈ texture × debug. Best results with a uniformly-white
-    // test texture in the model; with arbitrary texture the debug color
-    // is still readable relative to texture brightness but RGB will be
-    // tinted by the underlying texel.
+    // Helper: write debug color to whichever color out the host shader has.
+    // entity.vsh has `vertexColor` when NOT PER_FACE_LIGHTING, otherwise
+    // it has `vertexPerFaceColorBack`/`vertexPerFaceColorFront`.
+    // item.vsh always has plain `vertexColor`. Macro handles both.
+    #ifdef PER_FACE_LIGHTING
+        #define OC_DBG_COLOR(c) vertexPerFaceColorBack = (c); vertexPerFaceColorFront = (c)
+    #else
+        #define OC_DBG_COLOR(c) vertexColor = (c)
+    #endif
+
+    // Override texture/light so debug color dominates. Final pixel
+    // ≈ texture × debug; use a uniformly-white test texture for clean RGB.
 
     // ---- A1: Pos before ModelViewMat (object space) ----
     // RANGE_HINT = 32. Decode each channel: (byte/255)*64 - 32.
-    // vertexColor = vec4(
+    // OC_DBG_COLOR(vec4(
     //     clamp((Pos.x + 32.0) / 64.0, 0.0, 1.0),
     //     clamp((Pos.y + 32.0) / 64.0, 0.0, 1.0),
     //     clamp((Pos.z + 32.0) / 64.0, 0.0, 1.0),
     //     1.0
-    // );
+    // ));
     // lightColor = vec4(1.0); overlayColor = vec4(0.0);
 
     // ---- A2: posoffset alone (encoded vertex offset from anchor) ----
     // RANGE_HINT = 16. Decode: (byte/255)*32 - 16.
-    // vertexColor = vec4(
+    // OC_DBG_COLOR(vec4(
     //     clamp((posoffset.x + 16.0) / 32.0, 0.0, 1.0),
     //     clamp((posoffset.y + 16.0) / 32.0, 0.0, 1.0),
     //     clamp((posoffset.z + 16.0) / 32.0, 0.0, 1.0),
     //     1.0
-    // );
+    // ));
     // lightColor = vec4(1.0); overlayColor = vec4(0.0);
 
     // ---- A3: anchor (subgroupQuadBroadcast Pos[2]) only ----
     // RANGE_HINT = 32. Decode: (byte/255)*64 - 32.
     // vec3 dbg_anchor = subgroupQuadBroadcast(Pos - posoffset, 2);
-    // vertexColor = vec4(
+    // OC_DBG_COLOR(vec4(
     //     clamp((dbg_anchor.x + 32.0) / 64.0, 0.0, 1.0),
     //     clamp((dbg_anchor.y + 32.0) / 64.0, 0.0, 1.0),
     //     clamp((dbg_anchor.z + 32.0) / 64.0, 0.0, 1.0),
     //     1.0
-    // );
+    // ));
     // lightColor = vec4(1.0); overlayColor = vec4(0.0);
 
     // ---- A4: slot detection (which render path is active) ----
     // R=1 → isGUI, G=1 → isHand, B=1 → neither (third-person / equipment / ground)
-    // vertexColor = vec4(float(isGUI), float(isHand), float(1 - isGUI - isHand), 1.0);
+    // OC_DBG_COLOR(vec4(float(isGUI), float(isHand), float(1 - isGUI - isHand), 1.0));
     // lightColor = vec4(1.0); overlayColor = vec4(0.0);
 #endif
 }
