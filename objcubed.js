@@ -1760,9 +1760,9 @@
         gui:                   { x: 0, y: 0, z: 0 },
         // Reset to zero — extreme y=-100 was pushing elements past
         // Minecraft's [-16, 32] bounds, causing missing-texture error model.
-        ground:                { x: 0, y: 0, z: 0 },
-        fixed:                 { x: 0, y: 0, z: 0 },
-        on_shelf:              { x: 0, y: 0, z: 0 },
+        ground:                { x: 0, y: 0,  z: 0 },
+        fixed:                 { x: 0, y: 0,  z: 0 },
+        on_shelf:              { x: 0, y: -3, z: 0 },
     };
 
     function calibratedElementsForSlot(baseElements, slot) {
@@ -1797,12 +1797,12 @@
     // otherwise inherit block/block rotation [30, 225, 0]).
     const IDENTITY_DISPLAY = { rotation: [0,0,0], translation: [0,0,0], scale: [1,1,1] };
 
-    // GUI display — 3D model rendered as inventory item. Scaled up to roughly
-    // match a 2D-icon-style item visual size (vanilla blocks in inventory
-    // render at scale 0.625 default; we use 1.6 to compensate and fill the slot).
-    // Translation tuned empirically vs reference JSON cube — adjust by user
-    // measurements as needed.
-    const GUI_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1.6, 1.6, 1.6] };
+    // GUI display — identity. Plain 3D model in inventory at natural scale.
+    // 2D-icon reference will inherently look bigger than a 3D model — different
+    // render paths. Visual match requires either: (a) accept 3D appearance,
+    // (b) adjust scale empirically via user testing, or (c) generate a 2D icon
+    // variant for GUI (future option).
+    const GUI_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
 
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
