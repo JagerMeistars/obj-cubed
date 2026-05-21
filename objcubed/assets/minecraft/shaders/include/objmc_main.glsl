@@ -209,10 +209,10 @@ if (marker == ivec4(12,34,56,78)) {
     }
 #endif
     //final pos and uv
-    // Anchor = centroid of the placeholder quad (= center of [0,16]^3 standard
-    // block, because the encoder emits from:[0,0,8] to:[16,16,8]). Using the
-    // centroid instead of vertex 2 puts the model dead-centre in the block,
-    // which is what Minecraft's display tag expects for proper rendering.
+    // Anchor = centroid of the placeholder quad. With encoder emitting
+    // from:[0,-8,8] to:[16,8,8], centroid is (8, 0, 8) — floor-center of
+    // the standard block, matching how users model items in Blockbench
+    // (origin at floor). Display tag applies via ModelViewMat below.
     vec3 anchor = 0.25 * (
         subgroupQuadBroadcast(Pos, 0) +
         subgroupQuadBroadcast(Pos, 1) +
