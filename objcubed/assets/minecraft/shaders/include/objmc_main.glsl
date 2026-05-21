@@ -209,18 +209,17 @@ if (marker == ivec4(12,34,56,78)) {
     }
 #endif
     //final pos and uv
-    // No subgroup anchor calc — placeholder is a tiny ~0.1 BB unit quad
-    // emitted by the encoder centred on (8, -1.7, 8), so every input
-    // Position is already at (or within 0.05 of) the anchor. Adding
-    // posoffset (per-corner texture lookup) on top gives the actual model
-    // geometry. The variation between corners (~0.05 BB) is negligible
-    // compared to typical posoffset magnitude (±8 BB).
-    //
-    // This bypasses the subgroupQuadBroadcast pipeline that was unreliable
-    // across different render slots (in-hand vs entity vs gui), and the
-    // Position naturally arrives in whatever coord system Minecraft uses
-    // per slot, keeping scale correct everywhere.
-    Pos = Position + posoffset;
+    // Anchor = centroid of placeholder face (= (8, 0, 8) since encoder
+    // emits from:[0,-8,8] to:[16,8,8]). Computed via subgroup broadcast
+    // averaging — should be consistent across render slots if the
+    // subgroup-quad layout matches the face quad.
+    vec3 anchor = 0.25 * (
+        subgroupQuadBroadcast(Pos, 0) +
+        subgroupQuadBroadcast(Pos, 1) +
+        subgroupQuadBroadcast(Pos, 2) +
+        subgroupQuadBroadcast(Pos, 3)
+    );
+    Pos = anchor + posoffset;
     texCoord = (vec2(topleft.x,topleft.y+headerheight) + texCoord*size)/atlasSize
                 //make sure that faces with same uv beginning/ending renders
                 + vec2(onepixel.x*0.0001*corner,onepixel.y*0.0001*((corner+1)%4));

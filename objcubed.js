@@ -1552,14 +1552,15 @@
         for (let i = 0; i < nfaces; i++) {
             const px = i%tw, py = Math.floor(i/tw)+1;
             put(px, py, Math.trunc(px/256)%256, px%256, Math.trunc(py/256)%256, py%256);
-            // Tiny placeholder face centred on (8, -1.7, 8) — the anchor.
-            // All 4 corners of the quad land within 0.05 BB units of the
-            // anchor, so `Pos = Position + posoffset` in the shader gives
-            // each corner an effectively-shared anchor PLUS its own
-            // posoffset from the texture. No subgroup tricks needed —
-            // works identically across every render slot in Minecraft.
+            // Placeholder face — full 16x16 BB units (standard block size)
+            // centred horizontally on (8, 0, 8). Centroid Y=0 puts the
+            // shader-computed anchor at the floor of the standard block,
+            // matching how users model items in Blockbench (origin at floor).
+            // No empirical -1.7 shift here — that compensation will be
+            // applied per-slot inside the shader if needed (different render
+            // slots seem to have different intrinsic offsets).
             elements.push({
-                from: [7.95,-1.75,8], to: [8.05,-1.65,8],
+                from: [0,-8,8], to: [16,8,8],
                 faces: { north: {
                     uv: [(px+0.1)*16/tw,(py+0.1)*16/ty,(px+0.9)*16/tw,(py+0.9)*16/ty],
                     texture: '#0', tintindex: 0,
