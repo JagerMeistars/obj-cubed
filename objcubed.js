@@ -1739,6 +1739,54 @@
     // =========================================================
     // Section 10: File Saving
     // =========================================================
+    // Display contexts Minecraft items use, in the order we emit them.
+    // Each gets its own model.json with per-slot placeholder calibration
+    // (initially zero offsets — empirical tuning happens later).
+    const DISPLAY_SLOTS = [
+        'thirdperson_righthand', 'thirdperson_lefthand',
+        'firstperson_righthand', 'firstperson_lefthand',
+        'head', 'gui', 'ground', 'fixed',
+    ];
+    // Per-slot placeholder calibration. Adjusts the `from`/`to` of every
+    // element by these BB-unit deltas. Tune empirically using debug presets.
+    const SLOT_OFFSETS = {
+        thirdperson_righthand: { x: 0, y: 0, z: 0 },
+        thirdperson_lefthand:  { x: 0, y: 0, z: 0 },
+        firstperson_righthand: { x: 0, y: 0, z: 0 },
+        firstperson_lefthand:  { x: 0, y: 0, z: 0 },
+        head:                  { x: 0, y: 0, z: 0 },
+        gui:                   { x: 0, y: 0, z: 0 },
+        ground:                { x: 0, y: 0, z: 0 },
+        fixed:                 { x: 0, y: 0, z: 0 },
+    };
+
+    function calibratedElementsForSlot(baseElements, slot) {
+        const off = SLOT_OFFSETS[slot] || { x: 0, y: 0, z: 0 };
+        if (off.x === 0 && off.y === 0 && off.z === 0) return baseElements;
+        return baseElements.map(el => ({
+            ...el,
+            from: [el.from[0] + off.x, el.from[1] + off.y, el.from[2] + off.z],
+            to:   [el.to[0]   + off.x, el.to[1]   + off.y, el.to[2]   + off.z],
+        }));
+    }
+
+    function buildItemSelector(modelBaseName) {
+        return {
+            model: {
+                type: 'minecraft:select',
+                property: 'minecraft:display_context',
+                cases: DISPLAY_SLOTS.map(slot => ({
+                    when: slot,
+                    model: { type: 'minecraft:model', model: `custom/${modelBaseName}_${slot}` },
+                })),
+                fallback: {
+                    type: 'minecraft:model',
+                    model: `custom/${modelBaseName}_thirdperson_righthand`,
+                },
+            },
+        };
+    }
+
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
             const fs   = require('fs');
@@ -1752,11 +1800,48 @@
                     fs.writeFileSync(pngPath, result.pngBuffer);
                     const dir     = path.dirname(pngPath);
                     const pngName = path.basename(pngPath, '.png');
-                    const model = {
-                        textures: { 0: `block/${pngName}` },
-                        elements: result.elements,
-                        display:  displayTransforms,
-                    };
+
+                    // 8 per-slot model.json files. Each has its own placeholder
+                    // calibration so we can compensate per-slot pipeline
+                    // differences (subgroup ordering, display tag origin, etc.)
+                    // without breaking other slots.
+                    for (const slot of DISPLAY_SLOTS) {
+                        const model = {
+                            textures: { 0: `block/${pngName}` },
+                            elements: calibratedElementsForSlot(result.elements, slot),
+                            display:  displayTransforms,
+                        };
+                        fs.writeFileSync(
+                            path.join(dir, `${pngName}_${slot}.json`),
+                            JSON.stringify(model, null, 2),
+                            'utf8'
+                        );
+                    }
+
+                    // items/<name>.json — minecraft:select on display_context.
+                    fs.writeFileSync(
+                        path.join(dir, `${pngName}_item.json`),
+                        JSON.stringify(buildItemSelector(pngName), null, 2),
+                        'utf8'
+                    );
+
+                    // README so user knows where to put each file.
+                    const readme =
+                        `obj³ export — ${pngName}\n` +
+                        `================================\n\n` +
+                        `Copy the files below into your resource pack:\n\n` +
+                        `  ${pngName}.png\n` +
+                        `      → assets/<namespace>/textures/block/${pngName}.png\n\n` +
+                        `  ${pngName}_<slot>.json  (8 files)\n` +
+                        `      → assets/<namespace>/models/custom/${pngName}_<slot>.json\n\n` +
+                        `  ${pngName}_item.json\n` +
+                        `      → assets/<namespace>/items/${pngName}.json\n` +
+                        `        (rename it dropping the "_item" suffix)\n\n` +
+                        `The item selector picks a slot-calibrated model based on\n` +
+                        `Minecraft's display_context — first-person, third-person,\n` +
+                        `head, gui, ground, fixed each get their own variant.\n`;
+                    fs.writeFileSync(path.join(dir, `${pngName}_README.txt`), readme, 'utf8');
+
                     // Datapack
                     if (cfg.generateDatapack && result.nframes > 1) {
                         const dpFiles = generateDatapackFiles(
@@ -1769,11 +1854,8 @@
                             : path.join(dir, `objmc_${cfg.datapackAnimId}`);
                         saveDatapackFiles(dpFiles, dpDir);
                     }
-                    Blockbench.export({
-                        type: 'JSON Model', extensions: ['json'], name: pngName,
-                        startpath: dir,
-                        content: JSON.stringify(model, null, 2),
-                    }, () => resolve());
+
+                    resolve();
                 },
             });
         });
