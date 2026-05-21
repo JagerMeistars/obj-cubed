@@ -1805,6 +1805,9 @@
     const GUI_DEFAULT_DISPLAY      = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
     const GROUND_DEFAULT_DISPLAY   = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
     const ON_SHELF_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    // Thirdperson hand: OBJ default orientation needs a small 5° X tilt to
+    // match how a vanilla JSON cube renders in-hand (user-measured value).
+    const THIRDPERSON_DEFAULT_DISPLAY = { rotation: [5, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
 
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
@@ -1832,9 +1835,11 @@
                         const slotDisplay = { ...displayTransforms };
                         if (!slotDisplay[slot]) {
                             slotDisplay[slot] =
-                                slot === 'gui'      ? GUI_DEFAULT_DISPLAY :
-                                slot === 'ground'   ? GROUND_DEFAULT_DISPLAY :
-                                slot === 'on_shelf' ? ON_SHELF_DEFAULT_DISPLAY :
+                                slot === 'gui'                   ? GUI_DEFAULT_DISPLAY :
+                                slot === 'ground'                ? GROUND_DEFAULT_DISPLAY :
+                                slot === 'on_shelf'              ? ON_SHELF_DEFAULT_DISPLAY :
+                                slot === 'thirdperson_righthand' ? THIRDPERSON_DEFAULT_DISPLAY :
+                                slot === 'thirdperson_lefthand'  ? THIRDPERSON_DEFAULT_DISPLAY :
                                 IDENTITY_DISPLAY;
                         }
 
