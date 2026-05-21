@@ -1552,8 +1552,13 @@
         for (let i = 0; i < nfaces; i++) {
             const px = i%tw, py = Math.floor(i/tw)+1;
             put(px, py, Math.trunc(px/256)%256, px%256, Math.trunc(py/256)%256, py%256);
+            // Placeholder face for shader to override. Position chosen so the
+            // quad's CENTROID lands at (8, 8, 8) — the center of a standard
+            // Minecraft block. With shader using centroid as anchor, posoffset
+            // (±8 BB units) lands the final geometry inside [0, 16]^3, which
+            // is the standard 1-block bounds Minecraft's display tag expects.
             elements.push({
-                from: [8,0,8], to: [24,16,8],
+                from: [0,0,8], to: [16,16,8],
                 faces: { north: {
                     uv: [(px+0.1)*16/tw,(py+0.1)*16/ty,(px+0.9)*16/tw,(py+0.9)*16/ty],
                     texture: '#0', tintindex: 0,

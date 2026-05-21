@@ -181,31 +181,27 @@ if (marker == ivec4(12,34,56,78)) {
         }
         transition = 0;
         texCoord = getuv(topleft, size.x, height+vph, index.y);
-//custom entity rotation
+//entity transform (Phase 2: rely entirely on Minecraft's display tag)
 #ifdef ENTITY
-        posoffset *= scale;
-        if (isGUI == 1) {
-            posoffset *= 24;
-            posoffset.y += 4;
-            posoffset.zy *= -1;
-            posoffset = rotate(rotation + vec3(0,1,0)) * posoffset;
-        }
-        if (isHand == 1) {
-            posoffset.zx *= -1;
-            posoffset = (vec4(posoffset,0) * ModelViewMat).xyz;
-        }
-        if (isHand + isGUI == 0) {
-            if (any(greaterThan(autorotate,vec2(0)))) {
-                //normal estimated rotation calculation from The Der Discohund
-                vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
-                vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
-                vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
-                float scale = distance(vPos0, vPos1);
-                vPos1 = normalize(vPos0 - vPos1);
-                vPos2 = normalize(vPos0 - vPos2);
-                mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
-                posoffset = scale * fullRotation * posoffset;
-            }
+        posoffset *= scale;  // colorbehavior=scale per-vertex multiplier
+        // We add posoffset (object-space ±8 BB units) to the quad anchor
+        // below. Then gl_Position = ProjMat * ModelViewMat * vec4(Pos, 1.0)
+        // applies the display tag transform automatically (translation goes
+        // to the anchor; rotation+scale apply to both anchor and posoffset
+        // by linearity — Minecraft's standard item/block display pipeline).
+        //
+        // The only exception is autorotate (per-quad normal-based rotation
+        // used for billboards facing the camera) — that needs to override
+        // the display orientation.
+        if (any(greaterThan(autorotate,vec2(0)))) {
+            vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
+            vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
+            vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
+            float ar_scale = distance(vPos0, vPos1);
+            vPos1 = normalize(vPos0 - vPos1);
+            vPos2 = normalize(vPos0 - vPos2);
+            mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
+            posoffset = ar_scale * fullRotation * posoffset;
         }
     }
 #endif
@@ -213,7 +209,17 @@ if (marker == ivec4(12,34,56,78)) {
     }
 #endif
     //final pos and uv
-    Pos = subgroupQuadBroadcast(Pos, 2) + posoffset;
+    // Anchor = centroid of the placeholder quad (= center of [0,16]^3 standard
+    // block, because the encoder emits from:[0,0,8] to:[16,16,8]). Using the
+    // centroid instead of vertex 2 puts the model dead-centre in the block,
+    // which is what Minecraft's display tag expects for proper rendering.
+    vec3 anchor = 0.25 * (
+        subgroupQuadBroadcast(Pos, 0) +
+        subgroupQuadBroadcast(Pos, 1) +
+        subgroupQuadBroadcast(Pos, 2) +
+        subgroupQuadBroadcast(Pos, 3)
+    );
+    Pos = anchor + posoffset;
     texCoord = (vec2(topleft.x,topleft.y+headerheight) + texCoord*size)/atlasSize
                 //make sure that faces with same uv beginning/ending renders
                 + vec2(onepixel.x*0.0001*corner,onepixel.y*0.0001*((corner+1)%4));
