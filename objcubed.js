@@ -194,6 +194,11 @@
         [data-tip][data-tip-below]:hover::after {
             bottom: auto; top: calc(100% + 6px);
         }
+        /* Right-anchored tip — for elements near the right edge of the dialog.
+           Toggled at runtime by the mounted() handler in showDialog(). */
+        [data-tip].oc-tip-left:hover::after {
+            left: auto; right: 0; transform: none;
+        }
 
         .oc-err {
             outline: 1.5px solid #c44 !important;
@@ -260,7 +265,7 @@
 
         /* Icon-only square buttons (preset bar) */
         .oc-icon-btn {
-            width: 28px; height: 26px; padding: 0;
+            width: 24px; height: 24px; padding: 0 !important;
             display: inline-flex; align-items: center; justify-content: center;
             flex-shrink: 0;
         }
@@ -2025,6 +2030,22 @@
                         this.$watch(k, persist, { deep: true });
                     }
                 },
+                mounted() {
+                    // Tooltip auto-positioning: tooltips near the right edge
+                    // of the dialog would overflow. We swap to right-anchored
+                    // on hover by toggling .oc-tip-left on the element.
+                    this.$el.addEventListener('mouseover', (e) => {
+                        const t = e.target.closest('[data-tip]');
+                        if (!t) return;
+                        const tipRect = t.getBoundingClientRect();
+                        const rootRect = this.$el.getBoundingClientRect();
+                        if (tipRect.right > rootRect.right - 140) {
+                            t.classList.add('oc-tip-left');
+                        } else {
+                            t.classList.remove('oc-tip-left');
+                        }
+                    }, true);
+                },
                 computed: {
                     showDatapackOption() {
                         return this.hasAnims && this.animationEnabled;
@@ -2141,8 +2162,8 @@
                             return 'весь цвет работает как HSV-оттенок';
                         if (effective.every(v => v === 'hurt'))
                             return 'весь цвет управляет красной вспышкой «получил урон»';
-                        const labels = { direct:'тинт', time:'время', scale:'масштаб', overlay:'оттенок', hurt:'урон' };
-                        return `R: ${labels[effective[0]]}, G: ${labels[effective[1]]}, B: ${labels[effective[2]]}`;
+                        // Mixed combo — no summary (the per-button labels already tell the user).
+                        return '';
                     },
                     // Which preset (if any) the current R/G/B combo matches.
                     colorBehaviorPreset() {
@@ -2214,6 +2235,7 @@
                         if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
                         return many;
                     },
+                    closeDialog() { if (dialog) dialog.close(); },
                     scrollToFirstError() {
                         // Triggered by clicking the error badge in the footer.
                         // Scrolls the first .oc-err element into view and focuses it.
@@ -2638,7 +2660,6 @@
     <div class="oc-section-head clickable" @click="showDisplay=!showDisplay">
       <i class="material-icons">view_in_ar</i>
       <span style="flex:1;">Отображение в слотах</span>
-      <span style="font-size:11px;color:#666;font-weight:400;">3-е лицо [{{dThirdRX}}, {{dThirdRY}}, {{dThirdRZ}}]</span>
       <i class="material-icons" style="font-size:18px;color:#666;">{{showDisplay ? 'expand_less' : 'expand_more'}}</i>
     </div>
     <transition name="oc-collapse">
@@ -2765,7 +2786,7 @@
       <span style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;">
         Цвет и подсветка<span class="oc-help" :data-tip="help('cb_general')">?</span>
       </span>
-      <span style="font-size:11px;color:#888;margin-left:auto;">— {{colorBehaviorPretty}}</span>
+      <span v-if="colorBehaviorPretty" style="font-size:11px;color:#888;margin-left:auto;flex:1;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— {{colorBehaviorPretty}}</span>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
@@ -2842,11 +2863,15 @@
     <span :style="{color: status.startsWith('Error')?'#f66' : (status.startsWith('Готово') || status.startsWith('Done'))?'#6f6' : '#aaa', fontSize:'12px', flex:1, textAlign:'right'}">
       {{status}}
     </span>
+    <button class="oc-btn" @click="closeDialog">Закрыть</button>
   </div>
 
 </div>`,
             },
-            buttons: ['Close'],
+            // Don't draw BlockBench's native button bar — we have our own
+            // sticky footer with the export button + close button. Two
+            // separate bars looked disjoint (different baselines, styles).
+            buttons: [],
         });
 
         dialog.show();
