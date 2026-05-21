@@ -209,16 +209,17 @@ if (marker == ivec4(12,34,56,78)) {
     }
 #endif
     //final pos and uv
-    // Anchor = centroid of the placeholder quad. Encoder emits
-    // from:[0,-9.7,8] to:[16,6.3,8], so centroid is (8, -1.7, 8). The -1.7
-    // Y shift compensates an empirically-observed render drift that put
-    // our model above a vanilla JSON-cube reference at the same OBJ coords.
-    vec3 anchor = 0.25 * (
-        subgroupQuadBroadcast(Pos, 0) +
-        subgroupQuadBroadcast(Pos, 1) +
-        subgroupQuadBroadcast(Pos, 2) +
-        subgroupQuadBroadcast(Pos, 3)
-    );
+    // Anchor HARDCODED instead of subgroupQuadBroadcast centroid because
+    // Minecraft's vertex submission order varies per render slot
+    // (first-person hand vs third-person vs equipment etc.), which gave
+    // different anchor values per slot — the model ended up in the right
+    // place in first person but flew off in third. Hardcoding gives a
+    // single deterministic anchor that's correct everywhere.
+    //
+    // Y=-1.7 compensates an empirically observed render drift between our
+    // model and a vanilla JSON-cube reference at the same OBJ coords.
+    // (X=8, Z=8 = center of standard block on those axes.)
+    vec3 anchor = vec3(8.0, -1.7, 8.0);
     Pos = anchor + posoffset;
     texCoord = (vec2(topleft.x,topleft.y+headerheight) + texCoord*size)/atlasSize
                 //make sure that faces with same uv beginning/ending renders

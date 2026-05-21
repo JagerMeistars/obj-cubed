@@ -1552,15 +1552,12 @@
         for (let i = 0; i < nfaces; i++) {
             const px = i%tw, py = Math.floor(i/tw)+1;
             put(px, py, Math.trunc(px/256)%256, px%256, Math.trunc(py/256)%256, py%256);
-            // Placeholder face — centroid at (8, -1.7, 8). The -1.7 Y shift
-            // compensates an empirically-observed render drift between our
-            // model and a vanilla JSON-cube reference at the same OBJ coords.
-            // Source not yet identified (likely a Minecraft item-render
-            // constant offset for in-hand "block-like item" rendering); the
-            // empirical compensation gives pixel-aligned match in first-
-            // and third-person hand slots.
+            // Placeholder face — standard [0, 16] bounds. Anchor is hardcoded
+            // in the shader (vec3(8, -1.7, 8)) so the actual centroid of this
+            // face doesn't matter for rendering output. The standard bounds
+            // are safer for Minecraft's bounding-box logic.
             elements.push({
-                from: [0,-9.7,8], to: [16,6.3,8],
+                from: [0,0,8], to: [16,16,8],
                 faces: { north: {
                     uv: [(px+0.1)*16/tw,(py+0.1)*16/ty,(px+0.9)*16/tw,(py+0.9)*16/ty],
                     texture: '#0', tintindex: 0,
