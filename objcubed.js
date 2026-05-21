@@ -1757,7 +1757,10 @@
         firstperson_righthand: { x: 0, y: 0,   z: 0  },
         firstperson_lefthand:  { x: 0, y: 0,   z: 0  },
         head:                  { x: 0, y: 0,   z: 0  },
-        gui:                   { x: 0, y: 0,   z: 0  },
+        // DIAGNOSTIC: extreme x=-100 to verify items selector actually picks
+        // the _gui.json file in inventory. If model shifts far left in GUI
+        // → selector works. If nothing changes → fallback is being used.
+        gui:                   { x: -100, y: 0, z: 0 },
         // DIAGNOSTIC: ground and on_shelf set to extreme y=-100 so we can
         // tell at a glance whether Minecraft is even using these slot
         // models or routing through some other path (item entity etc).
