@@ -1741,23 +1741,26 @@
     // =========================================================
     // Display contexts Minecraft items use, in the order we emit them.
     // Each gets its own model.json with per-slot placeholder calibration
-    // (initially zero offsets — empirical tuning happens later).
+    // (empirically determined via debug-mode measurements vs vanilla JSON
+    // cube reference).
     const DISPLAY_SLOTS = [
         'thirdperson_righthand', 'thirdperson_lefthand',
         'firstperson_righthand', 'firstperson_lefthand',
-        'head', 'gui', 'ground', 'fixed',
+        'head', 'gui', 'ground', 'fixed', 'on_shelf',
     ];
     // Per-slot placeholder calibration. Adjusts the `from`/`to` of every
-    // element by these BB-unit deltas. Tune empirically using debug presets.
+    // element by these BB-unit deltas. Values measured against a reference
+    // vanilla JSON cube placed at the same OBJ coordinates.
     const SLOT_OFFSETS = {
-        thirdperson_righthand: { x: 0, y: 0, z: 0 },
-        thirdperson_lefthand:  { x: 0, y: 0, z: 0 },
-        firstperson_righthand: { x: 0, y: 0, z: 0 },
-        firstperson_lefthand:  { x: 0, y: 0, z: 0 },
-        head:                  { x: 0, y: 0, z: 0 },
-        gui:                   { x: 0, y: 0, z: 0 },
-        ground:                { x: 0, y: 0, z: 0 },
-        fixed:                 { x: 0, y: 0, z: 0 },
+        thirdperson_righthand: { x: 0, y: -3,  z: -3 },
+        thirdperson_lefthand:  { x: 0, y: -3,  z: -3 },
+        firstperson_righthand: { x: 0, y: 0,   z: 0  },
+        firstperson_lefthand:  { x: 0, y: 0,   z: 0  },
+        head:                  { x: 0, y: 0,   z: 0  },
+        gui:                   { x: 0, y: 0,   z: 0  },
+        ground:                { x: 0, y: -10, z: 0  },
+        fixed:                 { x: 0, y: 0,   z: 0  },
+        on_shelf:              { x: 0, y: -3,  z: 0  },
     };
 
     function calibratedElementsForSlot(baseElements, slot) {
