@@ -1801,12 +1801,15 @@
     // otherwise inherit block/block rotation [30, 225, 0]).
     const IDENTITY_DISPLAY = { rotation: [0,0,0], translation: [0,0,0], scale: [1,1,1] };
 
-    // GUI display — identity. Plain 3D model in inventory at natural scale.
-    // 2D-icon reference will inherently look bigger than a 3D model — different
-    // render paths. Visual match requires either: (a) accept 3D appearance,
-    // (b) adjust scale empirically via user testing, or (c) generate a 2D icon
-    // variant for GUI (future option).
-    const GUI_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    // Per-slot default display tag overrides. Ground and on_shelf ignore
+    // element offsets (Minecraft re-centres the model), so calibration for
+    // those slots MUST go through display tag translation.
+    const GUI_DEFAULT_DISPLAY      = { rotation: [0, 0, 0], translation: [0, 0, 0],  scale: [1, 1, 1] };
+    // DIAGNOSTIC: y=-10 to verify display-tag translation actually moves
+    // the model for ground / on_shelf contexts. If model shifts visibly
+    // down, we have a working calibration knob — refine values from there.
+    const GROUND_DEFAULT_DISPLAY   = { rotation: [0, 0, 0], translation: [0, -10, 0], scale: [1, 1, 1] };
+    const ON_SHELF_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, -10, 0], scale: [1, 1, 1] };
 
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
@@ -1833,9 +1836,11 @@
                         // which would override our per-slot placeholder calibration.
                         const slotDisplay = { ...displayTransforms };
                         if (!slotDisplay[slot]) {
-                            slotDisplay[slot] = (slot === 'gui')
-                                ? GUI_DEFAULT_DISPLAY
-                                : IDENTITY_DISPLAY;
+                            slotDisplay[slot] =
+                                slot === 'gui'      ? GUI_DEFAULT_DISPLAY :
+                                slot === 'ground'   ? GROUND_DEFAULT_DISPLAY :
+                                slot === 'on_shelf' ? ON_SHELF_DEFAULT_DISPLAY :
+                                IDENTITY_DISPLAY;
                         }
 
                         const model = {
