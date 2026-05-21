@@ -88,19 +88,6 @@
     // here lets Stage 7 (polish) extend them without touching the template.
     const STYLESHEET_ID = 'objcubed-styles';
     const STYLESHEET = `
-        /* Root layout: column flex so the export footer below content is
-           always visible while content above can scroll independently. */
-        .oc-root {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            max-height: 100%;
-        }
-        .oc-content {
-            flex: 1 1 auto;
-            overflow-y: auto;
-            padding: 14px 16px;
-        }
         /* BlockBench's own stylesheet gives form controls a non-zero
            min-width that pushes ranges/selects past their grid cells.
            We override with !important to win the specificity war. */
@@ -166,15 +153,11 @@
         }
         .oc-help:hover { background:#5a8cc0; color:#fff; }
 
-        /* Custom CSS tooltip — works where Electron's native title= is silent.
-           Triggered by [data-tip] on any element. */
-        [data-tip] { position: relative; }
-        [data-tip]:hover::after {
-            content: attr(data-tip);
-            position: absolute;
-            bottom: calc(100% + 6px);
-            left: 50%;
-            transform: translateX(-50%);
+        /* JS-driven tooltip portal. The element lives on document.body so
+           it can extend past the dialog bounds. The mounted() handler
+           positions it within the viewport on every hover. */
+        .oc-tooltip {
+            position: fixed;
             background: #1f1f1f;
             color: #e6e6e6;
             padding: 6px 9px;
@@ -183,22 +166,14 @@
             font-size: 11px;
             font-weight: 400;
             line-height: 1.4;
-            white-space: normal;
-            width: max-content;
             max-width: 280px;
-            z-index: 9999;
+            z-index: 99999;
             pointer-events: none;
             box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+            opacity: 0;
+            transition: opacity 100ms;
         }
-        /* Flip tip below the element if it's near the top edge */
-        [data-tip][data-tip-below]:hover::after {
-            bottom: auto; top: calc(100% + 6px);
-        }
-        /* Right-anchored tip — for elements near the right edge of the dialog.
-           Toggled at runtime by the mounted() handler in showDialog(). */
-        [data-tip].oc-tip-left:hover::after {
-            left: auto; right: 0; transform: none;
-        }
+        .oc-tooltip.visible { opacity: 1; }
 
         .oc-err {
             outline: 1.5px solid #c44 !important;
@@ -263,13 +238,23 @@
             background: #3a4f72; border-color: #7aacd0; color: #fff;
         }
 
-        /* Icon-only square buttons (preset bar) */
+        /* Icon-only square buttons (preset bar) — defensive against BB defaults */
         .oc-icon-btn {
-            width: 24px; height: 24px; padding: 0 !important;
-            display: inline-flex; align-items: center; justify-content: center;
+            width: 24px !important;
+            min-width: 24px !important;
+            max-width: 24px !important;
+            height: 24px !important;
+            min-height: 24px !important;
+            max-height: 24px !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
             flex-shrink: 0;
+            box-sizing: border-box !important;
+            line-height: 1 !important;
         }
-        .oc-icon-btn .material-icons { font-size: 16px; }
+        .oc-icon-btn .material-icons { font-size: 14px; }
 
         /* Color & Tinting channel button: keeps R/G/B letter and the
            current value label in a tidy column, centered vertically. */
@@ -374,17 +359,25 @@
         /* Compact preset bar (1 preset only) — just name + add button */
         .oc-preset-compact { display: flex; align-items: center; gap: 8px; }
 
-        /* Permanent footer — sibling of .oc-content inside the flex root.
-           Always visible regardless of scroll position, like the
-           AnimatedJava Confirm/Cancel bar. */
+        /* Sticky footer — pinned to bottom of the nearest scroll container
+           (BlockBench Dialog body). Transparent-ish background blends with
+           the dialog so the footer doesn't look like a separate panel. */
         .oc-footer-sticky {
-            flex-shrink: 0;
+            position: sticky;
+            bottom: 0;
+            margin: 14px -16px -14px -16px;
             padding: 10px 16px;
-            background: #2a2a2a;
-            border-top: 1px solid rgba(255,255,255,0.12);
-            box-shadow: 0 -4px 12px rgba(0,0,0,0.25);
+            background: inherit;
+            border-top: 1px solid rgba(255,255,255,0.10);
             display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
             z-index: 5;
+        }
+        /* Add a subtle backdrop only when content is actually scrollable.
+           Implemented via JS toggle of .oc-footer-floating on the footer. */
+        .oc-footer-sticky.oc-footer-floating {
+            background: rgba(20,20,20,0.85);
+            backdrop-filter: blur(4px);
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.25);
         }
 
         /* Collapse transition */
@@ -2031,20 +2024,51 @@
                     }
                 },
                 mounted() {
-                    // Tooltip auto-positioning: tooltips near the right edge
-                    // of the dialog would overflow. We swap to right-anchored
-                    // on hover by toggling .oc-tip-left on the element.
+                    // Tooltip portal — single floating element repositioned per hover.
+                    // Lives on document.body so it never gets clipped by the dialog.
+                    let tip = document.getElementById('oc-tooltip-portal');
+                    if (!tip) {
+                        tip = document.createElement('div');
+                        tip.id = 'oc-tooltip-portal';
+                        tip.className = 'oc-tooltip';
+                        document.body.appendChild(tip);
+                    }
+                    this._tipEl = tip;
+                    const show = (target) => {
+                        const text = target.getAttribute('data-tip');
+                        if (!text) return;
+                        tip.textContent = text;
+                        // Reset positioning so measurement is clean
+                        tip.style.left = '0px';
+                        tip.style.top  = '0px';
+                        tip.classList.add('visible');
+                        // Measure
+                        const r = target.getBoundingClientRect();
+                        const t = tip.getBoundingClientRect();
+                        const pad = 6, edge = 8;
+                        let left = r.left + r.width/2 - t.width/2;
+                        let top  = r.top  - t.height - pad;
+                        // Keep inside viewport
+                        if (left < edge) left = edge;
+                        if (left + t.width > window.innerWidth - edge)
+                            left = window.innerWidth - edge - t.width;
+                        if (top < edge) top = r.bottom + pad;  // flip below
+                        tip.style.left = left + 'px';
+                        tip.style.top  = top  + 'px';
+                    };
+                    const hide = () => tip.classList.remove('visible');
                     this.$el.addEventListener('mouseover', (e) => {
                         const t = e.target.closest('[data-tip]');
-                        if (!t) return;
-                        const tipRect = t.getBoundingClientRect();
-                        const rootRect = this.$el.getBoundingClientRect();
-                        if (tipRect.right > rootRect.right - 140) {
-                            t.classList.add('oc-tip-left');
-                        } else {
-                            t.classList.remove('oc-tip-left');
-                        }
-                    }, true);
+                        if (t && this.$el.contains(t)) show(t);
+                    });
+                    this.$el.addEventListener('mouseout', (e) => {
+                        const t = e.target.closest('[data-tip]');
+                        if (t) hide();
+                    });
+                },
+                beforeDestroy() {
+                    const tip = document.getElementById('oc-tooltip-portal');
+                    if (tip) tip.remove();
                 },
                 computed: {
                     showDatapackOption() {
@@ -2452,8 +2476,7 @@
                     },
                 },
                 template: `
-<div class="oc-root" style="font-size:13px;line-height:1.6;overflow-x:hidden;">
-<div class="oc-content">
+<div class="oc-root" style="padding:14px 16px;font-size:13px;line-height:1.6;overflow-x:hidden;">
 
   <!-- ======== PRESET BAR (compact when only 1 preset) ======== -->
   <div v-if="presetNames.length === 1" class="oc-preset-compact" style="margin-bottom:10px;padding:5px 8px;background:rgba(255,255,255,0.025);border-radius:4px;">
@@ -2846,9 +2869,7 @@
     </transition>
   </div>
 
-  </div><!-- /.oc-content -->
-
-  <!-- ======== EXPORT (always-visible footer) ======== -->
+  <!-- ======== EXPORT (sticky footer) ======== -->
   <div class="oc-footer-sticky">
     <button class="oc-btn-export" @click="doExport" :disabled="running || validationErrors.length > 0">
       <i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:4px;">file_download</i>{{running ? 'Работаю…' : 'Экспортировать «' + (presetNames[activePresetIdx] || '') + '»'}}
