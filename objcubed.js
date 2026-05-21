@@ -1752,20 +1752,14 @@
     // element by these BB-unit deltas. Values measured against a reference
     // vanilla JSON cube placed at the same OBJ coordinates.
     const SLOT_OFFSETS = {
-        thirdperson_righthand: { x: 0, y: -3,  z: -3 },
-        thirdperson_lefthand:  { x: 0, y: -3,  z: -3 },
+        thirdperson_righthand: { x: 0, y: 0,  z: 0 },
+        thirdperson_lefthand:  { x: 0, y: 0,  z: 0 },
         firstperson_righthand: { x: 0, y: 0,   z: 0  },
         firstperson_lefthand:  { x: 0, y: 0,   z: 0  },
         head:                  { x: 0, y: 0,   z: 0  },
         gui:                   { x: 0, y: 6, z: 0 },
-        // Reset to zero — extreme y=-100 was pushing elements past
-        // Minecraft's [-16, 32] bounds, causing missing-texture error model.
         ground:                { x: 0, y: 0,  z: 0 },
         fixed:                 { x: 0, y: 0,  z: 0 },
-        // DIAGNOSTIC y=+10 to confirm on_shelf context actually triggers in
-        // user's MC version. If model shifts up visibly when placed in shelf,
-        // selector works. If not, fallback (thirdperson_righthand) is used
-        // because MC version doesn't recognize on_shelf context.
         on_shelf:              { x: 0, y: 0, z: 0 },
     };
 
