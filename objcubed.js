@@ -88,9 +88,22 @@
     // here lets Stage 7 (polish) extend them without touching the template.
     const STYLESHEET_ID = 'objcubed-styles';
     const STYLESHEET = `
-        /* Root sizing: BlockBench's own stylesheet gives form controls
-           a non-zero min-width that pushes ranges/selects past their grid
-           cells. We override with !important to win the specificity war. */
+        /* Root layout: column flex so the export footer below content is
+           always visible while content above can scroll independently. */
+        .oc-root {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-height: 100%;
+        }
+        .oc-content {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding: 14px 16px;
+        }
+        /* BlockBench's own stylesheet gives form controls a non-zero
+           min-width that pushes ranges/selects past their grid cells.
+           We override with !important to win the specificity war. */
         .oc-root, .oc-root * { box-sizing: border-box; }
         .oc-root input,
         .oc-root select,
@@ -102,12 +115,42 @@
         .oc-root input[type=range] {
             min-width: 0 !important;
             width: 100% !important;
+            accent-color: #5a8cc0;
         }
+        .oc-root input[type=checkbox] { accent-color: #5a8cc0; }
         .oc-root input[type=number],
         .oc-root input[type=text],
-        .oc-root input:not([type]) {
-            width: 100%;
+        .oc-root input:not([type]) { width: 100%; }
+
+        /* Focus rings — replace ugly browser default with a plugin-toned ring */
+        .oc-root input:focus-visible,
+        .oc-root select:focus-visible,
+        .oc-root textarea:focus-visible,
+        .oc-root button:focus-visible {
+            outline: 2px solid #5a8cc0;
+            outline-offset: 1px;
         }
+
+        /* Inline error message under a field — same style as AnimatedJava */
+        .oc-err-msg {
+            display: flex; align-items: center; gap: 4px;
+            color: #f88; font-size: 11px;
+            margin-top: 2px;
+            line-height: 1.3;
+        }
+        .oc-err-msg::before {
+            content: '!';
+            display: inline-block;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #c44; color: #fff;
+            font-weight: 700; font-size: 9px;
+            text-align: center; line-height: 12px;
+            flex-shrink: 0;
+        }
+
+        /* Long monospace strings (datapack command sample) — wrap aggressively */
+        .oc-mono-wrap { word-break: break-all; font-family: monospace; }
 
         .oc-help {
             position: relative;
@@ -239,6 +282,9 @@
         }
         .oc-cb-btn .oc-cb-letter { font-size: 16px; font-weight: 700; }
         .oc-cb-btn .oc-cb-value  { font-size: 11px; color: #bbb; }
+        .oc-cb-btn { transition: background 120ms, transform 80ms; }
+        .oc-cb-btn:hover  { background: #333; }
+        .oc-cb-btn:active { transform: scale(0.97); background: #1f1f1f; }
 
         /* Range+number row — keeps the number input from being squished
            and the slider from overflowing its grid cell. */
@@ -323,14 +369,11 @@
         /* Compact preset bar (1 preset only) — just name + add button */
         .oc-preset-compact { display: flex; align-items: center; gap: 8px; }
 
-        /* Sticky footer — keeps the export button visible while user scrolls.
-           Negative margins push it to the dialog edges so the background
-           covers full width. The padding here mirrors the root padding so
-           content above doesn't visually shift. */
+        /* Permanent footer — sibling of .oc-content inside the flex root.
+           Always visible regardless of scroll position, like the
+           AnimatedJava Confirm/Cancel bar. */
         .oc-footer-sticky {
-            position: sticky;
-            bottom: -14px;
-            margin: 14px -16px -14px -16px;
+            flex-shrink: 0;
             padding: 10px 16px;
             background: #2a2a2a;
             border-top: 1px solid rgba(255,255,255,0.12);
@@ -2387,13 +2430,14 @@
                     },
                 },
                 template: `
-<div class="oc-root" style="padding:14px 16px;font-size:13px;line-height:1.6;overflow-x:hidden;">
+<div class="oc-root" style="font-size:13px;line-height:1.6;overflow-x:hidden;">
+<div class="oc-content">
 
   <!-- ======== PRESET BAR (compact when only 1 preset) ======== -->
   <div v-if="presetNames.length === 1" class="oc-preset-compact" style="margin-bottom:10px;padding:5px 8px;background:rgba(255,255,255,0.025);border-radius:4px;">
     <i class="material-icons" style="font-size:15px;color:#888;">bookmarks</i>
     <span style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Пресет:</span>
-    <span style="color:#bbb;flex:1;">{{presetNames[0]}}</span>
+    <span style="color:#bbb;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{presetNames[0]}}</span>
     <button class="oc-btn oc-icon-btn" @click="addPreset" data-tip="Создать ещё один пресет"><i class="material-icons">add</i></button>
   </div>
   <div v-else style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
@@ -2406,8 +2450,10 @@
     <button class="oc-btn oc-icon-btn" @click="addPreset" data-tip="Создать новый пресет"><i class="material-icons">add</i></button>
     <button class="oc-btn oc-icon-btn" @click="duplicatePreset" data-tip="Скопировать текущий"><i class="material-icons">content_copy</i></button>
     <button class="oc-btn oc-icon-btn" @click="renameCurrentPreset" data-tip="Переименовать"><i class="material-icons">edit</i></button>
-    <button class="oc-btn oc-icon-btn oc-btn-danger" @click="deleteCurrentPreset"
-            data-tip="Удалить пресет"><i class="material-icons">delete_outline</i></button>
+    <span :data-tip="presetNames.length < 2 ? 'Нельзя удалить последний пресет' : 'Удалить пресет'" style="display:inline-flex;">
+      <button class="oc-btn oc-icon-btn oc-btn-danger" @click="deleteCurrentPreset"
+              :disabled="presetNames.length < 2"><i class="material-icons">delete_outline</i></button>
+    </span>
   </div>
 
   <!-- ======== TEXTURE ======== -->
@@ -2458,6 +2504,7 @@
       <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;">
         <span>Масштаб<span class="oc-help" :data-tip="help('scale')">?</span></span>
         <input v-model="scale" type="number" step="0.1" :class="hasErr('scale') ? 'oc-err' : ''"/>
+        <span v-if="hasErr('scale')" class="oc-err-msg">{{fieldErrorMap.scale}}</span>
       </label>
       <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;">
         <span>Сдвиг X<span class="oc-help" :data-tip="help('offset')">?</span></span>
@@ -2499,6 +2546,7 @@
         <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;">
           <span>FPS<span class="oc-help" :data-tip="help('animFps')">?</span></span>
           <input v-model="animFps" type="number" min="1" max="60" :class="hasErr('animFps') ? 'oc-err' : ''"/>
+          <span v-if="hasErr('animFps')" class="oc-err-msg">{{fieldErrorMap.animFps}}</span>
         </label>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -2509,6 +2557,7 @@
         <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
           <span>Конец (с)</span>
           <input v-model="animEnd" type="number" step="0.05" :class="hasErr('animEnd') ? 'oc-err' : ''"/>
+          <span v-if="hasErr('animEnd')" class="oc-err-msg">{{fieldErrorMap.animEnd}}</span>
         </label>
       </div>
       <div v-if="frameCountPreview" class="oc-frame-chip">
@@ -2538,10 +2587,12 @@
             <label style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
               <span>ID анимации<span class="oc-help" :data-tip="help('datapackAnimId')">?</span></span>
               <input v-model="datapackAnimId" placeholder="anim" maxlength="12" :class="hasErr('datapackAnimId') ? 'oc-err' : ''"/>
+              <span v-if="hasErr('datapackAnimId')" class="oc-err-msg">{{fieldErrorMap.datapackAnimId}}</span>
             </label>
             <label style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
               <span>Пространство имён<span class="oc-help" :data-tip="help('datapackNamespace')">?</span></span>
               <input v-model="datapackNamespace" placeholder="objmc" :class="hasErr('datapackNamespace') ? 'oc-err' : ''"/>
+              <span v-if="hasErr('datapackNamespace')" class="oc-err-msg">{{fieldErrorMap.datapackNamespace}}</span>
             </label>
             <label style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
               <span>Кому применять<span class="oc-help" :data-tip="help('datapackTargetType')">?</span></span>
@@ -2575,7 +2626,7 @@
           </div>
           <div style="color:#777;font-size:11px;line-height:1.5;">
             Функции датапака: init, play, stop, set, play_from, play_once<br/>
-            <span style="color:#aaa;font-family:monospace;">execute as @e[…] run function {{datapackNamespace}}:animations/{{datapackAnimId}}/play</span>
+            <span class="oc-mono-wrap" style="color:#aaa;">execute as @e[…] run function {{datapackNamespace}}:animations/{{datapackAnimId}}/play</span>
           </div>
         </div>
       </div>
@@ -2774,7 +2825,9 @@
     </transition>
   </div>
 
-  <!-- ======== EXPORT (sticky footer — always visible) ======== -->
+  </div><!-- /.oc-content -->
+
+  <!-- ======== EXPORT (always-visible footer) ======== -->
   <div class="oc-footer-sticky">
     <button class="oc-btn-export" @click="doExport" :disabled="running || validationErrors.length > 0">
       <i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:4px;">file_download</i>{{running ? 'Работаю…' : 'Экспортировать «' + (presetNames[activePresetIdx] || '') + '»'}}
