@@ -1395,21 +1395,15 @@
     //           so display scale would double with the export Scale field.
     //
     // Source priority:
-    //   1. Project.display (native BlockBench Display editor) — full 8 slots
-    //   2. cfg.displaySlots (our dialog's per-slot fields, legacy fallback)
-    //   3. Minecraft standard 3D item defaults — sensible for users who
-    //      didn't touch display at all.
-    const DEFAULT_DISPLAY = {
-        thirdperson_righthand: { rotation:[0,0,0],    translation:[0,3,1],   scale:[0.55,0.55,0.55] },
-        thirdperson_lefthand:  { rotation:[0,0,0],    translation:[0,3,1],   scale:[0.55,0.55,0.55] },
-        firstperson_righthand: { rotation:[0,45,0],   translation:[0,4,2],   scale:[0.68,0.68,0.68] },
-        firstperson_lefthand:  { rotation:[0,225,0],  translation:[0,4,2],   scale:[0.68,0.68,0.68] },
-        head:                  { rotation:[0,180,0],  translation:[0,12.5,-7], scale:[1,1,1] },
-        gui:                   { rotation:[30,225,0], translation:[0,0,0],   scale:[0.625,0.625,0.625] },
-        ground:                { rotation:[0,0,0],    translation:[0,2,0],   scale:[0.5,0.5,0.5] },
-        fixed:                 { rotation:[0,0,0],    translation:[0,0,0],   scale:[1,1,1] },
-    };
-
+    //   1. global `display` (native BlockBench Display editor — that's the
+    //      variable BB exposes; `Project.display` may also exist but `display`
+    //      is the working set BB writes into on every slot edit).
+    //   2. cfg.displaySlots (our dialog's legacy per-slot fields).
+    //
+    // We DO NOT inject defaults — slots the user didn't customise are skipped
+    // entirely, so Minecraft applies its built-in item defaults (which depend
+    // on the model's parent). Pumping our own "sensible" values into every
+    // slot was overriding vanilla rendering in unpredictable ways.
     function buildDisplayTransforms(cfg) {
         const result = {};
         const ALL_SLOTS = [
@@ -1418,23 +1412,20 @@
             'head','gui','ground','fixed',
         ];
 
-        // Priority 1: native BlockBench Display editor (Project.display object,
-        // map of slotName -> DisplaySlot with rotation/translation/scale arrays).
-        const nativeDisplay = (typeof Project !== 'undefined' && Project && Project.display) || null;
-        // Priority 2: legacy fields from our dialog.
+        const nativeDisplay = (typeof display !== 'undefined' && display) ||
+                              (typeof Project !== 'undefined' && Project && Project.display) ||
+                              null;
         const dialogSlots = cfg.displaySlots || {};
 
         for (const key of ALL_SLOTS) {
-            const def = DEFAULT_DISPLAY[key];
             const nat = nativeDisplay && nativeDisplay[key];
             const dlg = dialogSlots[key];
+            if (!nat && !dlg) continue;  // skip — let Minecraft use its default
 
-            const r = (nat && nat.rotation)    || (dlg && dlg.rotation)    || def.rotation;
-            const t = (nat && nat.translation) || (dlg && dlg.translation) || def.translation;
-            const s = (nat && nat.scale)       || (dlg && dlg.scale)       || def.scale;
+            const r = (nat && nat.rotation)    || (dlg && dlg.rotation)    || [0,0,0];
+            const t = (nat && nat.translation) || (dlg && dlg.translation) || [0,0,0];
+            const s = (nat && nat.scale)       || (dlg && dlg.scale)       || [1,1,1];
 
-            // Only emit a slot entry if at least one of r/t/s differs from
-            // Minecraft's zero-default — keeps model.json compact.
             const entry = {};
             if (r.some(v => v !== 0)) entry.rotation    = [...r];
             if (t.some(v => v !== 0)) entry.translation = [...t];
@@ -2308,9 +2299,16 @@
                     },
                     closeDialog() { if (dialog) dialog.close(); },
                     openNativeDisplayEditor() {
-                        if (dialog) dialog.close();
+                        // Switch BlockBench to Display mode without closing
+                        // our dialog (user can press Esc / use Mode bar to
+                        // return to Edit mode, then re-open our dialog from
+                        // File → Экспорт obj³).
                         if (typeof Modes !== 'undefined' && Modes.options && Modes.options.display) {
                             Modes.options.display.select();
+                            if (typeof Blockbench !== 'undefined' && Blockbench.showQuickMessage) {
+                                Blockbench.showQuickMessage('Откройте File → Экспорт obj³ когда закончите', 3500);
+                            }
+                            if (dialog) dialog.close();
                         } else if (typeof Blockbench !== 'undefined' && Blockbench.showQuickMessage) {
                             Blockbench.showQuickMessage('Режим Display недоступен в этом формате модели', 3000);
                         }

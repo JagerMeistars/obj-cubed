@@ -181,29 +181,31 @@ if (marker == ivec4(12,34,56,78)) {
         }
         transition = 0;
         texCoord = getuv(topleft, size.x, height+vph, index.y);
-//entity transform
+//custom entity rotation
 #ifdef ENTITY
-        posoffset *= scale;  // colorbehavior=scale magic (per-vertex multiplier)
-        // Apply display tag uniformly: Minecraft has already encoded the active
-        // slot's rotation/translation/scale into ModelViewMat. Below in main()
-        // gl_Position = ProjMat * ModelViewMat * vec4(Pos, 1.0) — so the
-        // display transform applies to the FULL Pos (anchor + posoffset) once.
-        // We do NOT pre-transform posoffset here (that caused double-application
-        // and a row-vector*matrix bug in the original Hand block).
-        //
-        // Exception: autorotate uses per-quad normal-based rotation that must
-        // overwrite the default display orientation (used for particle-like
-        // billboards facing the camera).
-        if (any(greaterThan(autorotate,vec2(0)))) {
-            //normal estimated rotation calculation from The Der Discohund
-            vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
-            vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
-            vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
-            float ar_scale = distance(vPos0, vPos1);
-            vPos1 = normalize(vPos0 - vPos1);
-            vPos2 = normalize(vPos0 - vPos2);
-            mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
-            posoffset = ar_scale * fullRotation * posoffset;
+        posoffset *= scale;
+        if (isGUI == 1) {
+            posoffset *= 24;
+            posoffset.y += 4;
+            posoffset.zy *= -1;
+            posoffset = rotate(rotation + vec3(0,1,0)) * posoffset;
+        }
+        if (isHand == 1) {
+            posoffset.zx *= -1;
+            posoffset = (vec4(posoffset,0) * ModelViewMat).xyz;
+        }
+        if (isHand + isGUI == 0) {
+            if (any(greaterThan(autorotate,vec2(0)))) {
+                //normal estimated rotation calculation from The Der Discohund
+                vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
+                vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
+                vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
+                float scale = distance(vPos0, vPos1);
+                vPos1 = normalize(vPos0 - vPos1);
+                vPos2 = normalize(vPos0 - vPos2);
+                mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
+                posoffset = scale * fullRotation * posoffset;
+            }
         }
     }
 #endif
