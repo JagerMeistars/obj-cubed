@@ -8,14 +8,10 @@ Open `objcubed/assets/minecraft/shaders/include/objmc_main.glsl` and find
 the `DEBUG MODE` block near the bottom. Uncomment **one** preset (just
 the `// OC_DBG_COLOR(...)` line for that preset).
 
-**IMPORTANT:** the model must have **shadows enabled** (do NOT tick
-"Без тени" in the export dialog). The shader's `noshadow == 1` path
-bypasses every color modulation and renders the raw texture — debug
-will not show.
-
-For most reliable RGB readout, use a uniformly **white** test texture.
-With a coloured texture the debug RGB is multiplied by the texel
-(`final pixel = texture × debug`); ratios still readable.
+The debug uses `isCustom = 2` as a bypass flag. Entity/item fragment
+shaders detect it and emit `overlayColor.rgb` directly — no texture
+sampling, no light/shadow mix, no fog. **Pixel RGB == raw debug value**
+regardless of model settings or texture. Works with shadows on or off.
 
 Choose **one** preset:
 

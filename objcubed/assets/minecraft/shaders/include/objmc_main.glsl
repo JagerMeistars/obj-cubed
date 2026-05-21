@@ -232,14 +232,13 @@ if (marker == ivec4(12,34,56,78)) {
     //
     // RANGE_HINT below sets X for each preset.
 #ifdef ENTITY
-    // REQUIRES SHADOWS ENABLED on the model (don't tick "Без тени" in the
-    // export dialog). objmc_light.glsl applies overlayColor as a tint
-    // multiplier only in the `noshadow == 0` branch; with noshadow=1 the
-    // fragment shader keeps the raw texture and ignores both vertexColor
-    // and overlayColor. Use a uniformly-white test texture for cleanest
-    // RGB readout; with coloured textures the debug RGB is multiplied by
-    // the texel so ratios stay readable.
-    #define OC_DBG_COLOR(c) overlayColor = vec4((c).rgb, 1.0)
+    // Debug bypasses ALL lighting/texture/shadow paths by setting
+    // isCustom = 2. The entity/item fragment shaders check for this
+    // flag at the top of main() and emit overlayColor.rgb directly
+    // — no texture sampling, no light/shadow mix, no fog. Result:
+    // pixel RGB == debug value, no distortion. Works with or without
+    // "Без тени" set on the model.
+    #define OC_DBG_COLOR(c) isCustom = 2; overlayColor = vec4((c).rgb, 1.0)
 
     // ---- A1: Pos before ModelViewMat (object space) ----
     // RANGE_HINT = 32. Decode each channel: (byte/255)*64 - 32.
