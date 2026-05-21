@@ -1797,11 +1797,12 @@
     // otherwise inherit block/block rotation [30, 225, 0]).
     const IDENTITY_DISPLAY = { rotation: [0,0,0], translation: [0,0,0], scale: [1,1,1] };
 
-    // DIAGNOSTIC: obviously-rotated GUI display to verify Minecraft actually
-    // applies our explicit display.gui tag. If model rotates by 45° in
-    // inventory, display tag works. If still shows default inventory tilt,
-    // Minecraft is ignoring our tag.
-    const GUI_DIAGNOSTIC_DISPLAY = { rotation: [45, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    // GUI display — 3D model rendered as inventory item. Scaled up to roughly
+    // match a 2D-icon-style item visual size (vanilla blocks in inventory
+    // render at scale 0.625 default; we use 1.6 to compensate and fill the slot).
+    // Translation tuned empirically vs reference JSON cube — adjust by user
+    // measurements as needed.
+    const GUI_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1.6, 1.6, 1.6] };
 
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
@@ -1829,7 +1830,7 @@
                         const slotDisplay = { ...displayTransforms };
                         if (!slotDisplay[slot]) {
                             slotDisplay[slot] = (slot === 'gui')
-                                ? GUI_DIAGNOSTIC_DISPLAY
+                                ? GUI_DEFAULT_DISPLAY
                                 : IDENTITY_DISPLAY;
                         }
 
