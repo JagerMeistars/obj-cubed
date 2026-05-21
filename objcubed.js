@@ -1762,6 +1762,13 @@
                     const dir     = path.dirname(pngPath);
                     const pngName = path.basename(pngPath, '.png');
                     const model = {
+                        // Inherit standard 3D-block display defaults (rotation,
+                        // translation, scale per slot). Without a parent, our
+                        // model gets no default display tag and renders
+                        // differently from a vanilla block-cube reference even
+                        // when the geometry is identical. Inheriting block/block
+                        // makes our model "feel" like a normal 3D item.
+                        parent: 'minecraft:block/block',
                         textures: { 0: `block/${pngName}` },
                         elements: result.elements,
                         display:  displayTransforms,
