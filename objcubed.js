@@ -1762,7 +1762,11 @@
         // Minecraft's [-16, 32] bounds, causing missing-texture error model.
         ground:                { x: 0, y: 0,  z: 0 },
         fixed:                 { x: 0, y: 0,  z: 0 },
-        on_shelf:              { x: 0, y: -3, z: 0 },
+        // DIAGNOSTIC y=+10 to confirm on_shelf context actually triggers in
+        // user's MC version. If model shifts up visibly when placed in shelf,
+        // selector works. If not, fallback (thirdperson_righthand) is used
+        // because MC version doesn't recognize on_shelf context.
+        on_shelf:              { x: 0, y: 10, z: 0 },
     };
 
     function calibratedElementsForSlot(baseElements, slot) {
