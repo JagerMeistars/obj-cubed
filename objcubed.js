@@ -1552,14 +1552,15 @@
         for (let i = 0; i < nfaces; i++) {
             const px = i%tw, py = Math.floor(i/tw)+1;
             put(px, py, Math.trunc(px/256)%256, px%256, Math.trunc(py/256)%256, py%256);
-            // Placeholder face for shader to override. Centroid lands at
-            // (8, -2, 8) — 2 BB units below floor — to compensate for an
-            // observed +2 BB unit drift in rendering vs vanilla JSON cube
-            // at same OBJ coords. Source of the drift is still under
-            // investigation (likely a Minecraft item-render constant offset
-            // or a pipeline scaling quirk). Adjusted empirically.
+            // Placeholder face — centroid at (8, -1.7, 8). The -1.7 Y shift
+            // compensates an empirically-observed render drift between our
+            // model and a vanilla JSON-cube reference at the same OBJ coords.
+            // Source not yet identified (likely a Minecraft item-render
+            // constant offset for in-hand "block-like item" rendering); the
+            // empirical compensation gives pixel-aligned match in first-
+            // and third-person hand slots.
             elements.push({
-                from: [0,-10,8], to: [16,6,8],
+                from: [0,-9.7,8], to: [16,6.3,8],
                 faces: { north: {
                     uv: [(px+0.1)*16/tw,(py+0.1)*16/ty,(px+0.9)*16/tw,(py+0.9)*16/ty],
                     texture: '#0', tintindex: 0,

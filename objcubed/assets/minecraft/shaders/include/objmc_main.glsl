@@ -210,10 +210,9 @@ if (marker == ivec4(12,34,56,78)) {
 #endif
     //final pos and uv
     // Anchor = centroid of the placeholder quad. Encoder emits
-    // from:[0,-10,8] to:[16,6,8], so centroid is (8, -2, 8). The -2 Y
-    // shift compensates an empirically-observed drift that puts our model
-    // above a reference vanilla JSON-cube at identical OBJ coords by
-    // ~2 BB units. Display tag still applies cleanly via ModelViewMat.
+    // from:[0,-9.7,8] to:[16,6.3,8], so centroid is (8, -1.7, 8). The -1.7
+    // Y shift compensates an empirically-observed render drift that put
+    // our model above a vanilla JSON-cube reference at the same OBJ coords.
     vec3 anchor = 0.25 * (
         subgroupQuadBroadcast(Pos, 0) +
         subgroupQuadBroadcast(Pos, 1) +
