@@ -25,6 +25,12 @@ flat in int noshadow;
 out vec4 fragColor;
 
 void main() {
+    // objmc debug bypass (isCustom == 2 flag set in vertex shader)
+    if (isCustom == 2) {
+        fragColor = vec4(overlayColor.rgb, 1.0);
+        return;
+    }
+
     vec4 color = mix(texture(Sampler0, texCoord), texture(Sampler0, texCoord2), transition);
 
     //custom lighting
