@@ -1793,23 +1793,20 @@
     // Identity transform — explicit override to prevent Minecraft's inferred
     // defaults for slots the user hasn't customised (notably GUI which would
     // otherwise inherit block/block rotation [30, 225, 0]).
-    const IDENTITY_DISPLAY = { rotation: [0,0,0], translation: [0,0,0], scale: [1,1,1] };
-
-    // Per-slot default display tag overrides for slots the user hasn't
-    // customised via the native Blockbench Display editor.
+    //
+    // Single source of truth for display values:
+    //   - Slots exposed in the Vue dialog (third/left/head/ground/fixed) get
+    //     their values from buildDisplayTransforms which reads Vue defaults
+    //     + native BB Display editor.
+    //   - Slots NOT in the dialog (gui, firstperson, on_shelf) get IDENTITY
+    //     here as a safety net so Minecraft's inferred block defaults
+    //     (rotation [30,225,0], scale [0.625]) don't sneak in.
     //
     // KNOWN MINECRAFT QUIRK: for `ground` and `on_shelf` contexts the
     // engine clamps the Y component of display.translation (dropped items
     // are physically locked to the ground; shelf items to the surface).
     // X and Z still work. Y simply can't be calibrated for these slots.
-    const GUI_DEFAULT_DISPLAY      = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
-    // Ground: same north-face-forward orientation issue as thirdperson;
-    // try the same 5° X tilt as first calibration guess.
-    const GROUND_DEFAULT_DISPLAY   = { rotation: [5, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
-    const ON_SHELF_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
-    // Thirdperson hand: OBJ default orientation needs a small 5° X tilt to
-    // match how a vanilla JSON cube renders in-hand (user-measured value).
-    const THIRDPERSON_DEFAULT_DISPLAY = { rotation: [5, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    const IDENTITY_DISPLAY = { rotation: [0,0,0], translation: [0,0,0], scale: [1,1,1] };
 
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
@@ -1835,15 +1832,11 @@
                         // default 3D-block display transform (rotation etc.)
                         // which would override our per-slot placeholder calibration.
                         const slotDisplay = { ...displayTransforms };
-                        if (!slotDisplay[slot]) {
-                            slotDisplay[slot] =
-                                slot === 'gui'                   ? GUI_DEFAULT_DISPLAY :
-                                slot === 'ground'                ? GROUND_DEFAULT_DISPLAY :
-                                slot === 'on_shelf'              ? ON_SHELF_DEFAULT_DISPLAY :
-                                slot === 'thirdperson_righthand' ? THIRDPERSON_DEFAULT_DISPLAY :
-                                slot === 'thirdperson_lefthand'  ? THIRDPERSON_DEFAULT_DISPLAY :
-                                IDENTITY_DISPLAY;
-                        }
+                        // Single mechanism: if buildDisplayTransforms didn't
+                        // emit an entry for this slot (user hasn't set values
+                        // there), fall back to identity so MC doesn't apply
+                        // its block/block inferred defaults.
+                        if (!slotDisplay[slot]) slotDisplay[slot] = IDENTITY_DISPLAY;
 
                         const model = {
                             textures: { 0: `block/${pngName}` },
