@@ -1422,11 +1422,6 @@
             const dlg = dialogSlots[key];
             if (!nat && !dlg) continue;  // skip — let Minecraft use its default
 
-            // DEBUG: log per-slot what we receive
-            console.log('[objcubed] buildDisplay', key,
-                'nat:', nat && JSON.stringify({ r: nat.rotation, t: nat.translation, s: nat.scale }),
-                'dlg:', dlg && JSON.stringify({ r: dlg.rotation, t: dlg.translation, s: dlg.scale }));
-
             // Dialog values win over native editor. The plugin's dialog is
             // the user-facing source of truth; native editor was overriding
             // dialog values silently (legacy 85° values persisted in older
@@ -2166,6 +2161,12 @@
                                 state[k] = persisted[k];
                             }
                         }
+                        // Legacy migration: old projects persisted thirdperson
+                        // rotation X as 85° (objmc convention). New default is
+                        // 5° (matches vanilla JSON cube orientation). Migrate
+                        // 85 → 5 silently so old projects don't get hijacked.
+                        if (state.dThirdRX === 85) state.dThirdRX = 5;
+                        if (state.dLeftRX  === 85) state.dLeftRX  = 5;
                     }
 
                     // Preset bar state (mirror of Project.objcubed_data root).
@@ -2618,15 +2619,7 @@
                                 datapackTargetType: this.datapackTargetType,
                                 datapackEquipSlot:  this.datapackEquipSlot,
                                 datapackOutputDir:  this.datapackOutputDir,
-                                displaySlots: ((self) => {
-                                    console.log('[objcubed] doExport reactive state:',
-                                        'dThirdRX=', self.dThirdRX,
-                                        'dThirdRY=', self.dThirdRY,
-                                        'dThirdRZ=', self.dThirdRZ,
-                                        'dHeadRX=', self.dHeadRX,
-                                        'dGroundRX=', self.dGroundRX);
-                                    return undefined;
-                                })(this) || {
+                                displaySlots: {
                                     thirdperson_righthand: {
                                         rotation:    [+this.dThirdRX, +this.dThirdRY, +this.dThirdRZ],
                                         translation: [+this.dThirdTX, +this.dThirdTY, +this.dThirdTZ],
@@ -3002,7 +2995,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.1.3',
+        version: '0.1.4',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
