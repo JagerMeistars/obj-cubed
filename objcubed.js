@@ -88,7 +88,16 @@
     // here lets Stage 7 (polish) extend them without touching the template.
     const STYLESHEET_ID = 'objcubed-styles';
     const STYLESHEET = `
+        /* Root sizing: make inputs/range stop overflowing their grid cells.
+           Without this, BlockBench's default styles give input[type=range]
+           a wide intrinsic size and it pushes the row past the section. */
+        .oc-root, .oc-root * { box-sizing: border-box; min-width: 0; }
+        .oc-root input[type=number] { font-family: inherit; }
+        .oc-root input[type=range]  { min-width: 0; }
+        .oc-root select { font-family: inherit; }
+
         .oc-help {
+            position: relative;
             display:inline-block; width:14px; height:14px;
             margin-left:4px; vertical-align:middle;
             border-radius:50%;
@@ -97,8 +106,39 @@
             text-align:center; line-height:14px;
             cursor:help; user-select:none;
             transition:background 120ms, color 120ms;
+            flex-shrink: 0;
         }
         .oc-help:hover { background:#5a8cc0; color:#fff; }
+
+        /* Custom CSS tooltip — works where Electron's native title= is silent.
+           Triggered by [data-tip] on any element. */
+        [data-tip] { position: relative; }
+        [data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f1f1f;
+            color: #e6e6e6;
+            padding: 6px 9px;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 400;
+            line-height: 1.4;
+            white-space: normal;
+            width: max-content;
+            max-width: 280px;
+            z-index: 9999;
+            pointer-events: none;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+        }
+        /* Flip tip below the element if it's near the top edge */
+        [data-tip][data-tip-below]:hover::after {
+            bottom: auto; top: calc(100% + 6px);
+        }
+
         .oc-err {
             outline: 1.5px solid #c44 !important;
             outline-offset: 1px;
@@ -137,13 +177,15 @@
         }
         .oc-section-body { padding: 0 12px 10px 12px; }
 
-        /* Inline buttons (preset bar etc.) */
+        /* Inline buttons (preset bar etc.) — override BlockBench defaults */
         .oc-btn {
-            padding: 3px 9px; cursor: pointer;
+            padding: 4px 8px; cursor: pointer;
             background: #2a2a2a; border: 1px solid rgba(255,255,255,0.15);
             color: #ddd; border-radius: 4px;
             transition: background 100ms, border-color 100ms, color 100ms;
             font-family: inherit; font-size: 12px;
+            min-width: 0; min-height: 0;
+            line-height: 1.2;
         }
         .oc-btn:hover:not(:disabled) {
             background: #383838; border-color: rgba(255,255,255,0.28); color: #fff;
@@ -159,6 +201,43 @@
         .oc-btn-primary:hover:not(:disabled) {
             background: #3a4f72; border-color: #7aacd0; color: #fff;
         }
+
+        /* Icon-only square buttons (preset bar) */
+        .oc-icon-btn {
+            width: 28px; height: 26px; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .oc-icon-btn .material-icons { font-size: 16px; }
+
+        /* Color & Tinting channel button: keeps R/G/B letter and the
+           current value label in a tidy column, centered vertically. */
+        .oc-cb-btn {
+            padding: 6px 4px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            color: #ddd;
+            text-align: center;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 2px;
+            min-height: 54px;
+            cursor: pointer;
+        }
+        .oc-cb-btn .oc-cb-letter { font-size: 16px; font-weight: 700; }
+        .oc-cb-btn .oc-cb-value  { font-size: 11px; color: #bbb; }
+
+        /* Range+number row — keeps the number input from being squished
+           and the slider from overflowing its grid cell. */
+        .oc-range-row {
+            display: grid;
+            grid-template-columns: 1fr 44px;
+            gap: 4px;
+            align-items: center;
+            min-width: 0;
+        }
+        .oc-range-row input[type=range]  { width: 100%; min-width: 0; }
+        .oc-range-row input[type=number] { width: 44px; }
 
         /* Collapse transition */
         .oc-collapse-enter-active, .oc-collapse-leave-active {
@@ -2187,182 +2266,181 @@
                     },
                 },
                 template: `
-<div style="padding:14px 16px;font-size:13px;line-height:1.6;">
+<div class="oc-root" style="padding:14px 16px;font-size:13px;line-height:1.6;overflow-x:hidden;">
 
   <!-- ======== PRESET BAR ======== -->
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
-    <i class="material-icons" style="font-size:16px;color:#888;">bookmarks</i>
-    <span style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Пресет</span>
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
+    <i class="material-icons" style="font-size:16px;color:#888;flex-shrink:0;">bookmarks</i>
+    <span style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0;">Пресет</span>
     <select v-model.number="activePresetIdx" @change="onPresetChange"
-            style="flex:1;padding:3px 6px;background:#1f1f1f;color:#ddd;border:1px solid rgba(255,255,255,0.15);border-radius:4px;">
+            style="flex:1;min-width:0;padding:3px 6px;background:#1f1f1f;color:#ddd;border:1px solid rgba(255,255,255,0.15);border-radius:4px;">
       <option v-for="(n, i) in presetNames" :key="i" :value="i">{{n}}</option>
     </select>
-    <button class="oc-btn" @click="addPreset" title="Создать новый пресет">+</button>
-    <button class="oc-btn" @click="duplicatePreset" title="Скопировать текущий">⧉</button>
-    <button class="oc-btn" @click="renameCurrentPreset" title="Переименовать">✎</button>
-    <button class="oc-btn oc-btn-danger" @click="deleteCurrentPreset" :disabled="presetNames.length < 2"
-            title="Удалить текущий пресет">×</button>
-  </div>
-
-  <!-- ======== PREVIEW BANNER ======== -->
-  <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:12px;background:linear-gradient(to right, rgba(90,140,192,0.10), rgba(90,140,192,0.02));border:1px solid rgba(90,140,192,0.25);border-radius:4px;">
-    <img v-if="selectedTexThumb" :src="selectedTexThumb"
-         style="width:42px;height:42px;image-rendering:pixelated;border:1px solid rgba(255,255,255,0.2);border-radius:4px;object-fit:contain;background:#1a1a1a;flex-shrink:0;"/>
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;">Сводка экспорта</div>
-      <div style="font-size:13px;color:#ddd;">
-        <b>{{previewFaceCount}}</b> {{pluralize(previewFaceCount, 'грань', 'грани', 'граней')}}
-        <span v-if="previewFrameCount > 1"> · <b>{{previewFrameCount}}</b> {{pluralize(previewFrameCount, 'кадр', 'кадра', 'кадров')}}</span>
-        <span v-if="previewPngSize"> · картинка <b>{{previewPngSize.tw}}×{{previewPngSize.ty}}px</b> {{previewPngSizePretty}}</span>
-      </div>
-    </div>
-    <div v-if="previewWarnings.length" style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;max-width:50%;">
-      <div v-for="(w, wi) in previewWarnings" :key="wi"
-           :title="w.msg"
-           :style="{
-             fontSize:'11px', padding:'2px 8px', borderRadius:'10px',
-             background: w.level==='error' ? 'rgba(204,68,68,0.15)' : 'rgba(218,165,32,0.15)',
-             border: '1px solid ' + (w.level==='error' ? '#c44' : '#daa520'),
-             color: w.level==='error' ? '#f99' : '#fc9',
-             cursor:'help', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'220px'
-           }">
-        {{w.level==='error' ? '⛔' : '⚠'}} {{w.msg}}
-      </div>
-    </div>
+    <button class="oc-btn oc-icon-btn" @click="addPreset" data-tip="Создать новый пресет"><i class="material-icons">add</i></button>
+    <button class="oc-btn oc-icon-btn" @click="duplicatePreset" data-tip="Скопировать текущий"><i class="material-icons">content_copy</i></button>
+    <button class="oc-btn oc-icon-btn" @click="renameCurrentPreset" data-tip="Переименовать"><i class="material-icons">edit</i></button>
+    <button class="oc-btn oc-icon-btn oc-btn-danger" @click="deleteCurrentPreset" :disabled="presetNames.length < 2"
+            data-tip="Удалить пресет"><i class="material-icons">delete_outline</i></button>
   </div>
 
   <!-- ======== TEXTURE ======== -->
   <div class="oc-section" style="padding:10px 12px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-weight:600;color:#ddd;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:600;color:#ddd;">
       <i class="material-icons" style="font-size:18px;color:#5a8cc0;">image</i>
-      \u0422\u0435\u043A\u0441\u0442\u0443\u0440\u0430<span class="oc-help" :title="help('selectedTex')">?</span>
+      <span>Текстура</span><span class="oc-help" :data-tip="help('selectedTex')">?</span>
     </div>
-    <div style="display:flex;align-items:flex-start;gap:8px;">
-      <img v-if="selectedTexThumb && !useAtlas"
-           :src="selectedTexThumb"
+    <div style="display:flex;align-items:flex-start;gap:10px;">
+      <img v-if="selectedTexThumb" :src="selectedTexThumb"
            style="width:48px;height:48px;image-rendering:pixelated;border:1px solid rgba(255,255,255,0.15);border-radius:4px;object-fit:contain;background:#1a1a1a;flex-shrink:0;"/>
-      <div style="flex:1;min-width:0;">
-        <template v-if="!multiTex">
-          <select v-model="selectedTex" style="padding:3px 6px;width:100%;">
-            <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
-          </select>
-        </template>
-        <template v-else>
-          <label style="display:inline-flex;align-items:center;gap:4px;">
-            <input type="checkbox" v-model="useAtlas"/> \u0410\u0442\u043B\u0430\u0441 (\u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0442\u0435\u043A\u0441\u0442\u0443\u0440\u044B)<span class="oc-help" :title="help('useAtlas')">?</span>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+        <label v-if="multiTex" style="display:inline-flex;align-items:center;gap:6px;">
+          <input type="checkbox" v-model="useAtlas"/>
+          <span>Объединить текстуры в атлас</span>
+          <span class="oc-help" :data-tip="help('useAtlas')">?</span>
+        </label>
+        <select v-if="!useAtlas" v-model="selectedTex" style="padding:4px 6px;width:100%;">
+          <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
+        </select>
+        <div v-else :class="hasErr('atlas') ? 'oc-err' : ''" style="padding:4px 6px;border-radius:4px;background:rgba(255,255,255,0.02);">
+          <label v-for="(t, i) in texOptions" :key="t.value" style="display:flex;align-items:center;gap:6px;line-height:1.8;">
+            <input type="checkbox" v-model="atlasTexChecked[i]"/> <span>{{t.label}}</span>
           </label>
-          <select v-if="!useAtlas" v-model="selectedTex" style="margin-left:8px;padding:3px 6px;">
-            <option v-for="t in texOptions" :key="t.value" :value="t.value">{{t.label}}</option>
-          </select>
-          <div v-if="useAtlas" :class="hasErr('atlas') ? 'oc-err' : ''" style="margin-top:4px;padding-left:20px;padding:4px 4px 4px 20px;border-radius:4px;">
-            <label v-for="(t, i) in texOptions" :key="t.value" style="display:block;line-height:1.8;">
-              <input type="checkbox" v-model="atlasTexChecked[i]"/> {{t.label}}
-            </label>
-          </div>
-        </template>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- ======== TRANSFORM ======== -->
   <div class="oc-section" style="padding:10px 12px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-weight:600;color:#ddd;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-weight:600;color:#ddd;">
       <i class="material-icons" style="font-size:18px;color:#5a8cc0;">transform</i>
-      \u0422\u0440\u0430\u043D\u0441\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F
+      <span>Трансформация</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
-      <label style="font-size:12px;color:#aaa;">\u041C\u0430\u0441\u0448\u0442\u0430\u0431<span class="oc-help" :title="help('scale')">?</span><br/><input v-model="scale" type="number" step="0.1" style="width:100%;" :class="hasErr('scale') ? 'oc-err' : ''"/></label>
-      <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 X<span class="oc-help" :title="help('offset')">?</span><br/><input v-model="offsetX" type="number" step="0.1" style="width:100%;"/></label>
-      <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 Y<br/><input v-model="offsetY" type="number" step="0.1" style="width:100%;"/></label>
-      <label style="font-size:12px;color:#aaa;">\u0421\u0434\u0432\u0438\u0433 Z<br/><input v-model="offsetZ" type="number" step="0.1" style="width:100%;"/></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+      <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;">
+        <span>Масштаб<span class="oc-help" :data-tip="help('scale')">?</span></span>
+        <input v-model="scale" type="number" step="0.1" style="width:100%;" :class="hasErr('scale') ? 'oc-err' : ''"/>
+      </label>
+      <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;">
+        <span>Сдвиг X<span class="oc-help" :data-tip="help('offset')">?</span></span>
+        <input v-model="offsetX" type="number" step="0.1" style="width:100%;"/>
+      </label>
+      <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;">
+        <span>Сдвиг Y</span>
+        <input v-model="offsetY" type="number" step="0.1" style="width:100%;"/>
+      </label>
+      <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;">
+        <span>Сдвиг Z</span>
+        <input v-model="offsetZ" type="number" step="0.1" style="width:100%;"/>
+      </label>
     </div>
   </div>
 
-  <!-- ======== ANIMATION (\u0431\u0435\u0437 datapack) ======== -->
-  <div class="oc-section" style="padding:8px 12px;">
+  <!-- ======== ANIMATION (включает sub-block datapack) ======== -->
+  <div class="oc-section" style="padding:10px 12px;">
     <div v-if="hasAnims" style="display:flex;align-items:center;gap:8px;">
-      <i class="material-icons" style="font-size:18px;color:#5a8cc0;">play_circle_outline</i>
-      <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;flex:1;">
+      <i class="material-icons" style="font-size:18px;color:#5a8cc0;flex-shrink:0;">play_circle_outline</i>
+      <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
         <input v-model="animationEnabled" type="checkbox"/>
-        \u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F<span class="oc-help" :title="help('animationEnabled')">?</span>
+        <span>Анимация</span><span class="oc-help" :data-tip="help('animationEnabled')">?</span>
       </label>
     </div>
     <div v-else style="display:flex;align-items:center;gap:8px;color:#666;font-size:12px;">
       <i class="material-icons" style="font-size:18px;color:#444;">play_disabled</i>
-      \u0412 \u043F\u0440\u043E\u0435\u043A\u0442\u0435 \u043D\u0435\u0442 \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0439
+      <span>В проекте нет анимаций</span>
     </div>
 
-    <div v-if="hasAnims && animationEnabled" style="margin-top:8px;">
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;">
-        <label style="font-size:12px;color:#aaa;">\u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F<br/>
-          <select v-model="animationIndex" @change="onAnimChange" style="width:100%;padding:3px;">
+    <div v-if="hasAnims && animationEnabled" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:grid;grid-template-columns:1fr 80px;gap:8px;">
+        <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+          <span>Анимация</span>
+          <select v-model="animationIndex" @change="onAnimChange" style="width:100%;padding:4px 6px;">
             <option v-for="a in animOptions" :key="a.value" :value="a.value">{{a.label}}</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">FPS<span class="oc-help" :title="help('animFps')">?</span><br/><input v-model="animFps" type="number" min="1" max="60" style="width:100%;" :class="hasErr('animFps') ? 'oc-err' : ''"/></label>
+        <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;">
+          <span>FPS<span class="oc-help" :data-tip="help('animFps')">?</span></span>
+          <input v-model="animFps" type="number" min="1" max="60" style="width:100%;" :class="hasErr('animFps') ? 'oc-err' : ''"/>
+        </label>
       </div>
-      <div v-if="frameCountPreview" style="font-size:11px;color:#8af;margin-top:4px;">{{frameCountPreview}}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">
-        <label style="font-size:12px;color:#aaa;">\u0421\u0442\u0430\u0440\u0442 (\u0441)<span class="oc-help" :title="help('animRange')">?</span><br/><input v-model="animStart" type="number" step="0.05" style="width:100%;"/></label>
-        <label style="font-size:12px;color:#aaa;">\u041A\u043E\u043D\u0435\u0446 (\u0441)<br/><input v-model="animEnd" type="number" step="0.05" style="width:100%;" :class="hasErr('animEnd') ? 'oc-err' : ''"/></label>
-        <label style="font-size:12px;color:#aaa;">\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C (\u0442\u0438\u043A\u0438)<span class="oc-help" :title="help('duration')">?</span><br/><input v-model="duration" type="number" min="0" :disabled="generateDatapack" :placeholder="generateDatapack ? '\u0430\u0432\u0442\u043E (= \u043A\u0430\u0434\u0440\u044B)' : '0 = \u0430\u0432\u0442\u043E'" style="width:100%;"/></label>
+      <div v-if="frameCountPreview" style="font-size:11px;color:#8af;">{{frameCountPreview}}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+          <span>Старт (с)<span class="oc-help" :data-tip="help('animRange')">?</span></span>
+          <input v-model="animStart" type="number" step="0.05" style="width:100%;"/>
+        </label>
+        <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+          <span>Конец (с)</span>
+          <input v-model="animEnd" type="number" step="0.05" style="width:100%;" :class="hasErr('animEnd') ? 'oc-err' : ''"/>
+        </label>
+        <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+          <span>Длительность (тики)<span class="oc-help" :data-tip="help('duration')">?</span></span>
+          <input v-model="duration" type="number" min="0" :disabled="generateDatapack" :placeholder="generateDatapack ? 'авто (= кадры)' : '0 = авто'" style="width:100%;"/>
+        </label>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="autoplay" type="checkbox" :disabled="generateDatapack"/> \u0410\u0432\u0442\u043E\u0437\u0430\u043F\u0443\u0441\u043A<span class="oc-help" :title="help('autoplay')">?</span></label>
-      </div>
-    </div>
-  </div>
-
-  <!-- ======== DATAPACK (top-level) ======== -->
-  <div v-if="showDatapackOption" class="oc-section" style="padding:8px 12px;">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <i class="material-icons" style="font-size:18px;color:#5a8cc0;">terminal</i>
-      <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:4px;">
-        <input v-model="generateDatapack" type="checkbox"/> \u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A \u0434\u043B\u044F \u0443\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0435\u0439<span class="oc-help" :title="help('generateDatapack')">?</span>
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;">
+        <input v-model="autoplay" type="checkbox" :disabled="generateDatapack"/>
+        <span>Автозапуск</span><span class="oc-help" :data-tip="help('autoplay')">?</span>
       </label>
-    </div>
-    <div v-if="generateDatapack" style="margin-top:6px;font-size:12px;">
-      <div style="color:#daa520;background:rgba(218,165,32,0.08);border:1px solid rgba(218,165,32,0.2);padding:5px 8px;border-radius:4px;margin-bottom:6px;line-height:1.4;">
-        \u26A0 \u0412 \u0440\u0435\u0436\u0438\u043C\u0435 \u0434\u0430\u0442\u0430\u043F\u0430\u043A\u0430 \u044D\u043A\u0441\u043F\u043E\u0440\u0442 \u043F\u0440\u0438\u043D\u0443\u0434\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442:
-        Color Behavior = \u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F, \u0430\u0432\u0442\u043E\u0437\u0430\u043F\u0443\u0441\u043A \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D, \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C = \u0447\u0438\u0441\u043B\u043E \u043A\u0430\u0434\u0440\u043E\u0432.
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-        <label style="color:#aaa;">Animation ID<span class="oc-help" :title="help('datapackAnimId')">?</span><br/>
-          <input v-model="datapackAnimId" style="width:100%;margin-top:2px;" placeholder="anim" maxlength="12" :class="hasErr('datapackAnimId') ? 'oc-err' : ''"/>
+
+      <!-- Datapack sub-block -->
+      <div v-if="showDatapackOption" style="margin-top:4px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.1);">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#ddd;">
+          <input v-model="generateDatapack" type="checkbox"/>
+          <i class="material-icons" style="font-size:16px;color:#5a8cc0;">terminal</i>
+          <span>Сгенерировать датапак для управления</span>
+          <span class="oc-help" :data-tip="help('generateDatapack')">?</span>
         </label>
-        <label style="color:#aaa;">Namespace<span class="oc-help" :title="help('datapackNamespace')">?</span><br/>
-          <input v-model="datapackNamespace" style="width:100%;margin-top:2px;" placeholder="objmc" :class="hasErr('datapackNamespace') ? 'oc-err' : ''"/>
-        </label>
-        <label style="color:#aaa;">\u041A\u043E\u043C\u0443 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0442\u044C<span class="oc-help" :title="help('datapackTargetType')">?</span><br/>
-          <select v-model="datapackTargetType" style="width:100%;margin-top:2px;padding:3px;">
-            <option value="equipment">\u0421\u0443\u0449\u043D\u043E\u0441\u0442\u0438 \u0441 \u044D\u043A\u0438\u043F\u0438\u0440\u043E\u0432\u043A\u043E\u0439</option>
-            <option value="item_display">Item display-\u0441\u0443\u0449\u043D\u043E\u0441\u0442\u044C</option>
-            <option value="player">\u0418\u0433\u0440\u043E\u043A\u0443</option>
-          </select>
-        </label>
-        <label v-if="datapackTargetType !== 'item_display'" style="color:#aaa;">\u0421\u043B\u043E\u0442<span class="oc-help" :title="help('datapackEquipSlot')">?</span><br/>
-          <select v-model="datapackEquipSlot" style="width:100%;margin-top:2px;padding:3px;">
-            <option value="mainhand">\u0433\u043B\u0430\u0432\u043D\u0430\u044F \u0440\u0443\u043A\u0430</option>
-            <option value="offhand">\u0432\u0442\u043E\u0440\u0430\u044F \u0440\u0443\u043A\u0430</option>
-            <option value="head">\u0448\u043B\u0435\u043C</option>
-            <option value="chest">\u043D\u0430\u0433\u0440\u0443\u0434\u043D\u0438\u043A</option>
-            <option value="legs">\u0448\u0442\u0430\u043D\u044B</option>
-            <option value="feet">\u0441\u0430\u043F\u043E\u0433\u0438</option>
-          </select>
-        </label>
-        <label style="color:#aaa;grid-column:1/-1;">\u041A\u0443\u0434\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0434\u0430\u0442\u0430\u043F\u0430\u043A<span class="oc-help" :title="help('datapackOutputDir')">?</span><br/>
-          <div style="display:flex;gap:4px;margin-top:2px;">
-            <input v-model="datapackOutputDir" style="flex:1;" placeholder="(\u0440\u044F\u0434\u043E\u043C \u0441 PNG)"/>
-            <button @click="browseDatapackDir" style="padding:2px 8px;cursor:pointer;">\u2026</button>
+
+        <div v-if="generateDatapack" style="margin-top:8px;font-size:12px;display:flex;flex-direction:column;gap:8px;">
+          <div style="color:#daa520;background:rgba(218,165,32,0.08);border:1px solid rgba(218,165,32,0.2);padding:6px 9px;border-radius:4px;line-height:1.45;">
+            <i class="material-icons" style="font-size:14px;vertical-align:-3px;">info</i>
+            Когда включён датапак, все три канала цвета (R/G/B) кодируют номер кадра — это 24-битный счётчик, позволяющий датапаку точно адресовать любой кадр. Автозапуск и поле «Длительность» отключаются — управление теперь у датапака.
           </div>
-        </label>
-      </div>
-      <div v-if="datapackTargetType === 'player'" style="color:#c90;margin-top:4px;font-size:11px;">
-        \u0414\u043B\u044F \u0438\u0433\u0440\u043E\u043A\u0430 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0439 armor stand (\u043D\u0443\u0436\u0435\u043D \u0434\u043B\u044F \u0441\u043C\u0435\u043D\u044B custom_color).
-      </div>
-      <div style="color:#666;margin-top:4px;font-size:11px;line-height:1.5;">
-        \u0424\u0443\u043D\u043A\u0446\u0438\u0438: init, play, stop, set, play_from, play_once<br/>
-        <span style="color:#aaa;font-family:monospace;">execute as @e[\u2026] run function {{datapackNamespace}}:animations/{{datapackAnimId}}/play</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <label style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+              <span>ID анимации<span class="oc-help" :data-tip="help('datapackAnimId')">?</span></span>
+              <input v-model="datapackAnimId" style="width:100%;" placeholder="anim" maxlength="12" :class="hasErr('datapackAnimId') ? 'oc-err' : ''"/>
+            </label>
+            <label style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+              <span>Пространство имён<span class="oc-help" :data-tip="help('datapackNamespace')">?</span></span>
+              <input v-model="datapackNamespace" style="width:100%;" placeholder="objmc" :class="hasErr('datapackNamespace') ? 'oc-err' : ''"/>
+            </label>
+            <label style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+              <span>Кому применять<span class="oc-help" :data-tip="help('datapackTargetType')">?</span></span>
+              <select v-model="datapackTargetType" style="width:100%;padding:4px 6px;">
+                <option value="equipment">Сущности с экипировкой</option>
+                <option value="item_display">Item display-сущность</option>
+                <option value="player">Игроку</option>
+              </select>
+            </label>
+            <label v-if="datapackTargetType !== 'item_display'" style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+              <span>Слот<span class="oc-help" :data-tip="help('datapackEquipSlot')">?</span></span>
+              <select v-model="datapackEquipSlot" style="width:100%;padding:4px 6px;">
+                <option value="mainhand">Главная рука</option>
+                <option value="offhand">Вторая рука</option>
+                <option value="head">Шлем</option>
+                <option value="chest">Нагрудник</option>
+                <option value="legs">Штаны</option>
+                <option value="feet">Сапоги</option>
+              </select>
+            </label>
+            <label style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+              <span>Куда сохранить датапак<span class="oc-help" :data-tip="help('datapackOutputDir')">?</span></span>
+              <div style="display:flex;gap:6px;">
+                <input v-model="datapackOutputDir" style="flex:1;min-width:0;" placeholder="(рядом с PNG)"/>
+                <button class="oc-btn" @click="browseDatapackDir" style="padding:2px 10px;">…</button>
+              </div>
+            </label>
+          </div>
+          <div v-if="datapackTargetType === 'player'" style="color:#c90;font-size:11px;">
+            Для игрока используется временный armor stand (нужен для смены custom_color).
+          </div>
+          <div style="color:#666;font-size:11px;line-height:1.5;">
+            Функции датапака: init, play, stop, set, play_from, play_once<br/>
+            <span style="color:#aaa;font-family:monospace;">execute as @e[…] run function {{datapackNamespace}}:animations/{{datapackAnimId}}/play</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -2371,113 +2449,115 @@
   <div class="oc-section">
     <div class="oc-section-head clickable" @click="showDisplay=!showDisplay">
       <i class="material-icons">view_in_ar</i>
-      <span style="flex:1;">\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0432 \u0441\u043B\u043E\u0442\u0430\u0445</span>
-      <span style="font-size:11px;color:#666;font-weight:400;">3-\u0435 \u043B\u0438\u0446\u043E [{{dThirdRX}}, {{dThirdRY}}, {{dThirdRZ}}]</span>
+      <span style="flex:1;">Отображение в слотах</span>
+      <span style="font-size:11px;color:#666;font-weight:400;">3-е лицо [{{dThirdRX}}, {{dThirdRY}}, {{dThirdRZ}}]</span>
       <i class="material-icons" style="font-size:18px;color:#666;">{{showDisplay ? 'expand_less' : 'expand_more'}}</i>
     </div>
     <transition name="oc-collapse">
     <div v-show="showDisplay" class="oc-section-body" style="font-size:12px;">
 
-      <div style="margin-bottom:8px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-          <span style="color:#aaa;font-weight:600;">3-\u0435 \u043B\u0438\u0446\u043E{{ useSeparateLefthand ? ' \u2014 \u043F\u0440\u0430\u0432\u0430\u044F \u0440\u0443\u043A\u0430' : ' (\u043E\u0431\u0435 \u0440\u0443\u043A\u0438)' }}<span class="oc-help" :title="help('display_third')">?</span></span>
-          <label style="font-size:11px;color:#888;display:inline-flex;align-items:center;gap:3px;margin-left:auto;">
-            <input v-model="useSeparateLefthand" type="checkbox"/> \u041D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u044C \u043B\u0435\u0432\u0443\u044E \u0440\u0443\u043A\u0443 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u043E<span class="oc-help" :title="help('useSeparateLefthand')">?</span>
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="color:#aaa;font-weight:600;">3-е лицо{{ useSeparateLefthand ? ' — правая рука' : ' (обе руки)' }}<span class="oc-help" :data-tip="help('display_third')">?</span></span>
+          <label style="font-size:11px;color:#888;display:inline-flex;align-items:center;gap:4px;margin-left:auto;">
+            <input v-model="useSeparateLefthand" type="checkbox"/>
+            <span>Настроить левую руку отдельно</span>
+            <span class="oc-help" :data-tip="help('useSeparateLefthand')">?</span>
           </label>
         </div>
-        <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
-          <span style="color:#888;font-size:11px;">Rot</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dThirdRX','dThirdRY','dThirdRZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="1" style="width:44px;"/>
+        <div class="oc-display-rows">
+          <span style="color:#888;font-size:11px;">Поворот</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dThirdRX','dThirdRY','dThirdRZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
+              <input type="number" v-model.number="$data[ax]" step="1"/>
             </div>
           </div>
-          <span style="color:#888;font-size:11px;">Pos</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dThirdTX','dThirdTY','dThirdTZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="0.5" style="width:44px;"/>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="useSeparateLefthand" style="margin-bottom:8px;">
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">3-\u0435 \u043B\u0438\u0446\u043E \u2014 \u043B\u0435\u0432\u0430\u044F \u0440\u0443\u043A\u0430</div>
-        <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
-          <span style="color:#888;font-size:11px;">Rot</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dLeftRX','dLeftRY','dLeftRZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="1" style="width:44px;"/>
-            </div>
-          </div>
-          <span style="color:#888;font-size:11px;">Pos</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dLeftTX','dLeftTY','dLeftTZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="0.5" style="width:44px;"/>
+          <span style="color:#888;font-size:11px;">Сдвиг</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dThirdTX','dThirdTY','dThirdTZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
+              <input type="number" v-model.number="$data[ax]" step="0.5"/>
             </div>
           </div>
         </div>
       </div>
 
-      <div style="margin-bottom:8px;">
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u0413\u043E\u043B\u043E\u0432\u0430 (head)<span class="oc-help" :title="help('display_head')">?</span></div>
-        <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
-          <span style="color:#888;font-size:11px;">Rot</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dHeadRX','dHeadRY','dHeadRZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="1" style="width:44px;"/>
+      <div v-if="useSeparateLefthand" style="margin-bottom:10px;">
+        <div style="color:#aaa;margin-bottom:4px;font-weight:600;">3-е лицо — левая рука</div>
+        <div class="oc-display-rows">
+          <span style="color:#888;font-size:11px;">Поворот</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dLeftRX','dLeftRY','dLeftRZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
+              <input type="number" v-model.number="$data[ax]" step="1"/>
             </div>
           </div>
-          <span style="color:#888;font-size:11px;">Pos</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dHeadTX','dHeadTY','dHeadTZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="0.5" style="width:44px;"/>
+          <span style="color:#888;font-size:11px;">Сдвиг</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dLeftTX','dLeftTY','dLeftTZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
+              <input type="number" v-model.number="$data[ax]" step="0.5"/>
             </div>
           </div>
         </div>
       </div>
 
-      <div style="margin-bottom:8px;">
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u041D\u0430 \u0437\u0435\u043C\u043B\u0435 (ground)<span class="oc-help" :title="help('display_ground')">?</span></div>
-        <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
-          <span style="color:#888;font-size:11px;">Rot</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dGroundRX','dGroundRY','dGroundRZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="1" style="width:44px;"/>
+      <div style="margin-bottom:10px;">
+        <div style="color:#aaa;margin-bottom:4px;font-weight:600;">На голове<span class="oc-help" :data-tip="help('display_head')">?</span></div>
+        <div class="oc-display-rows">
+          <span style="color:#888;font-size:11px;">Поворот</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dHeadRX','dHeadRY','dHeadRZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
+              <input type="number" v-model.number="$data[ax]" step="1"/>
             </div>
           </div>
-          <span style="color:#888;font-size:11px;">Pos</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dGroundTX','dGroundTY','dGroundTZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="0.5" style="width:44px;"/>
+          <span style="color:#888;font-size:11px;">Сдвиг</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dHeadTX','dHeadTY','dHeadTZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
+              <input type="number" v-model.number="$data[ax]" step="0.5"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <div style="color:#aaa;margin-bottom:4px;font-weight:600;">На земле<span class="oc-help" :data-tip="help('display_ground')">?</span></div>
+        <div class="oc-display-rows">
+          <span style="color:#888;font-size:11px;">Поворот</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dGroundRX','dGroundRY','dGroundRZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
+              <input type="number" v-model.number="$data[ax]" step="1"/>
+            </div>
+          </div>
+          <span style="color:#888;font-size:11px;">Сдвиг</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dGroundTX','dGroundTY','dGroundTZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
+              <input type="number" v-model.number="$data[ax]" step="0.5"/>
             </div>
           </div>
         </div>
       </div>
 
       <div>
-        <div style="color:#aaa;margin-bottom:3px;font-weight:600;">\u0412 \u0440\u0430\u043C\u043A\u0435 (item frame)<span class="oc-help" :title="help('display_fixed')">?</span></div>
-        <div style="display:grid;grid-template-columns:28px 1fr;gap:3px 6px;align-items:center;">
-          <span style="color:#888;font-size:11px;">Rot</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dFixedRX','dFixedRY','dFixedRZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="1" style="width:44px;"/>
+        <div style="color:#aaa;margin-bottom:4px;font-weight:600;">В рамке<span class="oc-help" :data-tip="help('display_fixed')">?</span></div>
+        <div class="oc-display-rows">
+          <span style="color:#888;font-size:11px;">Поворот</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dFixedRX','dFixedRY','dFixedRZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
+              <input type="number" v-model.number="$data[ax]" step="1"/>
             </div>
           </div>
-          <span style="color:#888;font-size:11px;">Pos</span>
-          <div style="display:flex;gap:4px;">
-            <div v-for="(ax,ai) in ['dFixedTX','dFixedTY','dFixedTZ']" :key="ai" style="flex:1;display:flex;align-items:center;gap:3px;">
-              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5" style="flex:1;"/>
-              <input type="number" v-model.number="$data[ax]" step="0.5" style="width:44px;"/>
+          <span style="color:#888;font-size:11px;">Сдвиг</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;min-width:0;">
+            <div v-for="ax in ['dFixedTX','dFixedTY','dFixedTZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
+              <input type="number" v-model.number="$data[ax]" step="0.5"/>
             </div>
           </div>
         </div>
@@ -2486,43 +2566,32 @@
     </transition>
   </div>
 
-  <!-- ======== COLOR & TINTING (\u0432\u0438\u0434\u0436\u0435\u0442) ======== -->
-  <div class="oc-section" style="padding:8px 12px;"
+  <!-- ======== COLOR & TINTING ======== -->
+  <div class="oc-section" style="padding:10px 12px;"
        :style="colorBehaviorForcedByDatapack ? 'opacity:0.55;pointer-events:none;' : ''">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <i class="material-icons" style="font-size:18px;color:#5a8cc0;">palette</i>
-      <span style="font-weight:600;color:#ddd;">\u0426\u0432\u0435\u0442 \u0438 \u043F\u043E\u0434\u0441\u0432\u0435\u0442\u043A\u0430<span class="oc-help" :title="help('cb_general')">?</span></span>
-      <span style="font-size:11px;color:#888;">\u2014 \u0447\u0442\u043E \u0443\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442 \u043C\u043E\u0434\u0435\u043B\u044C\u044E \u0447\u0435\u0440\u0435\u0437 \u0446\u0432\u0435\u0442 \u0437\u0435\u043B\u044C\u044F</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+      <i class="material-icons" style="font-size:18px;color:#5a8cc0;flex-shrink:0;">palette</i>
+      <span style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;">
+        Цвет и подсветка<span class="oc-help" :data-tip="help('cb_general')">?</span>
+      </span>
     </div>
 
-    <div v-if="colorBehaviorForcedByDatapack" style="font-size:11px;color:#daa520;margin-bottom:6px;">
-      \u0417\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u043E: \u0432 \u0440\u0435\u0436\u0438\u043C\u0435 \u0434\u0430\u0442\u0430\u043F\u0430\u043A\u0430 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u043F\u0440\u0438\u043D\u0443\u0434\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u00AB\u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F/\u0432\u0440\u0435\u043C\u044F\u00BB.
+    <div v-if="colorBehaviorForcedByDatapack" style="font-size:11px;color:#daa520;margin-bottom:8px;">
+      Заблокировано: в режиме датапака установлено принудительно «время/время/время».
+    </div>
+
+    <div style="font-size:12px;color:#bbb;margin-bottom:8px;line-height:1.5;">
+      <i class="material-icons" style="font-size:14px;vertical-align:-3px;color:#5a8cc0;">push_pin</i>
+      Сейчас: {{colorBehaviorPretty}}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
       <button v-for="cn in [{k:'cbR',col:'#d44'},{k:'cbG',col:'#4d4'},{k:'cbB',col:'#48f'}]" :key="cn.k"
+              class="oc-cb-btn"
               @click="cycleCb(cn.k)"
-              :style="{padding:'10px 6px',cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer',background:'#2a2a2a',border:'1px solid '+cn.col,borderRadius:'4px',color:'#ddd',textAlign:'center'}">
-        <div :style="{fontSize:'18px',fontWeight:'700',color:cn.col,marginBottom:'2px'}">{{cn.k.slice(-1)}}</div>
-        <div style="font-size:12px;">{{cbLabel(colorBehaviorForcedByDatapack ? 'time' : $data[cn.k])}}</div>
-      </button>
-    </div>
-
-    <div style="margin-top:8px;font-size:12px;color:#cde;line-height:1.4;">
-      \uD83D\uDCCC \u0421\u0435\u0439\u0447\u0430\u0441: {{colorBehaviorPretty}}
-    </div>
-
-    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">
-      <span style="font-size:11px;color:#888;margin-right:4px;">\u0413\u043E\u0442\u043E\u0432\u044B\u0435 \u043D\u0430\u0431\u043E\u0440\u044B:</span>
-      <button v-for="p in [
-                {k:'tint',label:'\u041F\u0440\u043E\u0441\u0442\u043E \u0442\u0438\u043D\u0442'},
-                {k:'anim',label:'\u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F'},
-                {k:'scale',label:'\u041C\u0430\u0441\u0448\u0442\u0430\u0431'},
-                {k:'overlay',label:'\u041E\u0442\u0442\u0435\u043D\u043E\u043A (HSV)'},
-                {k:'hurt',label:'\u0423\u0440\u043E\u043D'}]" :key="p.k"
-              @click="applyColorPreset(p.k)"
-              :style="{padding:'2px 8px',fontSize:'11px',cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer',background: colorBehaviorPreset===p.k ? '#3a5c8a' : '#2a2a2a',border:'1px solid '+(colorBehaviorPreset===p.k?'#5a8cc0':'rgba(255,255,255,0.15)'),borderRadius:'4px',color:'#ddd'}">
-        {{p.label}}
+              :style="{border:'1px solid '+cn.col,cursor:colorBehaviorForcedByDatapack?'not-allowed':'pointer'}">
+        <span class="oc-cb-letter" :style="{color:cn.col}">{{cn.k.slice(-1)}}</span>
+        <span class="oc-cb-value">{{cbLabel(colorBehaviorForcedByDatapack ? 'time' : $data[cn.k])}}</span>
       </button>
     </div>
   </div>
@@ -2531,40 +2600,43 @@
   <div class="oc-section">
     <div class="oc-section-head clickable" @click="showAdvanced=!showAdvanced">
       <i class="material-icons">tune</i>
-      <span style="flex:1;">\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u043E</span>
+      <span style="flex:1;">Дополнительно</span>
       <i class="material-icons" style="font-size:18px;color:#666;">{{showAdvanced ? 'expand_less' : 'expand_more'}}</i>
     </div>
     <transition name="oc-collapse">
     <div v-show="showAdvanced" class="oc-section-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
-        <label style="font-size:12px;color:#aaa;">\u041F\u043B\u0430\u0432\u043D\u043E\u0441\u0442\u044C (easing)<span class="oc-help" :title="help('easing')">?</span><br/>
-          <select v-model="easing" style="width:100%;padding:3px;">
-            <option :value="0">\u041D\u0435\u0442</option>
-            <option :value="1">\u041B\u0438\u043D\u0435\u0439\u043D\u0430\u044F</option>
-            <option :value="2">\u041A\u0443\u0431\u0438\u0447\u0435\u0441\u043A\u0430\u044F</option>
-            <option :value="3">Bezier</option>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+        <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+          <span>Плавность<span class="oc-help" :data-tip="help('easing')">?</span></span>
+          <select v-model="easing" style="width:100%;padding:4px 6px;">
+            <option :value="0">Нет</option>
+            <option :value="1">Линейная</option>
+            <option :value="2">Кубическая</option>
+            <option :value="3">Безье</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">\u0418\u043D\u0442\u0435\u0440\u043F\u043E\u043B\u044F\u0446\u0438\u044F \u0442\u0435\u043A\u0441\u0442\u0443\u0440<span class="oc-help" :title="help('interpolation')">?</span><br/>
-          <select v-model="interpolation" style="width:100%;padding:3px;">
-            <option :value="0">\u041D\u0435\u0442</option>
-            <option :value="1">\u041B\u0438\u043D\u0435\u0439\u043D\u0430\u044F</option>
+        <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+          <span>Интерполяция текстур<span class="oc-help" :data-tip="help('interpolation')">?</span></span>
+          <select v-model="interpolation" style="width:100%;padding:4px 6px;">
+            <option :value="0">Нет</option>
+            <option :value="1">Линейная</option>
           </select>
         </label>
-        <label style="font-size:12px;color:#aaa;">\u0410\u0432\u0442\u043E\u043F\u043E\u0432\u043E\u0440\u043E\u0442<span class="oc-help" :title="help('autorotate')">?</span><br/>
-          <select v-model="autorotate" style="width:100%;padding:3px;">
-            <option :value="0">\u0412\u044B\u043A\u043B</option>
-            <option :value="1">Yaw</option>
-            <option :value="2">Pitch</option>
-            <option :value="3">\u041E\u0431\u0430</option>
+        <label style="font-size:12px;color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+          <span>Автоповорот<span class="oc-help" :data-tip="help('autorotate')">?</span></span>
+          <select v-model="autorotate" style="width:100%;padding:4px 6px;">
+            <option :value="0">Выкл</option>
+            <option :value="1">По горизонтали</option>
+            <option :value="2">По вертикали</option>
+            <option :value="3">Оба</option>
           </select>
         </label>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px 16px;">
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="noshadow" type="checkbox"/> \u0411\u0435\u0437 \u0442\u0435\u043D\u0438<span class="oc-help" :title="help('noshadow')">?</span></label>
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="flipuv" type="checkbox"/> \u041F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C UV<span class="oc-help" :title="help('flipuv')">?</span></label>
-        <label style="display:inline-flex;align-items:center;gap:4px;"><input v-model="nopow" type="checkbox"/> \u041D\u0435 \u043E\u043A\u0440\u0443\u0433\u043B\u044F\u0442\u044C \u0434\u043E \u0441\u0442\u0435\u043F\u0435\u043D\u0438 2<span class="oc-help" :title="help('nopow')">?</span></label>
-        <label v-if="hasArmature" style="display:inline-flex;align-items:center;gap:4px;"><input v-model="filterArmature" type="checkbox"/> \u0421\u043A\u0440\u044B\u0442\u044C \u043A\u043E\u0441\u0442\u0438 \u0430\u0440\u043C\u0430\u0442\u0443\u0440\u044B<span class="oc-help" :title="help('filterArmature')">?</span></label>
+      <div style="display:flex;flex-wrap:wrap;gap:10px 16px;">
+        <label style="display:inline-flex;align-items:center;gap:6px;"><input v-model="noshadow" type="checkbox"/> <span>Без тени</span><span class="oc-help" :data-tip="help('noshadow')">?</span></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;"><input v-model="flipuv" type="checkbox"/> <span>Перевернуть UV</span><span class="oc-help" :data-tip="help('flipuv')">?</span></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;"><input v-model="nopow" type="checkbox"/> <span>Не округлять до степени 2</span><span class="oc-help" :data-tip="help('nopow')">?</span></label>
+        <label v-if="hasArmature" style="display:inline-flex;align-items:center;gap:6px;"><input v-model="filterArmature" type="checkbox"/> <span>Скрыть кости арматуры</span><span class="oc-help" :data-tip="help('filterArmature')">?</span></label>
       </div>
     </div>
     </transition>
@@ -2573,16 +2645,16 @@
   <!-- ======== EXPORT ======== -->
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
     <button @click="doExport" :disabled="running || validationErrors.length > 0" style="padding:6px 24px;font-size:14px;">
-      {{running ? '\u0420\u0430\u0431\u043E\u0442\u0430\u044E\u2026' : ('\u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u00AB' + (presetNames[activePresetIdx] || '') + '\u00BB')}}
+      {{running ? 'Работаю…' : ('Экспортировать «' + (presetNames[activePresetIdx] || '') + '»')}}
     </button>
     <button v-if="presetNames.length > 1" @click="exportAll" :disabled="running"
             class="oc-btn oc-btn-primary" style="padding:6px 16px;font-size:13px;">
-      \u042D\u043A\u0441\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432\u0441\u0435 ({{presetNames.length}})
+      Экспортировать все ({{presetNames.length}})
     </button>
-    <span v-if="validationErrors.length" class="oc-err-badge" :title="errorBadgeTitle">
-      \u26A0 {{validationErrors.length}} {{validationErrors.length === 1 ? '\u043F\u0440\u043E\u0431\u043B\u0435\u043C\u0430' : (validationErrors.length < 5 ? '\u043F\u0440\u043E\u0431\u043B\u0435\u043C\u044B' : '\u043F\u0440\u043E\u0431\u043B\u0435\u043C')}}
+    <span v-if="validationErrors.length" class="oc-err-badge" :data-tip="errorBadgeTitle">
+      ⚠ {{validationErrors.length}} {{pluralize(validationErrors.length, 'проблема', 'проблемы', 'проблем')}}
     </span>
-    <span :style="{color: status.startsWith('Error')?'#f66' : status.startsWith('\u0413\u043E\u0442\u043E\u0432\u043E') || status.startsWith('Done')?'#6f6' : '#aaa', fontSize:'12px', flex:1}">
+    <span :style="{color: status.startsWith('Error')?'#f66' : (status.startsWith('Готово') || status.startsWith('Done'))?'#6f6' : '#aaa', fontSize:'12px', flex:1}">
       {{status}}
     </span>
   </div>
