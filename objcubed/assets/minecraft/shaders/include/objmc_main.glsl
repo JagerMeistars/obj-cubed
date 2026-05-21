@@ -219,9 +219,11 @@ if (marker == ivec4(12,34,56,78)) {
                 + vec2(onepixel.x*0.0001*corner,onepixel.y*0.0001*((corner+1)%4));
 
     // ===========================================================
-    // DEBUG MODE — uncomment one of the blocks below to visualize a
-    // shader value as pixel color. Take screenshots, read RGB values,
-    // and decode back to the original measurements.
+    // DEBUG MODE (ENTITY only — block/terrain shaders don't define
+    // overlayColor/isGUI/isHand so we can't visualize there).
+    // Uncomment one of the blocks below to visualize a shader value
+    // as pixel color. Take screenshots, read RGB values, decode back
+    // via tools/decode_pixel.js.
     // ===========================================================
     //
     // Encoding scheme: each channel maps a range [-X, +X] → [0, 255]
@@ -229,7 +231,7 @@ if (marker == ivec4(12,34,56,78)) {
     // Decode: value = (byte/255) * 2*X - X
     //
     // RANGE_HINT below sets X for each preset.
-
+#ifdef ENTITY
     // ---- A1: Pos before ModelViewMat (object space) ----
     // RANGE_HINT = 32. So decode each channel: (byte/255)*64 - 32.
     // overlayColor = vec4(
@@ -261,6 +263,7 @@ if (marker == ivec4(12,34,56,78)) {
     // ---- A4: slot detection (which render path is active) ----
     // R=1 → isGUI, G=1 → isHand, B=1 → neither (third-person / equipment / ground)
     // overlayColor = vec4(float(isGUI), float(isHand), float(1 - isGUI - isHand), 1.0);
+#endif
 }
 //debug
 //else {
