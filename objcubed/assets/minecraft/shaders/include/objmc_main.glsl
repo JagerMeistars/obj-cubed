@@ -209,18 +209,18 @@ if (marker == ivec4(12,34,56,78)) {
     }
 #endif
     //final pos and uv
-    // Anchor HARDCODED instead of subgroupQuadBroadcast centroid because
-    // Minecraft's vertex submission order varies per render slot
-    // (first-person hand vs third-person vs equipment etc.), which gave
-    // different anchor values per slot — the model ended up in the right
-    // place in first person but flew off in third. Hardcoding gives a
-    // single deterministic anchor that's correct everywhere.
+    // No subgroup anchor calc — placeholder is a tiny ~0.1 BB unit quad
+    // emitted by the encoder centred on (8, -1.7, 8), so every input
+    // Position is already at (or within 0.05 of) the anchor. Adding
+    // posoffset (per-corner texture lookup) on top gives the actual model
+    // geometry. The variation between corners (~0.05 BB) is negligible
+    // compared to typical posoffset magnitude (±8 BB).
     //
-    // Y=-1.7 compensates an empirically observed render drift between our
-    // model and a vanilla JSON-cube reference at the same OBJ coords.
-    // (X=8, Z=8 = center of standard block on those axes.)
-    vec3 anchor = vec3(8.0, -1.7, 8.0);
-    Pos = anchor + posoffset;
+    // This bypasses the subgroupQuadBroadcast pipeline that was unreliable
+    // across different render slots (in-hand vs entity vs gui), and the
+    // Position naturally arrives in whatever coord system Minecraft uses
+    // per slot, keeping scale correct everywhere.
+    Pos = Position + posoffset;
     texCoord = (vec2(topleft.x,topleft.y+headerheight) + texCoord*size)/atlasSize
                 //make sure that faces with same uv beginning/ending renders
                 + vec2(onepixel.x*0.0001*corner,onepixel.y*0.0001*((corner+1)%4));

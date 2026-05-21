@@ -1552,12 +1552,14 @@
         for (let i = 0; i < nfaces; i++) {
             const px = i%tw, py = Math.floor(i/tw)+1;
             put(px, py, Math.trunc(px/256)%256, px%256, Math.trunc(py/256)%256, py%256);
-            // Placeholder face — standard [0, 16] bounds. Anchor is hardcoded
-            // in the shader (vec3(8, -1.7, 8)) so the actual centroid of this
-            // face doesn't matter for rendering output. The standard bounds
-            // are safer for Minecraft's bounding-box logic.
+            // Tiny placeholder face centred on (8, -1.7, 8) — the anchor.
+            // All 4 corners of the quad land within 0.05 BB units of the
+            // anchor, so `Pos = Position + posoffset` in the shader gives
+            // each corner an effectively-shared anchor PLUS its own
+            // posoffset from the texture. No subgroup tricks needed —
+            // works identically across every render slot in Minecraft.
             elements.push({
-                from: [0,0,8], to: [16,16,8],
+                from: [7.95,-1.75,8], to: [8.05,-1.65,8],
                 faces: { north: {
                     uv: [(px+0.1)*16/tw,(py+0.1)*16/ty,(px+0.9)*16/tw,(py+0.9)*16/ty],
                     texture: '#0', tintindex: 0,
