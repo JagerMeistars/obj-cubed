@@ -2113,11 +2113,15 @@
                         showDisplay:   false,
                         displayTab:    'third',   // 'third' | 'head' | 'ground' | 'fixed'
                         useSeparateLefthand: false,
-                        dThirdRX: 85, dThirdRY: 0, dThirdRZ: 0,
-                        dThirdTX: 0,  dThirdTY: 0, dThirdTZ: 0,
-                        dThirdSX: 1,  dThirdSY: 1, dThirdSZ: 1,
+                        // Thirdperson rotation default 5° X — empirical value
+                        // that aligns OBJ default orientation with JSON cube
+                        // (down-face-forward) in third-person hand rendering.
+                        // Legacy objmc value was 85° (its own coord convention).
+                        dThirdRX: 5, dThirdRY: 0, dThirdRZ: 0,
+                        dThirdTX: 0, dThirdTY: 0, dThirdTZ: 0,
+                        dThirdSX: 1, dThirdSY: 1, dThirdSZ: 1,
                         // Display — Left hand (only used when useSeparateLefthand=true)
-                        dLeftRX: 85, dLeftRY: 0, dLeftRZ: 0,
+                        dLeftRX: 5, dLeftRY: 0, dLeftRZ: 0,
                         dLeftTX: 0,  dLeftTY: 0, dLeftTZ: 0,
                         dLeftSX: 1,  dLeftSY: 1, dLeftSZ: 1,
                         // Display — Head/Ground/Fixed
