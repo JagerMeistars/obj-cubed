@@ -184,12 +184,9 @@ if (marker == ivec4(12,34,56,78)) {
 //custom entity rotation
 #ifdef ENTITY
         posoffset *= scale;
-        if (isGUI == 1) {
-            posoffset *= 24;
-            posoffset.y += 4;
-            posoffset.zy *= -1;
-            posoffset = rotate(rotation + vec3(0,1,0)) * posoffset;
-        }
+        // GUI hardcoded preset removed — per-slot calibrated placeholder
+        // in model.json (via items/display_context selector) handles GUI
+        // rendering uniformly with the other slots.
         if (isHand == 1) {
             posoffset.zx *= -1;
             posoffset = (vec4(posoffset,0) * ModelViewMat).xyz;

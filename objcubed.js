@@ -1758,9 +1758,12 @@
         firstperson_lefthand:  { x: 0, y: 0,   z: 0  },
         head:                  { x: 0, y: 0,   z: 0  },
         gui:                   { x: 0, y: 0,   z: 0  },
-        ground:                { x: 0, y: -10, z: 0  },
-        fixed:                 { x: 0, y: 0,   z: 0  },
-        on_shelf:              { x: 0, y: -3,  z: 0  },
+        // DIAGNOSTIC: ground and on_shelf set to extreme y=-100 so we can
+        // tell at a glance whether Minecraft is even using these slot
+        // models or routing through some other path (item entity etc).
+        ground:                { x: 0, y: -100, z: 0 },
+        fixed:                 { x: 0, y: 0,    z: 0 },
+        on_shelf:              { x: 0, y: -100, z: 0 },
     };
 
     function calibratedElementsForSlot(baseElements, slot) {
