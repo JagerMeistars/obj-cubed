@@ -271,6 +271,16 @@ if (marker == ivec4(12,34,56,78)) {
     // ---- A4: slot detection (which render path is active) ----
     // R=1 → isGUI, G=1 → isHand, B=1 → neither (third-person / equipment / ground)
     // OC_DBG_COLOR(vec4(float(isGUI), float(isHand), float(1 - isGUI - isHand), 1.0));
+
+    // ---- A5: raw Position from VBO (before any objmc modification) ----
+    // Shows what coord system Minecraft submits Position in per slot.
+    // RANGE_HINT = 32. Decode: (byte/255)*64 - 32.
+    // OC_DBG_COLOR(vec4(
+    //     clamp((Position.x + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((Position.y + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((Position.z + 32.0) / 64.0, 0.0, 1.0),
+    //     1.0
+    // ));
 #endif
 }
 //debug
