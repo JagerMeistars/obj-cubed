@@ -217,6 +217,50 @@ if (marker == ivec4(12,34,56,78)) {
     texCoord = (vec2(topleft.x,topleft.y+headerheight) + texCoord*size)/atlasSize
                 //make sure that faces with same uv beginning/ending renders
                 + vec2(onepixel.x*0.0001*corner,onepixel.y*0.0001*((corner+1)%4));
+
+    // ===========================================================
+    // DEBUG MODE — uncomment one of the blocks below to visualize a
+    // shader value as pixel color. Take screenshots, read RGB values,
+    // and decode back to the original measurements.
+    // ===========================================================
+    //
+    // Encoding scheme: each channel maps a range [-X, +X] → [0, 255]
+    // via:   byte = ((value + X) / (2*X)) * 255
+    // Decode: value = (byte/255) * 2*X - X
+    //
+    // RANGE_HINT below sets X for each preset.
+
+    // ---- A1: Pos before ModelViewMat (object space) ----
+    // RANGE_HINT = 32. So decode each channel: (byte/255)*64 - 32.
+    // overlayColor = vec4(
+    //     clamp((Pos.x + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((Pos.y + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((Pos.z + 32.0) / 64.0, 0.0, 1.0),
+    //     1.0
+    // );
+
+    // ---- A2: posoffset alone (encoded vertex offset from anchor) ----
+    // RANGE_HINT = 16. Decode: (byte/255)*32 - 16.
+    // overlayColor = vec4(
+    //     clamp((posoffset.x + 16.0) / 32.0, 0.0, 1.0),
+    //     clamp((posoffset.y + 16.0) / 32.0, 0.0, 1.0),
+    //     clamp((posoffset.z + 16.0) / 32.0, 0.0, 1.0),
+    //     1.0
+    // );
+
+    // ---- A3: anchor (subgroupQuadBroadcast Pos[2]) only ----
+    // RANGE_HINT = 32. Decode: (byte/255)*64 - 32.
+    // vec3 dbg_anchor = subgroupQuadBroadcast(Pos - posoffset, 2);
+    // overlayColor = vec4(
+    //     clamp((dbg_anchor.x + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((dbg_anchor.y + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((dbg_anchor.z + 32.0) / 64.0, 0.0, 1.0),
+    //     1.0
+    // );
+
+    // ---- A4: slot detection (which render path is active) ----
+    // R=1 → isGUI, G=1 → isHand, B=1 → neither (third-person / equipment / ground)
+    // overlayColor = vec4(float(isGUI), float(isHand), float(1 - isGUI - isHand), 1.0);
 }
 //debug
 //else {
