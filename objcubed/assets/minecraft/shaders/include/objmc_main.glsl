@@ -209,20 +209,20 @@ if (marker == ivec4(12,34,56,78)) {
     }
 #endif
     //final pos and uv
-    // Pos = posoffset directly. We IGNORE Position from the placeholder
-    // entirely — it arrives in different coord systems / orderings depending
-    // on which render slot Minecraft is using (first-person item, third-
-    // person equipment, dropped entity, etc.), which made any Position-based
-    // anchor calculation unreliable across slots.
-    //
-    // By using posoffset as Pos, the model lives in pure BB-unit object
-    // space centred on (0, 0, 0) — the object origin. ModelViewMat then
-    // applies whatever per-slot transform Minecraft uses (BB→block scale,
-    // display tag, camera), exactly the same way it does for a vanilla
-    // JSON-cube model whose from/to coords are also relative to (0, 0, 0).
-    //
-    // Result: identical rendering to a vanilla model in every slot.
-    Pos = posoffset;
+    // Anchor via subgroup-quad centroid average. Standard objmc approach.
+    // This DOES have known per-slot inconsistencies (subgroup vertex order
+    // differs between first-person, third-person, equipment, etc. rendering
+    // paths), but at least the model renders everywhere. Per-slot drift
+    // needs to be addressed by either custom display-tag values from the
+    // user OR per-slot shader compensation triggered by isHand/isGUI
+    // detection — see encoder for empirical centroid Y choice.
+    vec3 anchor = 0.25 * (
+        subgroupQuadBroadcast(Pos, 0) +
+        subgroupQuadBroadcast(Pos, 1) +
+        subgroupQuadBroadcast(Pos, 2) +
+        subgroupQuadBroadcast(Pos, 3)
+    );
+    Pos = anchor + posoffset;
     texCoord = (vec2(topleft.x,topleft.y+headerheight) + texCoord*size)/atlasSize
                 //make sure that faces with same uv beginning/ending renders
                 + vec2(onepixel.x*0.0001*corner,onepixel.y*0.0001*((corner+1)%4));
