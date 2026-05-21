@@ -1394,31 +1394,53 @@
     //   Scale — NOT included. The shader computes scale from quad geometry,
     //           so display scale would double with the export Scale field.
     //
-    // Thirdperson fallback: if rotation is all-zero the element faces away
-    // from the camera and gets back-face culled. Emit [85,0,0].
+    // Source priority:
+    //   1. Project.display (native BlockBench Display editor) — full 8 slots
+    //   2. cfg.displaySlots (our dialog's per-slot fields, legacy fallback)
+    //   3. Minecraft standard 3D item defaults — sensible for users who
+    //      didn't touch display at all.
+    const DEFAULT_DISPLAY = {
+        thirdperson_righthand: { rotation:[0,0,0],    translation:[0,3,1],   scale:[0.55,0.55,0.55] },
+        thirdperson_lefthand:  { rotation:[0,0,0],    translation:[0,3,1],   scale:[0.55,0.55,0.55] },
+        firstperson_righthand: { rotation:[0,45,0],   translation:[0,4,2],   scale:[0.68,0.68,0.68] },
+        firstperson_lefthand:  { rotation:[0,225,0],  translation:[0,4,2],   scale:[0.68,0.68,0.68] },
+        head:                  { rotation:[0,180,0],  translation:[0,12.5,-7], scale:[1,1,1] },
+        gui:                   { rotation:[30,225,0], translation:[0,0,0],   scale:[0.625,0.625,0.625] },
+        ground:                { rotation:[0,0,0],    translation:[0,2,0],   scale:[0.5,0.5,0.5] },
+        fixed:                 { rotation:[0,0,0],    translation:[0,0,0],   scale:[1,1,1] },
+    };
+
     function buildDisplayTransforms(cfg) {
         const result = {};
-        const slots = cfg.displaySlots || {};
+        const ALL_SLOTS = [
+            'thirdperson_righthand','thirdperson_lefthand',
+            'firstperson_righthand','firstperson_lefthand',
+            'head','gui','ground','fixed',
+        ];
 
-        for (const key of ['thirdperson_righthand','thirdperson_lefthand','head','ground','fixed']) {
-            const slot = slots[key];
-            if (!slot) continue;
-            const r = slot.rotation    || [0,0,0];
-            const t = slot.translation || [0,0,0];
-            const s = slot.scale       || [1,1,1];
+        // Priority 1: native BlockBench Display editor (Project.display object,
+        // map of slotName -> DisplaySlot with rotation/translation/scale arrays).
+        const nativeDisplay = (typeof Project !== 'undefined' && Project && Project.display) || null;
+        // Priority 2: legacy fields from our dialog.
+        const dialogSlots = cfg.displaySlots || {};
 
-            const isThird = key === 'thirdperson_righthand' || key === 'thirdperson_lefthand';
-            const effR = (isThird && r.every(v => v === 0)) ? [85, 0, 0] : r;
+        for (const key of ALL_SLOTS) {
+            const def = DEFAULT_DISPLAY[key];
+            const nat = nativeDisplay && nativeDisplay[key];
+            const dlg = dialogSlots[key];
 
+            const r = (nat && nat.rotation)    || (dlg && dlg.rotation)    || def.rotation;
+            const t = (nat && nat.translation) || (dlg && dlg.translation) || def.translation;
+            const s = (nat && nat.scale)       || (dlg && dlg.scale)       || def.scale;
+
+            // Only emit a slot entry if at least one of r/t/s differs from
+            // Minecraft's zero-default — keeps model.json compact.
             const entry = {};
-            if (effR.some(v => v !== 0))   entry.rotation    = [...effR];
-            if (t.some(v => v !== 0))      entry.translation = [...t];
-            if (s.some(v => v !== 1))      entry.scale       = [...s];
+            if (r.some(v => v !== 0)) entry.rotation    = [...r];
+            if (t.some(v => v !== 0)) entry.translation = [...t];
+            if (s.some(v => v !== 1)) entry.scale       = [...s];
             if (Object.keys(entry).length) result[key] = entry;
         }
-
-        if (!result.thirdperson_righthand) result.thirdperson_righthand = { rotation: [85,0,0] };
-        if (!result.thirdperson_lefthand)  result.thirdperson_lefthand  = { rotation: [85,0,0] };
 
         return result;
     }
@@ -2285,6 +2307,14 @@
                         return many;
                     },
                     closeDialog() { if (dialog) dialog.close(); },
+                    openNativeDisplayEditor() {
+                        if (dialog) dialog.close();
+                        if (typeof Modes !== 'undefined' && Modes.options && Modes.options.display) {
+                            Modes.options.display.select();
+                        } else if (typeof Blockbench !== 'undefined' && Blockbench.showQuickMessage) {
+                            Blockbench.showQuickMessage('Режим Display недоступен в этом формате модели', 3000);
+                        }
+                    },
                     scrollToFirstError() {
                         // Triggered by clicking the error badge in the footer.
                         // Scrolls the first .oc-err element into view and focuses it.
@@ -2709,163 +2739,18 @@
     </div>
   </div>
 
-  <!-- ======== DISPLAY (collapsible, tabbed) ======== -->
-  <div class="oc-section">
-    <div class="oc-section-head clickable" @click="showDisplay=!showDisplay">
-      <i class="material-icons">view_in_ar</i>
-      <span style="flex:1;">Отображение в слотах</span>
-      <i class="material-icons" style="font-size:18px;color:#666;">{{showDisplay ? 'expand_less' : 'expand_more'}}</i>
+  <!-- ======== DISPLAY (link to native BB editor) ======== -->
+  <div class="oc-section" style="padding:10px 12px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <i class="material-icons" style="font-size:18px;color:#5a8cc0;flex-shrink:0;">view_in_ar</i>
+      <span style="font-weight:600;color:#ddd;flex:1;">Отображение в слотах</span>
+      <button class="oc-btn" @click="openNativeDisplayEditor" data-tip="Откроется встроенный редактор BlockBench: предпросмотр модели в каждом из 8 слотов с поворотом, сдвигом и масштабом">
+        <i class="material-icons" style="font-size:14px;vertical-align:-3px;margin-right:3px;">open_in_new</i>Открыть редактор
+      </button>
     </div>
-    <transition name="oc-collapse">
-    <div v-show="showDisplay" class="oc-section-body" style="font-size:12px;">
-
-      <div class="oc-display-tabs">
-        <button class="oc-display-tab" :class="{active: displayTab==='third'}"  @click="displayTab='third'">В руке</button>
-        <button class="oc-display-tab" :class="{active: displayTab==='head'}"   @click="displayTab='head'">На голове</button>
-        <button class="oc-display-tab" :class="{active: displayTab==='ground'}" @click="displayTab='ground'">На земле</button>
-        <button class="oc-display-tab" :class="{active: displayTab==='fixed'}"  @click="displayTab='fixed'">В рамке</button>
-      </div>
-
-      <!-- TAB: В руке (3rd person) -->
-      <div v-show="displayTab==='third'">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <span style="color:#aaa;font-weight:600;">{{ useSeparateLefthand ? 'Правая рука' : 'Обе руки' }}<span class="oc-help" :data-tip="help('display_third')">?</span></span>
-          <label style="font-size:11px;color:#888;display:inline-flex;align-items:center;gap:4px;margin-left:auto;">
-            <input v-model="useSeparateLefthand" type="checkbox"/>
-            <span>Левая рука отдельно</span>
-            <span class="oc-help" :data-tip="help('useSeparateLefthand')">?</span>
-          </label>
-        </div>
-        <div class="oc-display-rows">
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-            <span style="color:#888;font-size:11px;">Поворот</span>
-            <div v-for="ax in ['dThirdRX','dThirdRY','dThirdRZ']" :key="ax" class="oc-range-row">
-              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
-              <input type="number" v-model.number="$data[ax]" step="1"/>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-            <span style="color:#888;font-size:11px;">Сдвиг</span>
-            <div v-for="ax in ['dThirdTX','dThirdTY','dThirdTZ']" :key="ax" class="oc-range-row">
-              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
-              <input type="number" v-model.number="$data[ax]" step="0.5"/>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
-            <span style="color:#888;font-size:11px;">Масштаб</span>
-            <div v-for="ax in ['dThirdSX','dThirdSY','dThirdSZ']" :key="ax" class="oc-range-row">
-              <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
-              <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="useSeparateLefthand" style="margin-top:14px;">
-          <div style="color:#aaa;margin-bottom:6px;font-weight:600;">Левая рука</div>
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-            <span style="color:#888;font-size:11px;">Поворот</span>
-            <div v-for="ax in ['dLeftRX','dLeftRY','dLeftRZ']" :key="ax" class="oc-range-row">
-              <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
-              <input type="number" v-model.number="$data[ax]" step="1"/>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-            <span style="color:#888;font-size:11px;">Сдвиг</span>
-            <div v-for="ax in ['dLeftTX','dLeftTY','dLeftTZ']" :key="ax" class="oc-range-row">
-              <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
-              <input type="number" v-model.number="$data[ax]" step="0.5"/>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
-            <span style="color:#888;font-size:11px;">Масштаб</span>
-            <div v-for="ax in ['dLeftSX','dLeftSY','dLeftSZ']" :key="ax" class="oc-range-row">
-              <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
-              <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB: На голове -->
-      <div v-show="displayTab==='head'">
-        <div style="color:#aaa;margin-bottom:6px;font-weight:600;">На голове<span class="oc-help" :data-tip="help('display_head')">?</span></div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-          <span style="color:#888;font-size:11px;">Поворот</span>
-          <div v-for="ax in ['dHeadRX','dHeadRY','dHeadRZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
-            <input type="number" v-model.number="$data[ax]" step="1"/>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-          <span style="color:#888;font-size:11px;">Сдвиг</span>
-          <div v-for="ax in ['dHeadTX','dHeadTY','dHeadTZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
-            <input type="number" v-model.number="$data[ax]" step="0.5"/>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
-          <span style="color:#888;font-size:11px;">Масштаб</span>
-          <div v-for="ax in ['dHeadSX','dHeadSY','dHeadSZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
-            <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB: На земле -->
-      <div v-show="displayTab==='ground'">
-        <div style="color:#aaa;margin-bottom:6px;font-weight:600;">На земле<span class="oc-help" :data-tip="help('display_ground')">?</span></div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-          <span style="color:#888;font-size:11px;">Поворот</span>
-          <div v-for="ax in ['dGroundRX','dGroundRY','dGroundRZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
-            <input type="number" v-model.number="$data[ax]" step="1"/>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-          <span style="color:#888;font-size:11px;">Сдвиг</span>
-          <div v-for="ax in ['dGroundTX','dGroundTY','dGroundTZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
-            <input type="number" v-model.number="$data[ax]" step="0.5"/>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
-          <span style="color:#888;font-size:11px;">Масштаб</span>
-          <div v-for="ax in ['dGroundSX','dGroundSY','dGroundSZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
-            <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB: В рамке -->
-      <div v-show="displayTab==='fixed'">
-        <div style="color:#aaa;margin-bottom:6px;font-weight:600;">В рамке<span class="oc-help" :data-tip="help('display_fixed')">?</span></div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-          <span style="color:#888;font-size:11px;">Поворот</span>
-          <div v-for="ax in ['dFixedRX','dFixedRY','dFixedRZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="-180" max="180" step="1"/>
-            <input type="number" v-model.number="$data[ax]" step="1"/>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
-          <span style="color:#888;font-size:11px;">Сдвиг</span>
-          <div v-for="ax in ['dFixedTX','dFixedTY','dFixedTZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
-            <input type="number" v-model.number="$data[ax]" step="0.5"/>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
-          <span style="color:#888;font-size:11px;">Масштаб</span>
-          <div v-for="ax in ['dFixedSX','dFixedSY','dFixedSZ']" :key="ax" class="oc-range-row">
-            <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
-            <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
-          </div>
-        </div>
-      </div>
-
+    <div style="font-size:11px;color:#888;margin-top:6px;line-height:1.4;">
+      Поворот, сдвиг и масштаб для всех 8 слотов (в руках от 1-го и 3-го лица, на голове, в инвентаре, на земле, в рамке) настраиваются через встроенный редактор BlockBench и сохраняются прямо в проекте.
     </div>
-    </transition>
   </div>
 
   <!-- ======== COLOR & TINTING — hidden in datapack mode (handled there) ======== -->
