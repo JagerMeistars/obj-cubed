@@ -153,9 +153,7 @@
         }
         .oc-help:hover { background:#5a8cc0; color:#fff; }
 
-        /* JS-driven tooltip portal. The element lives on document.body so
-           it can extend past the dialog bounds. The mounted() handler
-           positions it within the viewport on every hover. */
+        /* JS-driven tooltip portal — slides in from above with a soft drop. */
         .oc-tooltip {
             position: fixed;
             background: #1f1f1f;
@@ -171,9 +169,10 @@
             pointer-events: none;
             box-shadow: 0 3px 10px rgba(0,0,0,0.5);
             opacity: 0;
-            transition: opacity 100ms;
+            transform: translateY(-4px);
+            transition: opacity 140ms ease-out, transform 140ms ease-out;
         }
-        .oc-tooltip.visible { opacity: 1; }
+        .oc-tooltip.visible { opacity: 1; transform: translateY(0); }
 
         .oc-err {
             outline: 1.5px solid #c44 !important;
@@ -238,8 +237,10 @@
             background: #3a4f72; border-color: #7aacd0; color: #fff;
         }
 
-        /* Icon-only square buttons (preset bar) — defensive against BB defaults */
-        .oc-icon-btn {
+        /* Icon-only square buttons — defensive against BB defaults.
+           Force a square outer box AND clip the glyph so the icon font's
+           intrinsic width can't bulge the button horizontally. */
+        .oc-root .oc-icon-btn {
             width: 24px !important;
             min-width: 24px !important;
             max-width: 24px !important;
@@ -247,14 +248,23 @@
             min-height: 24px !important;
             max-height: 24px !important;
             padding: 0 !important;
+            margin: 0 !important;
             display: inline-flex !important;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
             box-sizing: border-box !important;
             line-height: 1 !important;
+            overflow: hidden !important;
         }
-        .oc-icon-btn .material-icons { font-size: 14px; }
+        .oc-root .oc-icon-btn .material-icons {
+            font-size: 14px !important;
+            width: 14px !important;
+            height: 14px !important;
+            line-height: 14px !important;
+            display: inline-block !important;
+            overflow: hidden !important;
+        }
 
         /* Color & Tinting channel button: keeps R/G/B letter and the
            current value label in a tidy column, centered vertically. */
@@ -2177,15 +2187,15 @@
                         const effective = this.generateDatapack && this.showDatapackOption
                             ? ['time','time','time'] : [this.cbR, this.cbG, this.cbB];
                         if (effective.every(v => v === 'direct'))
-                            return 'модель тинтуется напрямую цветом зелья (custom_color)';
+                            return 'Модель тинтуется напрямую цветом зелья (custom_color)';
                         if (effective.every(v => v === 'time'))
-                            return 'весь цвет управляет временем анимации (24-битный кадр)';
+                            return 'Весь цвет управляет временем анимации (24-битный кадр)';
                         if (effective.every(v => v === 'scale'))
-                            return 'весь цвет управляет масштабом модели';
+                            return 'Весь цвет управляет масштабом модели';
                         if (effective.every(v => v === 'overlay'))
-                            return 'весь цвет работает как HSV-оттенок';
+                            return 'Весь цвет работает как HSV-оттенок';
                         if (effective.every(v => v === 'hurt'))
-                            return 'весь цвет управляет красной вспышкой «получил урон»';
+                            return 'Весь цвет управляет красной вспышкой «получил урон»';
                         // Mixed combo — no summary (the per-button labels already tell the user).
                         return '';
                     },
@@ -2809,7 +2819,7 @@
       <span style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;">
         Цвет и подсветка<span class="oc-help" :data-tip="help('cb_general')">?</span>
       </span>
-      <span v-if="colorBehaviorPretty" style="font-size:11px;color:#888;margin-left:auto;flex:1;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— {{colorBehaviorPretty}}</span>
+      <span v-if="colorBehaviorPretty" style="font-size:11px;color:#888;margin-left:auto;flex:1;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{colorBehaviorPretty}}</span>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
@@ -2869,30 +2879,42 @@
     </transition>
   </div>
 
-  <!-- ======== EXPORT (sticky footer) ======== -->
-  <div class="oc-footer-sticky">
-    <button class="oc-btn-export" @click="doExport" :disabled="running || validationErrors.length > 0">
-      <i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:4px;">file_download</i>{{running ? 'Работаю…' : 'Экспортировать «' + (presetNames[activePresetIdx] || '') + '»'}}
-    </button>
+  <!-- ======== STATUS strip (badge + multi-preset + status text) ======== -->
+  <!-- Real Export/Close buttons are BlockBench-native, attached via Dialog's
+       buttons:[…] config; that guarantees they're pinned to the dialog footer. -->
+  <div v-if="validationErrors.length || status || presetNames.length > 1"
+       style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);">
     <button v-if="presetNames.length > 1" @click="exportAll" :disabled="running"
-            class="oc-btn oc-btn-primary" style="padding:7px 14px;font-size:12px;">
-      Все ({{presetNames.length}})
+            class="oc-btn oc-btn-primary" style="padding:6px 14px;font-size:12px;">
+      Экспортировать все ({{presetNames.length}})
     </button>
     <span v-if="validationErrors.length" class="oc-err-badge" :data-tip="errorBadgeTitle" @click="scrollToFirstError" style="cursor:pointer;">
-      ⚠ {{validationErrors.length}} {{pluralize(validationErrors.length, 'проблема', 'проблемы', 'проблем')}}
+      {{validationErrors.length}} {{pluralize(validationErrors.length, 'проблема', 'проблемы', 'проблем')}}
     </span>
     <span :style="{color: status.startsWith('Error')?'#f66' : (status.startsWith('Готово') || status.startsWith('Done'))?'#6f6' : '#aaa', fontSize:'12px', flex:1, textAlign:'right'}">
       {{status}}
     </span>
-    <button class="oc-btn" @click="closeDialog">Закрыть</button>
   </div>
 
 </div>`,
             },
-            // Don't draw BlockBench's native button bar — we have our own
-            // sticky footer with the export button + close button. Two
-            // separate bars looked disjoint (different baselines, styles).
-            buttons: [],
+            // Use BlockBench's native button bar for the primary Export +
+            // Close — it's the only reliably pinned-to-bottom UI in a BB
+            // Dialog. Our custom footer (sticky/flex) didn't survive BB's
+            // own layout in the wild.
+            buttons: ['Экспортировать', 'Закрыть'],
+            confirmIndex: 0,
+            cancelIndex: 1,
+            onConfirm: function () {
+                const vm = this.content_vue;
+                if (!vm) return;
+                if (vm.validationErrors.length) {
+                    vm.scrollToFirstError();
+                    return false;  // keep dialog open
+                }
+                vm.doExport();
+                return false;  // keep open so user can see status / re-export
+            },
         });
 
         dialog.show();
