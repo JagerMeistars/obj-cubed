@@ -1757,16 +1757,12 @@
         firstperson_righthand: { x: 0, y: 0,   z: 0  },
         firstperson_lefthand:  { x: 0, y: 0,   z: 0  },
         head:                  { x: 0, y: 0,   z: 0  },
-        // DIAGNOSTIC: y=+5 to verify selector picks _gui.json (mild,
-        // stays within MC element bounds). If model shifts up in inventory
-        // by ~5 BB units, selector works. If not, fallback used.
-        gui:                   { x: 0, y: 5, z: 0 },
-        // DIAGNOSTIC: ground and on_shelf set to extreme y=-100 so we can
-        // tell at a glance whether Minecraft is even using these slot
-        // models or routing through some other path (item entity etc).
-        ground:                { x: 0, y: -100, z: 0 },
-        fixed:                 { x: 0, y: 0,    z: 0 },
-        on_shelf:              { x: 0, y: -100, z: 0 },
+        gui:                   { x: 0, y: 0, z: 0 },
+        // Reset to zero — extreme y=-100 was pushing elements past
+        // Minecraft's [-16, 32] bounds, causing missing-texture error model.
+        ground:                { x: 0, y: 0, z: 0 },
+        fixed:                 { x: 0, y: 0, z: 0 },
+        on_shelf:              { x: 0, y: 0, z: 0 },
     };
 
     function calibratedElementsForSlot(baseElements, slot) {
@@ -1801,6 +1797,12 @@
     // otherwise inherit block/block rotation [30, 225, 0]).
     const IDENTITY_DISPLAY = { rotation: [0,0,0], translation: [0,0,0], scale: [1,1,1] };
 
+    // DIAGNOSTIC: obviously-rotated GUI display to verify Minecraft actually
+    // applies our explicit display.gui tag. If model rotates by 45° in
+    // inventory, display tag works. If still shows default inventory tilt,
+    // Minecraft is ignoring our tag.
+    const GUI_DIAGNOSTIC_DISPLAY = { rotation: [45, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
             const fs   = require('fs');
@@ -1825,7 +1827,11 @@
                         // default 3D-block display transform (rotation etc.)
                         // which would override our per-slot placeholder calibration.
                         const slotDisplay = { ...displayTransforms };
-                        if (!slotDisplay[slot]) slotDisplay[slot] = IDENTITY_DISPLAY;
+                        if (!slotDisplay[slot]) {
+                            slotDisplay[slot] = (slot === 'gui')
+                                ? GUI_DIAGNOSTIC_DISPLAY
+                                : IDENTITY_DISPLAY;
+                        }
 
                         const model = {
                             textures: { 0: `block/${pngName}` },
