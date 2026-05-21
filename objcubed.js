@@ -323,6 +323,22 @@
         /* Compact preset bar (1 preset only) — just name + add button */
         .oc-preset-compact { display: flex; align-items: center; gap: 8px; }
 
+        /* Sticky footer — keeps the export button visible while user scrolls.
+           Negative margins push it to the dialog edges so the background
+           covers full width. The padding here mirrors the root padding so
+           content above doesn't visually shift. */
+        .oc-footer-sticky {
+            position: sticky;
+            bottom: -14px;
+            margin: 14px -16px -14px -16px;
+            padding: 10px 16px;
+            background: #2a2a2a;
+            border-top: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.25);
+            display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+            z-index: 5;
+        }
+
         /* Collapse transition */
         .oc-collapse-enter-active, .oc-collapse-leave-active {
             transition: opacity 150ms ease;
@@ -2155,6 +2171,18 @@
                         if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
                         return many;
                     },
+                    scrollToFirstError() {
+                        // Triggered by clicking the error badge in the footer.
+                        // Scrolls the first .oc-err element into view and focuses it.
+                        this.$nextTick(() => {
+                            const el = this.$el && this.$el.querySelector('.oc-err');
+                            if (!el) return;
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            const focusable = el.matches('input,select,textarea') ? el
+                                : el.querySelector('input,select,textarea');
+                            if (focusable) focusable.focus({ preventScroll: true });
+                        });
+                    },
 
                     // ---- Preset management ----
                     // Reload all persisted fields from the given preset index
@@ -2746,8 +2774,8 @@
     </transition>
   </div>
 
-  <!-- ======== EXPORT (primary CTA) ======== -->
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;">
+  <!-- ======== EXPORT (sticky footer — always visible) ======== -->
+  <div class="oc-footer-sticky">
     <button class="oc-btn-export" @click="doExport" :disabled="running || validationErrors.length > 0">
       <i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:4px;">file_download</i>{{running ? 'Работаю…' : 'Экспортировать «' + (presetNames[activePresetIdx] || '') + '»'}}
     </button>
@@ -2755,10 +2783,10 @@
             class="oc-btn oc-btn-primary" style="padding:7px 14px;font-size:12px;">
       Все ({{presetNames.length}})
     </button>
-    <span v-if="validationErrors.length" class="oc-err-badge" :data-tip="errorBadgeTitle">
+    <span v-if="validationErrors.length" class="oc-err-badge" :data-tip="errorBadgeTitle" @click="scrollToFirstError" style="cursor:pointer;">
       ⚠ {{validationErrors.length}} {{pluralize(validationErrors.length, 'проблема', 'проблемы', 'проблем')}}
     </span>
-    <span :style="{color: status.startsWith('Error')?'#f66' : (status.startsWith('Готово') || status.startsWith('Done'))?'#6f6' : '#aaa', fontSize:'12px', flex:1}">
+    <span :style="{color: status.startsWith('Error')?'#f66' : (status.startsWith('Готово') || status.startsWith('Done'))?'#6f6' : '#aaa', fontSize:'12px', flex:1, textAlign:'right'}">
       {{status}}
     </span>
   </div>
