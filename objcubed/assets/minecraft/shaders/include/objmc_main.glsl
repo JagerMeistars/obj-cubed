@@ -232,21 +232,23 @@ if (marker == ivec4(12,34,56,78)) {
     //
     // RANGE_HINT below sets X for each preset.
 #ifdef ENTITY
-    // Helper: write debug color to whichever color out the host shader has.
-    // entity.vsh has `vertexColor` when NOT PER_FACE_LIGHTING, otherwise
-    // it has `vertexPerFaceColorBack`/`vertexPerFaceColorFront`.
-    // item.vsh always has plain `vertexColor`. Macro handles both.
+    // Debug uses both vertexColor AND overlayColor to maximize the chance
+    // the pipeline picks one of them up. lightColor.rgb is forced to 1 to
+    // remove shadow modulation, while .a is left intact (zeroing it makes
+    // the model invisible in some pipelines). Best results with a uniformly
+    // white test texture, but RGB ratios are readable with any texture.
     #ifdef PER_FACE_LIGHTING
-        #define OC_DBG_COLOR(c) vertexPerFaceColorBack = (c); vertexPerFaceColorFront = (c)
+        #define OC_DBG_COLOR(c) \
+            vertexPerFaceColorBack = (c); \
+            vertexPerFaceColorFront = (c); \
+            overlayColor = vec4((c).rgb, 1.0); \
+            lightColor = vec4(1.0, 1.0, 1.0, lightColor.a)
     #else
-        #define OC_DBG_COLOR(c) vertexColor = (c)
+        #define OC_DBG_COLOR(c) \
+            vertexColor = (c); \
+            overlayColor = vec4((c).rgb, 1.0); \
+            lightColor = vec4(1.0, 1.0, 1.0, lightColor.a)
     #endif
-
-    // Debug presets — uncomment ONE. Final pixel ≈ texture × debug × lighting.
-    // Best results with a fully-white test texture. Shadows will tint the
-    // result darker but RGB ratios stay readable. Do not also override
-    // lightColor / overlayColor — those have alpha semantics that vary by
-    // pipeline and zeroing them can make the model invisible.
 
     // ---- A1: Pos before ModelViewMat (object space) ----
     // RANGE_HINT = 32. Decode each channel: (byte/255)*64 - 32.
