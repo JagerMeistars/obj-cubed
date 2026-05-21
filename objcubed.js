@@ -26,13 +26,13 @@
         'datapackTargetType', 'datapackEquipSlot', 'datapackOutputDir',
         // Display — right hand & shared
         'showDisplay', 'useSeparateLefthand',
-        'dThirdRX','dThirdRY','dThirdRZ','dThirdTX','dThirdTY','dThirdTZ',
+        'dThirdRX','dThirdRY','dThirdRZ','dThirdTX','dThirdTY','dThirdTZ','dThirdSX','dThirdSY','dThirdSZ',
         // Display — left hand (independent when useSeparateLefthand=true)
-        'dLeftRX','dLeftRY','dLeftRZ','dLeftTX','dLeftTY','dLeftTZ',
+        'dLeftRX','dLeftRY','dLeftRZ','dLeftTX','dLeftTY','dLeftTZ','dLeftSX','dLeftSY','dLeftSZ',
         // Display — head/ground/fixed
-        'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ',
-        'dGroundRX','dGroundRY','dGroundRZ','dGroundTX','dGroundTY','dGroundTZ',
-        'dFixedRX','dFixedRY','dFixedRZ','dFixedTX','dFixedTY','dFixedTZ',
+        'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ','dHeadSX','dHeadSY','dHeadSZ',
+        'dGroundRX','dGroundRY','dGroundRZ','dGroundTX','dGroundTY','dGroundTZ','dGroundSX','dGroundSY','dGroundSZ',
+        'dFixedRX','dFixedRY','dFixedRZ','dFixedTX','dFixedTY','dFixedTZ','dFixedSX','dFixedSY','dFixedSZ',
         // Color & Tinting
         'cbR', 'cbG', 'cbB',
         // Advanced
@@ -390,11 +390,19 @@
             box-shadow: 0 -2px 8px rgba(0,0,0,0.25);
         }
 
-        /* Collapse transition */
+        /* Collapse transition — slide-down + fade, matches tooltip drop */
         .oc-collapse-enter-active, .oc-collapse-leave-active {
-            transition: opacity 150ms ease;
+            transition: opacity 180ms ease, transform 180ms ease;
+            transform-origin: top center;
         }
-        .oc-collapse-enter, .oc-collapse-leave-to { opacity: 0; }
+        .oc-collapse-enter, .oc-collapse-leave-to {
+            opacity: 0;
+            transform: translateY(-6px) scaleY(0.96);
+        }
+        .oc-collapse-enter-to, .oc-collapse-leave {
+            opacity: 1;
+            transform: translateY(0) scaleY(1);
+        }
     `;
     function installStylesheet() {
         if (document.getElementById(STYLESHEET_ID)) return;
@@ -1397,13 +1405,15 @@
             if (!slot) continue;
             const r = slot.rotation    || [0,0,0];
             const t = slot.translation || [0,0,0];
+            const s = slot.scale       || [1,1,1];
 
             const isThird = key === 'thirdperson_righthand' || key === 'thirdperson_lefthand';
             const effR = (isThird && r.every(v => v === 0)) ? [85, 0, 0] : r;
 
             const entry = {};
-            if (effR.some(v => v !== 0)) entry.rotation    = [...effR];
-            if (t.some(v => v !== 0))    entry.translation = [...t];
+            if (effR.some(v => v !== 0))   entry.rotation    = [...effR];
+            if (t.some(v => v !== 0))      entry.translation = [...t];
+            if (s.some(v => v !== 1))      entry.scale       = [...s];
             if (Object.keys(entry).length) result[key] = entry;
         }
 
@@ -1973,16 +1983,21 @@
                         useSeparateLefthand: false,
                         dThirdRX: 85, dThirdRY: 0, dThirdRZ: 0,
                         dThirdTX: 0,  dThirdTY: 0, dThirdTZ: 0,
+                        dThirdSX: 1,  dThirdSY: 1, dThirdSZ: 1,
                         // Display — Left hand (only used when useSeparateLefthand=true)
                         dLeftRX: 85, dLeftRY: 0, dLeftRZ: 0,
                         dLeftTX: 0,  dLeftTY: 0, dLeftTZ: 0,
+                        dLeftSX: 1,  dLeftSY: 1, dLeftSZ: 1,
                         // Display — Head/Ground/Fixed
                         dHeadRX: 0, dHeadRY: 0, dHeadRZ: 0,
                         dHeadTX: 0, dHeadTY: 0, dHeadTZ: 0,
+                        dHeadSX: 1, dHeadSY: 1, dHeadSZ: 1,
                         dGroundRX: 0, dGroundRY: 0, dGroundRZ: 0,
                         dGroundTX: 0, dGroundTY: 0, dGroundTZ: 0,
+                        dGroundSX: 1, dGroundSY: 1, dGroundSZ: 1,
                         dFixedRX: 0, dFixedRY: 0, dFixedRZ: 0,
                         dFixedTX: 0, dFixedTY: 0, dFixedTZ: 0,
+                        dFixedSX: 1, dFixedSY: 1, dFixedSZ: 1,
                         // Color & Tinting
                         cbR: 'direct', cbG: 'direct', cbB: 'direct',
                         // Advanced
@@ -2452,25 +2467,31 @@
                                     thirdperson_righthand: {
                                         rotation:    [+this.dThirdRX, +this.dThirdRY, +this.dThirdRZ],
                                         translation: [+this.dThirdTX, +this.dThirdTY, +this.dThirdTZ],
+                                        scale:       [+this.dThirdSX, +this.dThirdSY, +this.dThirdSZ],
                                     },
                                     thirdperson_lefthand: this.useSeparateLefthand ? {
                                         rotation:    [+this.dLeftRX, +this.dLeftRY, +this.dLeftRZ],
                                         translation: [+this.dLeftTX, +this.dLeftTY, +this.dLeftTZ],
+                                        scale:       [+this.dLeftSX, +this.dLeftSY, +this.dLeftSZ],
                                     } : {
                                         rotation:    [+this.dThirdRX, +this.dThirdRY, +this.dThirdRZ],
                                         translation: [+this.dThirdTX, +this.dThirdTY, +this.dThirdTZ],
+                                        scale:       [+this.dThirdSX, +this.dThirdSY, +this.dThirdSZ],
                                     },
                                     head: {
                                         rotation:    [+this.dHeadRX, +this.dHeadRY, +this.dHeadRZ],
                                         translation: [+this.dHeadTX, +this.dHeadTY, +this.dHeadTZ],
+                                        scale:       [+this.dHeadSX, +this.dHeadSY, +this.dHeadSZ],
                                     },
                                     ground: {
                                         rotation:    [+this.dGroundRX, +this.dGroundRY, +this.dGroundRZ],
                                         translation: [+this.dGroundTX, +this.dGroundTY, +this.dGroundTZ],
+                                        scale:       [+this.dGroundSX, +this.dGroundSY, +this.dGroundSZ],
                                     },
                                     fixed: {
                                         rotation:    [+this.dFixedRX, +this.dFixedRY, +this.dFixedRZ],
                                         translation: [+this.dFixedTX, +this.dFixedTY, +this.dFixedTZ],
+                                        scale:       [+this.dFixedSX, +this.dFixedSY, +this.dFixedSZ],
                                     },
                                 },
                             };
@@ -2723,11 +2744,18 @@
               <input type="number" v-model.number="$data[ax]" step="1"/>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
             <span style="color:#888;font-size:11px;">Сдвиг</span>
             <div v-for="ax in ['dThirdTX','dThirdTY','dThirdTZ']" :key="ax" class="oc-range-row">
               <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
               <input type="number" v-model.number="$data[ax]" step="0.5"/>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+            <span style="color:#888;font-size:11px;">Масштаб</span>
+            <div v-for="ax in ['dThirdSX','dThirdSY','dThirdSZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
+              <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
             </div>
           </div>
         </div>
@@ -2741,11 +2769,18 @@
               <input type="number" v-model.number="$data[ax]" step="1"/>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
             <span style="color:#888;font-size:11px;">Сдвиг</span>
             <div v-for="ax in ['dLeftTX','dLeftTY','dLeftTZ']" :key="ax" class="oc-range-row">
               <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
               <input type="number" v-model.number="$data[ax]" step="0.5"/>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+            <span style="color:#888;font-size:11px;">Масштаб</span>
+            <div v-for="ax in ['dLeftSX','dLeftSY','dLeftSZ']" :key="ax" class="oc-range-row">
+              <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
+              <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
             </div>
           </div>
         </div>
@@ -2761,11 +2796,18 @@
             <input type="number" v-model.number="$data[ax]" step="1"/>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
           <span style="color:#888;font-size:11px;">Сдвиг</span>
           <div v-for="ax in ['dHeadTX','dHeadTY','dHeadTZ']" :key="ax" class="oc-range-row">
             <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
             <input type="number" v-model.number="$data[ax]" step="0.5"/>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+          <span style="color:#888;font-size:11px;">Масштаб</span>
+          <div v-for="ax in ['dHeadSX','dHeadSY','dHeadSZ']" :key="ax" class="oc-range-row">
+            <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
+            <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
           </div>
         </div>
       </div>
@@ -2780,11 +2822,18 @@
             <input type="number" v-model.number="$data[ax]" step="1"/>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
           <span style="color:#888;font-size:11px;">Сдвиг</span>
           <div v-for="ax in ['dGroundTX','dGroundTY','dGroundTZ']" :key="ax" class="oc-range-row">
             <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
             <input type="number" v-model.number="$data[ax]" step="0.5"/>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+          <span style="color:#888;font-size:11px;">Масштаб</span>
+          <div v-for="ax in ['dGroundSX','dGroundSY','dGroundSZ']" :key="ax" class="oc-range-row">
+            <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
+            <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
           </div>
         </div>
       </div>
@@ -2799,11 +2848,18 @@
             <input type="number" v-model.number="$data[ax]" step="1"/>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
           <span style="color:#888;font-size:11px;">Сдвиг</span>
           <div v-for="ax in ['dFixedTX','dFixedTY','dFixedTZ']" :key="ax" class="oc-range-row">
             <input type="range" v-model.number="$data[ax]" min="-80" max="80" step="0.5"/>
             <input type="number" v-model.number="$data[ax]" step="0.5"/>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+          <span style="color:#888;font-size:11px;">Масштаб</span>
+          <div v-for="ax in ['dFixedSX','dFixedSY','dFixedSZ']" :key="ax" class="oc-range-row">
+            <input type="range" v-model.number="$data[ax]" min="0.1" max="4" step="0.05"/>
+            <input type="number" v-model.number="$data[ax]" step="0.05" min="0.1" max="4"/>
           </div>
         </div>
       </div>
