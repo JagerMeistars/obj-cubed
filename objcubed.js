@@ -1757,7 +1757,10 @@
         firstperson_righthand: { x: 0, y: 0,   z: 0  },
         firstperson_lefthand:  { x: 0, y: 0,   z: 0  },
         head:                  { x: 0, y: 0,   z: 0  },
-        gui:                   { x: 0, y: 0, z: 0 },
+        // DIAGNOSTIC: y=+5 to verify selector picks _gui.json (mild,
+        // stays within MC element bounds). If model shifts up in inventory
+        // by ~5 BB units, selector works. If not, fallback used.
+        gui:                   { x: 0, y: 5, z: 0 },
         // DIAGNOSTIC: ground and on_shelf set to extreme y=-100 so we can
         // tell at a glance whether Minecraft is even using these slot
         // models or routing through some other path (item entity etc).
