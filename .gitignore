@@ -1,10 +1,4 @@
-temp/
-.vscode/
-models/*
-history.txt
-out.png
-potion.json
-/*.png
-/*.obj
-/*.txt
-*.zip
+_preview/
+_*.txt
+_*.js
+node_modules/
