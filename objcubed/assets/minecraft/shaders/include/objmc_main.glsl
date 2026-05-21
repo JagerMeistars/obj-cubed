@@ -242,8 +242,11 @@ if (marker == ivec4(12,34,56,78)) {
         #define OC_DBG_COLOR(c) vertexColor = (c)
     #endif
 
-    // Override texture/light so debug color dominates. Final pixel
-    // ≈ texture × debug; use a uniformly-white test texture for clean RGB.
+    // Debug presets — uncomment ONE. Final pixel ≈ texture × debug × lighting.
+    // Best results with a fully-white test texture. Shadows will tint the
+    // result darker but RGB ratios stay readable. Do not also override
+    // lightColor / overlayColor — those have alpha semantics that vary by
+    // pipeline and zeroing them can make the model invisible.
 
     // ---- A1: Pos before ModelViewMat (object space) ----
     // RANGE_HINT = 32. Decode each channel: (byte/255)*64 - 32.
@@ -253,7 +256,6 @@ if (marker == ivec4(12,34,56,78)) {
     //     clamp((Pos.z + 32.0) / 64.0, 0.0, 1.0),
     //     1.0
     // ));
-    // lightColor = vec4(1.0); overlayColor = vec4(0.0);
 
     // ---- A2: posoffset alone (encoded vertex offset from anchor) ----
     // RANGE_HINT = 16. Decode: (byte/255)*32 - 16.
@@ -263,7 +265,6 @@ if (marker == ivec4(12,34,56,78)) {
     //     clamp((posoffset.z + 16.0) / 32.0, 0.0, 1.0),
     //     1.0
     // ));
-    // lightColor = vec4(1.0); overlayColor = vec4(0.0);
 
     // ---- A3: anchor (subgroupQuadBroadcast Pos[2]) only ----
     // RANGE_HINT = 32. Decode: (byte/255)*64 - 32.
@@ -274,12 +275,10 @@ if (marker == ivec4(12,34,56,78)) {
     //     clamp((dbg_anchor.z + 32.0) / 64.0, 0.0, 1.0),
     //     1.0
     // ));
-    // lightColor = vec4(1.0); overlayColor = vec4(0.0);
 
     // ---- A4: slot detection (which render path is active) ----
     // R=1 → isGUI, G=1 → isHand, B=1 → neither (third-person / equipment / ground)
     // OC_DBG_COLOR(vec4(float(isGUI), float(isHand), float(1 - isGUI - isHand), 1.0));
-    // lightColor = vec4(1.0); overlayColor = vec4(0.0);
 #endif
 }
 //debug
