@@ -1422,9 +1422,13 @@
             const dlg = dialogSlots[key];
             if (!nat && !dlg) continue;  // skip — let Minecraft use its default
 
-            const r = (nat && nat.rotation)    || (dlg && dlg.rotation)    || [0,0,0];
-            const t = (nat && nat.translation) || (dlg && dlg.translation) || [0,0,0];
-            const s = (nat && nat.scale)       || (dlg && dlg.scale)       || [1,1,1];
+            // Dialog values win over native editor. The plugin's dialog is
+            // the user-facing source of truth; native editor was overriding
+            // dialog values silently (legacy 85° values persisted in older
+            // projects kept hijacking new defaults).
+            const r = (dlg && dlg.rotation)    || (nat && nat.rotation)    || [0,0,0];
+            const t = (dlg && dlg.translation) || (nat && nat.translation) || [0,0,0];
+            const s = (dlg && dlg.scale)       || (nat && nat.scale)       || [1,1,1];
 
             const entry = {};
             if (r.some(v => v !== 0)) entry.rotation    = [...r];
