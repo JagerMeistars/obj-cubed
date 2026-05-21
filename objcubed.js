@@ -1422,6 +1422,11 @@
             const dlg = dialogSlots[key];
             if (!nat && !dlg) continue;  // skip — let Minecraft use its default
 
+            // DEBUG: log per-slot what we receive
+            console.log('[objcubed] buildDisplay', key,
+                'nat:', nat && JSON.stringify({ r: nat.rotation, t: nat.translation, s: nat.scale }),
+                'dlg:', dlg && JSON.stringify({ r: dlg.rotation, t: dlg.translation, s: dlg.scale }));
+
             // Dialog values win over native editor. The plugin's dialog is
             // the user-facing source of truth; native editor was overriding
             // dialog values silently (legacy 85° values persisted in older
@@ -2989,7 +2994,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.1.1',
+        version: '0.1.2',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
