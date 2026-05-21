@@ -2618,7 +2618,15 @@
                                 datapackTargetType: this.datapackTargetType,
                                 datapackEquipSlot:  this.datapackEquipSlot,
                                 datapackOutputDir:  this.datapackOutputDir,
-                                displaySlots: {
+                                displaySlots: ((self) => {
+                                    console.log('[objcubed] doExport reactive state:',
+                                        'dThirdRX=', self.dThirdRX,
+                                        'dThirdRY=', self.dThirdRY,
+                                        'dThirdRZ=', self.dThirdRZ,
+                                        'dHeadRX=', self.dHeadRX,
+                                        'dGroundRX=', self.dGroundRX);
+                                    return undefined;
+                                })(this) || {
                                     thirdperson_righthand: {
                                         rotation:    [+this.dThirdRX, +this.dThirdRY, +this.dThirdRZ],
                                         translation: [+this.dThirdTX, +this.dThirdTY, +this.dThirdTZ],
@@ -2994,7 +3002,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.1.2',
+        version: '0.1.3',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
