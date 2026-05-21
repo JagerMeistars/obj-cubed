@@ -1801,15 +1801,16 @@
     // otherwise inherit block/block rotation [30, 225, 0]).
     const IDENTITY_DISPLAY = { rotation: [0,0,0], translation: [0,0,0], scale: [1,1,1] };
 
-    // Per-slot default display tag overrides. Ground and on_shelf ignore
-    // element offsets (Minecraft re-centres the model), so calibration for
-    // those slots MUST go through display tag translation.
-    const GUI_DEFAULT_DISPLAY      = { rotation: [0, 0, 0], translation: [0, 0, 0],  scale: [1, 1, 1] };
-    // DIAGNOSTIC: y=-10 to verify display-tag translation actually moves
-    // the model for ground / on_shelf contexts. If model shifts visibly
-    // down, we have a working calibration knob — refine values from there.
-    const GROUND_DEFAULT_DISPLAY   = { rotation: [0, 0, 0], translation: [0, -10, 0], scale: [1, 1, 1] };
-    const ON_SHELF_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, -10, 0], scale: [1, 1, 1] };
+    // Per-slot default display tag overrides for slots the user hasn't
+    // customised via the native Blockbench Display editor.
+    //
+    // KNOWN MINECRAFT QUIRK: for `ground` and `on_shelf` contexts the
+    // engine clamps the Y component of display.translation (dropped items
+    // are physically locked to the ground; shelf items to the surface).
+    // X and Z still work. Y simply can't be calibrated for these slots.
+    const GUI_DEFAULT_DISPLAY      = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    const GROUND_DEFAULT_DISPLAY   = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    const ON_SHELF_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
 
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
