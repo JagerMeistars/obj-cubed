@@ -5,15 +5,17 @@ Helper for diagnosing per-slot rendering differences without guesswork.
 ## How it works
 
 Open `objcubed/assets/minecraft/shaders/include/objmc_main.glsl` and find
-the `DEBUG MODE` block near the bottom. Each preset has **3 lines** to
-uncomment:
-1. The `vertexColor = vec4(...)` block (writes debug RGB)
-2. `lightColor = vec4(1.0);` (full bright — kills shadow modulation)
-3. `overlayColor = vec4(0.0);` (clears damage tint)
+the `DEBUG MODE` block near the bottom. Uncomment **one** preset (just
+the `// OC_DBG_COLOR(...)` line for that preset).
 
-For most reliable RGB readout, the model's texture should be uniformly
-**white**. With a coloured texture the debug RGB will be tinted by it
-(final pixel ≈ texture × debug).
+**IMPORTANT:** the model must have **shadows enabled** (do NOT tick
+"Без тени" in the export dialog). The shader's `noshadow == 1` path
+bypasses every color modulation and renders the raw texture — debug
+will not show.
+
+For most reliable RGB readout, use a uniformly **white** test texture.
+With a coloured texture the debug RGB is multiplied by the texel
+(`final pixel = texture × debug`); ratios still readable.
 
 Choose **one** preset:
 

@@ -232,23 +232,14 @@ if (marker == ivec4(12,34,56,78)) {
     //
     // RANGE_HINT below sets X for each preset.
 #ifdef ENTITY
-    // Debug uses both vertexColor AND overlayColor to maximize the chance
-    // the pipeline picks one of them up. lightColor.rgb is forced to 1 to
-    // remove shadow modulation, while .a is left intact (zeroing it makes
-    // the model invisible in some pipelines). Best results with a uniformly
-    // white test texture, but RGB ratios are readable with any texture.
-    #ifdef PER_FACE_LIGHTING
-        #define OC_DBG_COLOR(c) \
-            vertexPerFaceColorBack = (c); \
-            vertexPerFaceColorFront = (c); \
-            overlayColor = vec4((c).rgb, 1.0); \
-            lightColor = vec4(1.0, 1.0, 1.0, lightColor.a)
-    #else
-        #define OC_DBG_COLOR(c) \
-            vertexColor = (c); \
-            overlayColor = vec4((c).rgb, 1.0); \
-            lightColor = vec4(1.0, 1.0, 1.0, lightColor.a)
-    #endif
+    // REQUIRES SHADOWS ENABLED on the model (don't tick "Без тени" in the
+    // export dialog). objmc_light.glsl applies overlayColor as a tint
+    // multiplier only in the `noshadow == 0` branch; with noshadow=1 the
+    // fragment shader keeps the raw texture and ignores both vertexColor
+    // and overlayColor. Use a uniformly-white test texture for cleanest
+    // RGB readout; with coloured textures the debug RGB is multiplied by
+    // the texel so ratios stay readable.
+    #define OC_DBG_COLOR(c) overlayColor = vec4((c).rgb, 1.0)
 
     // ---- A1: Pos before ModelViewMat (object space) ----
     // RANGE_HINT = 32. Decode each channel: (byte/255)*64 - 32.
