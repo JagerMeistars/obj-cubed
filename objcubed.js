@@ -1803,7 +1803,9 @@
     // are physically locked to the ground; shelf items to the surface).
     // X and Z still work. Y simply can't be calibrated for these slots.
     const GUI_DEFAULT_DISPLAY      = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
-    const GROUND_DEFAULT_DISPLAY   = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    // Ground: same north-face-forward orientation issue as thirdperson;
+    // try the same 5° X tilt as first calibration guess.
+    const GROUND_DEFAULT_DISPLAY   = { rotation: [5, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
     const ON_SHELF_DEFAULT_DISPLAY = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
     // Thirdperson hand: OBJ default orientation needs a small 5° X tilt to
     // match how a vanilla JSON cube renders in-hand (user-measured value).
