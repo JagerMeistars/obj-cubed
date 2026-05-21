@@ -209,10 +209,11 @@ if (marker == ivec4(12,34,56,78)) {
     }
 #endif
     //final pos and uv
-    // Anchor = centroid of the placeholder quad. With encoder emitting
-    // from:[0,-8,8] to:[16,8,8], centroid is (8, 0, 8) — floor-center of
-    // the standard block, matching how users model items in Blockbench
-    // (origin at floor). Display tag applies via ModelViewMat below.
+    // Anchor = centroid of the placeholder quad. Encoder emits
+    // from:[0,-10,8] to:[16,6,8], so centroid is (8, -2, 8). The -2 Y
+    // shift compensates an empirically-observed drift that puts our model
+    // above a reference vanilla JSON-cube at identical OBJ coords by
+    // ~2 BB units. Display tag still applies cleanly via ModelViewMat.
     vec3 anchor = 0.25 * (
         subgroupQuadBroadcast(Pos, 0) +
         subgroupQuadBroadcast(Pos, 1) +

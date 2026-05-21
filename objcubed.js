@@ -1552,17 +1552,14 @@
         for (let i = 0; i < nfaces; i++) {
             const px = i%tw, py = Math.floor(i/tw)+1;
             put(px, py, Math.trunc(px/256)%256, px%256, Math.trunc(py/256)%256, py%256);
-            // Placeholder face for shader to override. Position chosen so the
-            // quad's CENTROID lands at (8, 0, 8) — the FLOOR-center of a
-            // standard Minecraft block. This matches how users model items
-            // and blocks in Blockbench (with the origin at the floor),
-            // putting our model in the same place as a vanilla JSON model
-            // at the same OBJ coordinates.
-            //
-            // Y goes from -8 to 8 (centroid 0). Minecraft 1.21+ block models
-            // support extended bounds [-16, 32] so negative Y is allowed.
+            // Placeholder face for shader to override. Centroid lands at
+            // (8, -2, 8) — 2 BB units below floor — to compensate for an
+            // observed +2 BB unit drift in rendering vs vanilla JSON cube
+            // at same OBJ coords. Source of the drift is still under
+            // investigation (likely a Minecraft item-render constant offset
+            // or a pipeline scaling quirk). Adjusted empirically.
             elements.push({
-                from: [0,-8,8], to: [16,8,8],
+                from: [0,-10,8], to: [16,6,8],
                 faces: { north: {
                     uv: [(px+0.1)*16/tw,(py+0.1)*16/ty,(px+0.9)*16/tw,(py+0.9)*16/ty],
                     texture: '#0', tintindex: 0,
