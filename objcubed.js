@@ -2493,7 +2493,7 @@
     <i class="material-icons" style="font-size:15px;color:#888;">bookmarks</i>
     <span style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Пресет:</span>
     <span style="color:#bbb;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{presetNames[0]}}</span>
-    <button class="oc-btn oc-icon-btn" @click="addPreset" data-tip="Создать ещё один пресет"><i class="material-icons">add</i></button>
+    <button class="oc-btn oc-icon-btn" style="width:24px;height:24px;min-width:24px;min-height:24px;max-width:24px;max-height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;" @click="addPreset" data-tip="Создать ещё один пресет"><i class="material-icons">add</i></button>
   </div>
   <div v-else style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;">
     <i class="material-icons" style="font-size:16px;color:#888;flex-shrink:0;">bookmarks</i>
@@ -2502,9 +2502,9 @@
             style="flex:1;min-width:0;padding:3px 6px;background:#1f1f1f;color:#ddd;border:1px solid rgba(255,255,255,0.15);border-radius:4px;">
       <option v-for="(n, i) in presetNames" :key="i" :value="i">{{n}}</option>
     </select>
-    <button class="oc-btn oc-icon-btn" @click="addPreset" data-tip="Создать новый пресет"><i class="material-icons">add</i></button>
-    <button class="oc-btn oc-icon-btn" @click="duplicatePreset" data-tip="Скопировать текущий"><i class="material-icons">content_copy</i></button>
-    <button class="oc-btn oc-icon-btn" @click="renameCurrentPreset" data-tip="Переименовать"><i class="material-icons">edit</i></button>
+    <button class="oc-btn oc-icon-btn" style="width:24px;height:24px;min-width:24px;min-height:24px;max-width:24px;max-height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;" @click="addPreset" data-tip="Создать новый пресет"><i class="material-icons">add</i></button>
+    <button class="oc-btn oc-icon-btn" style="width:24px;height:24px;min-width:24px;min-height:24px;max-width:24px;max-height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;" @click="duplicatePreset" data-tip="Скопировать текущий"><i class="material-icons">content_copy</i></button>
+    <button class="oc-btn oc-icon-btn" style="width:24px;height:24px;min-width:24px;min-height:24px;max-width:24px;max-height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;" @click="renameCurrentPreset" data-tip="Переименовать"><i class="material-icons">edit</i></button>
     <span :data-tip="presetNames.length < 2 ? 'Нельзя удалить последний пресет' : 'Удалить пресет'" style="display:inline-flex;">
       <button class="oc-btn oc-icon-btn oc-btn-danger" @click="deleteCurrentPreset"
               :disabled="presetNames.length < 2"><i class="material-icons">delete_outline</i></button>
@@ -2672,7 +2672,7 @@
               <span>Куда сохранить датапак<span class="oc-help" :data-tip="help('datapackOutputDir')">?</span></span>
               <div style="display:flex;gap:6px;">
                 <input v-model="datapackOutputDir" style="flex:1;min-width:0;" placeholder="(рядом с PNG)"/>
-                <button class="oc-btn oc-icon-btn" @click="browseDatapackDir" data-tip="Выбрать папку"><i class="material-icons">folder_open</i></button>
+                <button class="oc-btn oc-icon-btn" style="width:24px;height:24px;min-width:24px;min-height:24px;max-width:24px;max-height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;" @click="browseDatapackDir" data-tip="Выбрать папку"><i class="material-icons">folder_open</i></button>
               </div>
             </label>
           </div>
