@@ -1793,6 +1793,11 @@
         };
     }
 
+    // Identity transform — explicit override to prevent Minecraft's inferred
+    // defaults for slots the user hasn't customised (notably GUI which would
+    // otherwise inherit block/block rotation [30, 225, 0]).
+    const IDENTITY_DISPLAY = { rotation: [0,0,0], translation: [0,0,0], scale: [1,1,1] };
+
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve) => {
             const fs   = require('fs');
@@ -1812,10 +1817,17 @@
                     // differences (subgroup ordering, display tag origin, etc.)
                     // without breaking other slots.
                     for (const slot of DISPLAY_SLOTS) {
+                        // Force identity display for THIS slot if user didn't
+                        // customise it — prevents Minecraft from inheriting a
+                        // default 3D-block display transform (rotation etc.)
+                        // which would override our per-slot placeholder calibration.
+                        const slotDisplay = { ...displayTransforms };
+                        if (!slotDisplay[slot]) slotDisplay[slot] = IDENTITY_DISPLAY;
+
                         const model = {
                             textures: { 0: `block/${pngName}` },
                             elements: calibratedElementsForSlot(result.elements, slot),
-                            display:  displayTransforms,
+                            display:  slotDisplay,
                         };
                         fs.writeFileSync(
                             path.join(dir, `${pngName}_${slot}.json`),
