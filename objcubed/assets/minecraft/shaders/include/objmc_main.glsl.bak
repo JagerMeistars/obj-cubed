@@ -184,23 +184,12 @@ if (marker == ivec4(12,34,56,78)) {
 //custom entity rotation
 #ifdef ENTITY
         posoffset *= scale;
-        // Derive display-tag scale from quad geometry: placeholder element is
-        // 16 BB wide (from:[8,0,8] to:[24,16,8]), so adjacent-vertex distance
-        // == 16 * (display.scale on this slot). Apply to posoffset so encoded
-        // vertex offsets scale together with the placeholder anchor. Without
-        // this, display.gui scale (etc.) moves the anchor but leaves posoffset
-        // at original BB units → visible model appears to drift, not shrink.
-        vec3 _qv0 = subgroupQuadBroadcast(Pos, 0);
-        vec3 _qv1 = subgroupQuadBroadcast(Pos, 1);
-        float displayScale = distance(_qv0, _qv1) / 16.0;
-
+        // GUI hardcoded preset removed — per-slot calibrated placeholder
+        // in model.json (via items/display_context selector) handles GUI
+        // rendering uniformly with the other slots.
         if (isHand == 1) {
-            posoffset *= displayScale;
             posoffset.zx *= -1;
             posoffset = (vec4(posoffset,0) * ModelViewMat).xyz;
-        }
-        if (isGUI == 1) {
-            posoffset *= displayScale;
         }
         if (isHand + isGUI == 0) {
             if (any(greaterThan(autorotate,vec2(0)))) {
@@ -213,9 +202,6 @@ if (marker == ivec4(12,34,56,78)) {
                 vPos2 = normalize(vPos0 - vPos2);
                 mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
                 posoffset = scale * fullRotation * posoffset;
-            } else {
-                // No autorotate but display scale still needs to apply.
-                posoffset *= displayScale;
             }
         }
     }
