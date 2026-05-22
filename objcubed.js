@@ -33,6 +33,11 @@
         'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ','dHeadSX','dHeadSY','dHeadSZ',
         'dGroundRX','dGroundRY','dGroundRZ','dGroundTX','dGroundTY','dGroundTZ','dGroundSX','dGroundSY','dGroundSZ',
         'dFixedRX','dFixedRY','dFixedRZ','dFixedTX','dFixedTY','dFixedTZ','dFixedSX','dFixedSY','dFixedSZ',
+        // Display — GUI, first-person hands, on_shelf
+        'dGuiRX','dGuiRY','dGuiRZ','dGuiTX','dGuiTY','dGuiTZ','dGuiSX','dGuiSY','dGuiSZ',
+        'dFprRX','dFprRY','dFprRZ','dFprTX','dFprTY','dFprTZ','dFprSX','dFprSY','dFprSZ',
+        'dFplRX','dFplRY','dFplRZ','dFplTX','dFplTY','dFplTZ','dFplSX','dFplSY','dFplSZ',
+        'dShelfRX','dShelfRY','dShelfRZ','dShelfTX','dShelfTY','dShelfTZ','dShelfSX','dShelfSY','dShelfSZ',
         // Color & Tinting
         'cbR', 'cbG', 'cbB',
         // Advanced
@@ -1409,7 +1414,7 @@
         const ALL_SLOTS = [
             'thirdperson_righthand','thirdperson_lefthand',
             'firstperson_righthand','firstperson_lefthand',
-            'head','gui','ground','fixed',
+            'head','gui','ground','fixed','on_shelf',
         ];
 
         const nativeDisplay = (typeof display !== 'undefined' && display) ||
@@ -2133,6 +2138,22 @@
                         dFixedRX: 0, dFixedRY: 0, dFixedRZ: 0,
                         dFixedTX: 0, dFixedTY: 0, dFixedTZ: 0,
                         dFixedSX: 1, dFixedSY: 1, dFixedSZ: 1,
+                        // Display — GUI (inventory)
+                        dGuiRX: 0, dGuiRY: 0, dGuiRZ: 0,
+                        dGuiTX: 0, dGuiTY: 0, dGuiTZ: 0,
+                        dGuiSX: 1, dGuiSY: 1, dGuiSZ: 1,
+                        // Display — First-person right hand
+                        dFprRX: 0, dFprRY: 0, dFprRZ: 0,
+                        dFprTX: 0, dFprTY: 0, dFprTZ: 0,
+                        dFprSX: 1, dFprSY: 1, dFprSZ: 1,
+                        // Display — First-person left hand
+                        dFplRX: 0, dFplRY: 0, dFplRZ: 0,
+                        dFplTX: 0, dFplTY: 0, dFplTZ: 0,
+                        dFplSX: 1, dFplSY: 1, dFplSZ: 1,
+                        // Display — On shelf
+                        dShelfRX: 0, dShelfRY: 0, dShelfRZ: 0,
+                        dShelfTX: 0, dShelfTY: 0, dShelfTZ: 0,
+                        dShelfSX: 1, dShelfSY: 1, dShelfSZ: 1,
                         // Color & Tinting
                         cbR: 'direct', cbG: 'direct', cbB: 'direct',
                         // Advanced
@@ -2649,6 +2670,26 @@
                                         translation: [+this.dFixedTX, +this.dFixedTY, +this.dFixedTZ],
                                         scale:       [+this.dFixedSX, +this.dFixedSY, +this.dFixedSZ],
                                     },
+                                    gui: {
+                                        rotation:    [+this.dGuiRX, +this.dGuiRY, +this.dGuiRZ],
+                                        translation: [+this.dGuiTX, +this.dGuiTY, +this.dGuiTZ],
+                                        scale:       [+this.dGuiSX, +this.dGuiSY, +this.dGuiSZ],
+                                    },
+                                    firstperson_righthand: {
+                                        rotation:    [+this.dFprRX, +this.dFprRY, +this.dFprRZ],
+                                        translation: [+this.dFprTX, +this.dFprTY, +this.dFprTZ],
+                                        scale:       [+this.dFprSX, +this.dFprSY, +this.dFprSZ],
+                                    },
+                                    firstperson_lefthand: {
+                                        rotation:    [+this.dFplRX, +this.dFplRY, +this.dFplRZ],
+                                        translation: [+this.dFplTX, +this.dFplTY, +this.dFplTZ],
+                                        scale:       [+this.dFplSX, +this.dFplSY, +this.dFplSZ],
+                                    },
+                                    on_shelf: {
+                                        rotation:    [+this.dShelfRX, +this.dShelfRY, +this.dShelfRZ],
+                                        translation: [+this.dShelfTX, +this.dShelfTY, +this.dShelfTZ],
+                                        scale:       [+this.dShelfSX, +this.dShelfSY, +this.dShelfSZ],
+                                    },
                                 },
                             };
                             await runExport(cfg, msg => { this.status = msg; });
@@ -2875,11 +2916,15 @@
       </button>
     </div>
 
-    <div class="oc-display-tabs" style="margin-bottom:8px;">
+    <div class="oc-display-tabs" style="margin-bottom:8px;flex-wrap:wrap;">
       <button :class="['oc-display-tab', {active: displayTab==='third'}]"  @click="displayTab='third'">3-е лицо</button>
+      <button :class="['oc-display-tab', {active: displayTab==='fpr'}]"    @click="displayTab='fpr'">1-е лицо ⮕</button>
+      <button :class="['oc-display-tab', {active: displayTab==='fpl'}]"    @click="displayTab='fpl'">1-е лицо ⮕</button>
       <button :class="['oc-display-tab', {active: displayTab==='head'}]"   @click="displayTab='head'">Голова</button>
+      <button :class="['oc-display-tab', {active: displayTab==='gui'}]"    @click="displayTab='gui'">Инвентарь</button>
       <button :class="['oc-display-tab', {active: displayTab==='ground'}]" @click="displayTab='ground'">Земля</button>
       <button :class="['oc-display-tab', {active: displayTab==='fixed'}]"  @click="displayTab='fixed'">Рамка</button>
+      <button :class="['oc-display-tab', {active: displayTab==='shelf'}]"  @click="displayTab='shelf'">Полка</button>
     </div>
 
     <!-- 3-е лицо (thirdperson) -->
@@ -2970,8 +3015,96 @@
       </div>
     </div>
 
+    <!-- 1-е лицо правое (firstperson_righthand) -->
+    <div v-show="displayTab==='fpr'">
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Поворот</span>
+        <input v-model.number="dFprRX" type="number" step="1"/>
+        <input v-model.number="dFprRY" type="number" step="1"/>
+        <input v-model.number="dFprRZ" type="number" step="1"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Сдвиг</span>
+        <input v-model.number="dFprTX" type="number" step="0.5"/>
+        <input v-model.number="dFprTY" type="number" step="0.5"/>
+        <input v-model.number="dFprTZ" type="number" step="0.5"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <span style="color:#888;font-size:11px;">Масштаб</span>
+        <input v-model.number="dFprSX" type="number" step="0.05"/>
+        <input v-model.number="dFprSY" type="number" step="0.05"/>
+        <input v-model.number="dFprSZ" type="number" step="0.05"/>
+      </div>
+    </div>
+
+    <!-- 1-е лицо левое (firstperson_lefthand) -->
+    <div v-show="displayTab==='fpl'">
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Поворот</span>
+        <input v-model.number="dFplRX" type="number" step="1"/>
+        <input v-model.number="dFplRY" type="number" step="1"/>
+        <input v-model.number="dFplRZ" type="number" step="1"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Сдвиг</span>
+        <input v-model.number="dFplTX" type="number" step="0.5"/>
+        <input v-model.number="dFplTY" type="number" step="0.5"/>
+        <input v-model.number="dFplTZ" type="number" step="0.5"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <span style="color:#888;font-size:11px;">Масштаб</span>
+        <input v-model.number="dFplSX" type="number" step="0.05"/>
+        <input v-model.number="dFplSY" type="number" step="0.05"/>
+        <input v-model.number="dFplSZ" type="number" step="0.05"/>
+      </div>
+    </div>
+
+    <!-- Инвентарь (gui) -->
+    <div v-show="displayTab==='gui'">
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Поворот</span>
+        <input v-model.number="dGuiRX" type="number" step="1"/>
+        <input v-model.number="dGuiRY" type="number" step="1"/>
+        <input v-model.number="dGuiRZ" type="number" step="1"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Сдвиг</span>
+        <input v-model.number="dGuiTX" type="number" step="0.5"/>
+        <input v-model.number="dGuiTY" type="number" step="0.5"/>
+        <input v-model.number="dGuiTZ" type="number" step="0.5"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <span style="color:#888;font-size:11px;">Масштаб</span>
+        <input v-model.number="dGuiSX" type="number" step="0.05"/>
+        <input v-model.number="dGuiSY" type="number" step="0.05"/>
+        <input v-model.number="dGuiSZ" type="number" step="0.05"/>
+      </div>
+    </div>
+
+    <!-- Полка (on_shelf) -->
+    <div v-show="displayTab==='shelf'">
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Поворот</span>
+        <input v-model.number="dShelfRX" type="number" step="1"/>
+        <input v-model.number="dShelfRY" type="number" step="1"/>
+        <input v-model.number="dShelfRZ" type="number" step="1"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Сдвиг</span>
+        <input v-model.number="dShelfTX" type="number" step="0.5"/>
+        <input v-model.number="dShelfTY" type="number" step="0.5"/>
+        <input v-model.number="dShelfTZ" type="number" step="0.5"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <span style="color:#888;font-size:11px;">Масштаб</span>
+        <input v-model.number="dShelfSX" type="number" step="0.05"/>
+        <input v-model.number="dShelfSY" type="number" step="0.05"/>
+        <input v-model.number="dShelfSZ" type="number" step="0.05"/>
+      </div>
+    </div>
+
     <div style="font-size:11px;color:#888;margin-top:8px;line-height:1.4;">
-      Колонки — X, Y, Z. Для GUI, 1-го лица, on_shelf используйте встроенный редактор BlockBench.
+      Колонки — X, Y, Z.
     </div>
   </div>
 
@@ -3091,7 +3224,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.1.5',
+        version: '0.1.6',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
