@@ -2865,17 +2865,113 @@
     </div>
   </div>
 
-  <!-- ======== DISPLAY (link to native BB editor) ======== -->
+  <!-- ======== DISPLAY (per-slot tabs with rotation / translation / scale) ======== -->
   <div class="oc-section" style="padding:10px 12px;">
-    <div style="display:flex;align-items:center;gap:8px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
       <i class="material-icons" style="font-size:18px;color:#5a8cc0;flex-shrink:0;">view_in_ar</i>
       <span style="font-weight:600;color:#ddd;flex:1;">Отображение в слотах</span>
-      <button class="oc-btn" @click="openNativeDisplayEditor" data-tip="Откроется встроенный редактор BlockBench: предпросмотр модели в каждом из 8 слотов с поворотом, сдвигом и масштабом">
-        <i class="material-icons" style="font-size:14px;vertical-align:-3px;margin-right:3px;">open_in_new</i>Открыть редактор
+      <button class="oc-btn" @click="openNativeDisplayEditor" data-tip="Также можно использовать встроенный редактор BlockBench (он работает с теми же значениями)">
+        <i class="material-icons" style="font-size:14px;vertical-align:-3px;margin-right:3px;">open_in_new</i>BB Display
       </button>
     </div>
-    <div style="font-size:11px;color:#888;margin-top:6px;line-height:1.4;">
-      Поворот, сдвиг и масштаб для всех 8 слотов (в руках от 1-го и 3-го лица, на голове, в инвентаре, на земле, в рамке) настраиваются через встроенный редактор BlockBench и сохраняются прямо в проекте.
+
+    <div class="oc-display-tabs" style="margin-bottom:8px;">
+      <button :class="['oc-display-tab', {active: displayTab==='third'}]"  @click="displayTab='third'">3-е лицо</button>
+      <button :class="['oc-display-tab', {active: displayTab==='head'}]"   @click="displayTab='head'">Голова</button>
+      <button :class="['oc-display-tab', {active: displayTab==='ground'}]" @click="displayTab='ground'">Земля</button>
+      <button :class="['oc-display-tab', {active: displayTab==='fixed'}]"  @click="displayTab='fixed'">Рамка</button>
+    </div>
+
+    <!-- 3-е лицо (thirdperson) -->
+    <div v-show="displayTab==='third'">
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Поворот</span>
+        <input v-model.number="dThirdRX" type="number" step="1"/>
+        <input v-model.number="dThirdRY" type="number" step="1"/>
+        <input v-model.number="dThirdRZ" type="number" step="1"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Сдвиг</span>
+        <input v-model.number="dThirdTX" type="number" step="0.5"/>
+        <input v-model.number="dThirdTY" type="number" step="0.5"/>
+        <input v-model.number="dThirdTZ" type="number" step="0.5"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <span style="color:#888;font-size:11px;">Масштаб</span>
+        <input v-model.number="dThirdSX" type="number" step="0.05"/>
+        <input v-model.number="dThirdSY" type="number" step="0.05"/>
+        <input v-model.number="dThirdSZ" type="number" step="0.05"/>
+      </div>
+    </div>
+
+    <!-- Голова -->
+    <div v-show="displayTab==='head'">
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Поворот</span>
+        <input v-model.number="dHeadRX" type="number" step="1"/>
+        <input v-model.number="dHeadRY" type="number" step="1"/>
+        <input v-model.number="dHeadRZ" type="number" step="1"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Сдвиг</span>
+        <input v-model.number="dHeadTX" type="number" step="0.5"/>
+        <input v-model.number="dHeadTY" type="number" step="0.5"/>
+        <input v-model.number="dHeadTZ" type="number" step="0.5"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <span style="color:#888;font-size:11px;">Масштаб</span>
+        <input v-model.number="dHeadSX" type="number" step="0.05"/>
+        <input v-model.number="dHeadSY" type="number" step="0.05"/>
+        <input v-model.number="dHeadSZ" type="number" step="0.05"/>
+      </div>
+    </div>
+
+    <!-- Земля -->
+    <div v-show="displayTab==='ground'">
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Поворот</span>
+        <input v-model.number="dGroundRX" type="number" step="1"/>
+        <input v-model.number="dGroundRY" type="number" step="1"/>
+        <input v-model.number="dGroundRZ" type="number" step="1"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Сдвиг</span>
+        <input v-model.number="dGroundTX" type="number" step="0.5"/>
+        <input v-model.number="dGroundTY" type="number" step="0.5" data-tip="Y клампится Minecraft движком — dropped items приклеены к земле"/>
+        <input v-model.number="dGroundTZ" type="number" step="0.5"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <span style="color:#888;font-size:11px;">Масштаб</span>
+        <input v-model.number="dGroundSX" type="number" step="0.05"/>
+        <input v-model.number="dGroundSY" type="number" step="0.05"/>
+        <input v-model.number="dGroundSZ" type="number" step="0.05"/>
+      </div>
+    </div>
+
+    <!-- Рамка (fixed) -->
+    <div v-show="displayTab==='fixed'">
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Поворот</span>
+        <input v-model.number="dFixedRX" type="number" step="1"/>
+        <input v-model.number="dFixedRY" type="number" step="1"/>
+        <input v-model.number="dFixedRZ" type="number" step="1"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;margin-bottom:6px;">
+        <span style="color:#888;font-size:11px;">Сдвиг</span>
+        <input v-model.number="dFixedTX" type="number" step="0.5"/>
+        <input v-model.number="dFixedTY" type="number" step="0.5"/>
+        <input v-model.number="dFixedTZ" type="number" step="0.5"/>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:6px;align-items:center;">
+        <span style="color:#888;font-size:11px;">Масштаб</span>
+        <input v-model.number="dFixedSX" type="number" step="0.05"/>
+        <input v-model.number="dFixedSY" type="number" step="0.05"/>
+        <input v-model.number="dFixedSZ" type="number" step="0.05"/>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:#888;margin-top:8px;line-height:1.4;">
+      Колонки — X, Y, Z. Для GUI, 1-го лица, on_shelf используйте встроенный редактор BlockBench.
     </div>
   </div>
 
@@ -2995,7 +3091,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.1.4',
+        version: '0.1.5',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
