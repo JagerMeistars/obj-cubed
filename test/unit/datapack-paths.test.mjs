@@ -1,0 +1,59 @@
+// Issue #8: datapack function layout.
+// PUBLIC funcs live at data/<ns>/function/<id>/<func>.mcfunction; INTERNAL
+// helpers (_apply_auto/_apply_manual) move under .../<id>/zzz/. No path uses
+// the old 'animations/' segment, and every 'function <ns>:<p>' call must
+// resolve to a generated file (referential closure).
+import { describe, it, expect } from 'vitest';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { loadObjcubed } = require('../helpers/load-plugin.cjs');
+
+const api = loadObjcubed();
+
+describe('datapack function layout (#8)', () => {
+  it('emits public funcs at <id>/ and internals at <id>/zzz/, no animations/ segment', () => {
+    const files = api.generateDatapackFiles('walk', 5, 'objcubed', 'equipment', 'mainhand');
+    const keys = [...files.keys()];
+
+    for (const name of ['init', 'play', 'stop', 'set', 'play_from', 'play_once']) {
+      expect(keys, name).toContain(`data/objcubed/function/walk/${name}.mcfunction`);
+    }
+    for (const name of ['_apply_auto', '_apply_manual']) {
+      expect(keys, name).toContain(`data/objcubed/function/walk/zzz/${name}.mcfunction`);
+    }
+    expect(keys).toContain('pack.mcmeta');
+
+    for (const k of keys) {
+      expect(k, k).not.toMatch(/animations\//);
+    }
+  });
+
+  it('player target keeps both _apply branches under zzz/', () => {
+    const files = api.generateDatapackFiles('walk', 5, 'objcubed', 'player', 'mainhand');
+    const keys = [...files.keys()];
+    expect(keys).toContain('data/objcubed/function/walk/zzz/_apply_auto.mcfunction');
+    expect(keys).toContain('data/objcubed/function/walk/zzz/_apply_manual.mcfunction');
+    for (const k of keys) expect(k, k).not.toMatch(/animations\//);
+  });
+
+  // Referential closure: every internal `function objcubed:<p>` reference in any
+  // file body must point at a generated key. Run for both target branches.
+  for (const target of ['equipment', 'player']) {
+    it(`referential closure holds for target=${target}`, () => {
+      const files = api.generateDatapackFiles('walk', 5, 'objcubed', target, 'mainhand');
+      const keys = new Set([...files.keys()]);
+      const re = /function\s+objcubed:(\S+)/g;
+      let found = 0;
+      for (const body of files.values()) {
+        let m;
+        while ((m = re.exec(body)) !== null) {
+          found++;
+          const key = `data/objcubed/function/${m[1]}.mcfunction`;
+          expect(keys.has(key), `${m[1]} -> ${key}`).toBe(true);
+        }
+      }
+      expect(found).toBeGreaterThan(0);
+    });
+  }
+});

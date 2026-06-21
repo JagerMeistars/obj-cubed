@@ -1,0 +1,513 @@
+//objmc
+//https://github.com/Godlander/objmc
+
+isCustom = 0;
+transition = 0;
+int corner = gl_VertexID % 4;
+ivec2 atlasSize = textureSize(Sampler0, 0);
+vec2 onepixel = 1./atlasSize;
+ivec2 uv = ivec2((UV0 * atlasSize));
+vec3 posoffset = vec3(0);
+float scale = 1;
+vec3 rotation = vec3(0);
+int headerheight = 0;
+bool compression = false;
+ivec4 t[16];
+//read uv offset
+t[0] = ivec4(texelFetch(Sampler0, uv, 0) * 255.0 + 0.5);
+ivec2 uvoffset = ivec2(t[0].r*256 + t[0].g, t[0].b*256 + t[0].a);
+//find and read topleft pixel
+ivec2 topleft = uv - uvoffset;
+//if topleft marker is correct
+ivec4 marker = ivec4(texelFetch(Sampler0, topleft, 0)*255.0+0.5);
+if (marker == ivec4(12,34,56,255)) {
+    compression = false;
+    isCustom = 1;
+    // Row 0: t[0..15]
+    for (int i = 1; i < 16; i++) {
+        t[i] = getmeta(topleft, i);
+    }
+    //1: texsize
+    ivec2 size = ivec2(t[1].r*256 + t[1].g, t[1].b*256 + t[7].r);
+    //2: nvertices
+    int nvertices = t[2].r*16777216 + t[2].g*65536 + t[2].b*256 + t[7].g;
+    //3: nobjs, ntexs
+    int nframes = max(t[3].r*65536 + t[3].g*256 + t[3].b, 1);
+    int ntextures = max(t[3].a, 1);
+    //4: duration, autoplay, easing
+    float duration = max(t[4].r*65536 + t[4].g*256 + t[4].b, 1);
+    bool autoplay = getb(t[4].a, 6);
+    ivec2 easing = ivec2(getb(t[4].a, 4, 2), getb(t[4].a, 2, 2));
+    //5: data heights
+    int vph = t[5].r*256 + t[5].g;
+    int vth = t[5].b*256 + t[7].b;
+    //6: noshadow, autorotate, visibility, hasStaticDisplay, colorbehavior
+    noshadow = getb(t[6].r, 7, 1);
+    vec2 autorotate = vec2(getb(t[6].r, 6, 1), getb(t[6].r, 5, 1));
+    bvec3 visibility = bvec3(getb(t[6].r, 4), getb(t[6].r, 3), getb(t[6].r, 2));
+    bool hasStaticDisplay = getb(t[6].r, 1); //bit 1: any non-identity world display slot
+    int colorbehavior = getb(t[6].r, 0, 1)*256 + t[6].g;
+
+    //time in ticks
+    float time = GameTime * 24000;
+    //independent texture-animation clock (issue #9): not coupled to the
+    //geometry-frame time, which gets reassigned below by tcolor/autoplay.
+    float texTime = GameTime * 24000;
+    int tcolor = 0;
+
+#ifdef BLOCK
+    if (!visibility.x) { //world
+        Pos = vec3(0); posoffset = vec3(0);
+    } else {
+#endif
+#ifdef ENTITY
+    isGUI = int(isgui(ProjMat));
+    isHand = int(ishand(ProjMat));
+    if (((isGUI + isHand == 0) && visibility.x) || (bool(isHand) && visibility.y) || (bool(isGUI) && visibility.z)) {
+        //colorbehavior
+        overlayColor = vec4(1);
+        vec3 directColor = vec3(1);
+        bool hasDirectColor = false;
+        if (colorbehavior == 73) { //all three channels = time, animation frames 0-8388607
+            int cR = int(Color.r*255.0+0.5);
+            int cG = int(Color.g*255.0+0.5);
+            int cB = int(Color.b*255.0+0.5);
+            if (cR == 255 && cG == 255 && cB == 255) {
+                tcolor = 0;
+                autoplay = false;
+            } else {
+                tcolor = (cR*65536)%32768 + cG*256 + cB;
+                autoplay = (Color.r <= 0.5);
+            }
+        } else {
+            //bits from colorbehavior
+            vec2 tscale = vec2(0, 255./256.);
+            vec2 thue = vec2(0, 255./256.);
+            switch ((colorbehavior>>6)&7) { //first 3 bits, r
+                //direct color
+                case 0: directColor.r = Color.r; hasDirectColor = true; break;
+                //time
+                case 1: tcolor = tcolor*256 + int(Color.r*255); break;
+                //scale
+                case 2: tscale.x = Color.r*255; tscale.y *= 256; break;
+                //hue
+                case 3: thue.x = Color.r*255; thue.y *= 256; break;
+                //hurt tint
+                case 4: if (Color.r != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+            }
+            switch ((colorbehavior>>3)&7) { //second 3 bits, g
+                //direct color
+                case 0: directColor.g = Color.g; hasDirectColor = true; break;
+                //time
+                case 1: tcolor = tcolor*256 + int(Color.g*255); break;
+                //scale
+                case 2: tscale.x = tscale.x*256 + Color.g*255; tscale.y *= 256; break;
+                //hue
+                case 3: thue.x = thue.x*256 + Color.g*255; thue.y *= 256; break;
+                //hurt tint
+                case 4: if (Color.g != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+            }
+            switch (colorbehavior&7) { //third 3 bits, b
+                //direct color
+                case 0: directColor.b = Color.b; hasDirectColor = true; break;
+                //time
+                case 1: tcolor = tcolor*256 + int(Color.b*255); break;
+                //scale
+                case 2: tscale.x = tscale.x*256 + Color.b*255; tscale.y *= 256; break;
+                //hue
+                case 3: thue.x = thue.x*256 + Color.b*255; thue.y *= 256; break;
+                //hurt tint
+                case 4: if (Color.b != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+            }
+            if (tscale.x > 0) scale = tscale.x/tscale.y;
+            if (thue.x > 0) overlayColor = vec4(hrgb(thue.x/thue.y),1);
+            //apply direct color: tint the model via overlayColor
+            if (hasDirectColor) overlayColor = vec4(directColor, 1.0);
+        }
+#endif
+        int frame;
+        if (autoplay && tcolor >= 32768) {
+            // play_once: tcolor bit 15 = flag, lower 15 bits = start gametime % 24000
+            int start = tcolor - 32768;
+            int elapsed = (int(time) % 24000 - start + 24000) % 24000;
+            frame = min(elapsed, nframes - 1);
+            // keep interpolation during animation, disable when frozen at last frame
+            time = (elapsed >= nframes - 1) ? float(frame) : float(elapsed) + fract(time);
+        } else {
+            time = autoplay ? time + duration - mod(tcolor, duration) : tcolor;
+            frame = int(time * nframes / duration) % nframes;
+        }
+        //relative vertex id from unique face uv
+        int id = (((uvoffset.y-2) * size.x) + uvoffset.x) * 4 + corner;
+        id += frame * nvertices;
+        //calculate height offsets
+        headerheight = 2 + int(ceil(nvertices*0.25/size.x));
+        int height = headerheight + (size.y * ntextures);
+        //read data
+        ivec2 index = getvert(topleft, size.x, height+vph+vth, id, compression);
+        posoffset = getpos(topleft, size.x, height, index.x);
+        if (nframes > 1) {
+            int nids = (nframes * nvertices);
+            //next frame
+            id = (id+nvertices) % nids;
+            index = getvert(topleft, size.x, height+vph+vth, id, compression);
+            vec3 posoffset2 = getpos(topleft, size.x, height, index.x);
+            //interpolate
+            transition = fract(time * nframes / duration);
+            switch (easing.x) { //easing
+                case 1: //linear
+                    posoffset = mix(posoffset, posoffset2, transition);
+                    break;
+                case 2: //in-out cubic
+                    transition = transition < 0.5 ? 4 * transition * transition * transition : 1 - pow(-2 * transition + 2, 3) * 0.5;
+                    posoffset = mix(posoffset, posoffset2, transition);
+                    break;
+                case 3: //4-point bezier
+                    //third point
+                    id = (id+nvertices) % nids;
+                    index = getvert(topleft, size.x, height+vph+vth, id, compression);
+                    vec3 posoffset3 = getpos(topleft, size.x, height, index.x);
+                    //fourth point
+                    id = (id+nvertices) % nids;
+                    index = getvert(topleft, size.x, height+vph+vth, id, compression);
+                    vec3 posoffset4 = getpos(topleft, size.x, height, index.x);
+                    //bezier
+                    posoffset = bezier(posoffset, posoffset2, posoffset3, posoffset4, transition);
+                    break;
+            }
+        }
+        transition = 0;
+        texCoord = getuv(topleft, size.x, height+vph, index.y);
+//custom entity rotation
+#ifdef ENTITY
+        posoffset *= scale;
+        // display-1:1 step B: GUI slot reproduces vanilla T*R*S at q16. Header
+        // version lives in t[6].b (2 = q16 GUI layout); a stale PNG (old encoder
+        // wrote 255 here) fails the gate and the GUI transform is skipped so it
+        // cannot desync from this decode. q16 layout (2 bytes/axis, high,low):
+        //   t[8]=(sxH,sxL,syH) t[9]=(syL,szH,szL)  scale  0..4
+        //   t[10]=(txH,txL,tyH) t[11]=(tyL,tzH,tzL) trans -128..128 (1/16-block)
+        //   t[12]=(rxH,rxL,ryH) t[13]=(ryL,rzH,rzL) rot   0..360 deg
+        //   t[14]=(pxH,pxL,pyH) t[15]=(pyL,pzH,pzL) pivot -128..128 (model origin)
+        if (isGUI == 1 && t[6].b == 2) {
+            vec3 guiScale = vec3(
+                float(t[8].r *256 + t[8].g) / 65535.0 * 4.0,
+                float(t[8].b *256 + t[9].r) / 65535.0 * 4.0,
+                float(t[9].g *256 + t[9].b) / 65535.0 * 4.0
+            );
+            vec3 guiTrans = vec3(
+                float(t[10].r*256 + t[10].g) / 65535.0 * 256.0 - 128.0,
+                float(t[10].b*256 + t[11].r) / 65535.0 * 256.0 - 128.0,
+                float(t[11].g*256 + t[11].b) / 65535.0 * 256.0 - 128.0
+            );
+            vec3 guiRot = vec3(
+                float(t[12].r*256 + t[12].g) / 65535.0 * 360.0,
+                float(t[12].b*256 + t[13].r) / 65535.0 * 360.0,
+                float(t[13].g*256 + t[13].b) / 65535.0 * 360.0
+            );
+            vec3 guiPivot = vec3(
+                float(t[14].r*256 + t[14].g) / 65535.0 * 256.0 - 128.0,
+                float(t[14].b*256 + t[15].r) / 65535.0 * 256.0 - 128.0,
+                float(t[15].g*256 + t[15].b) / 65535.0 * 256.0 - 128.0
+            );
+            // Canonical vanilla rotation R = Rx(rx)*Ry(ry)*Rz(rz) (intrinsic XYZ),
+            // identical r00..r22 to buildItemTransformMatrix — no per-axis sign
+            // negation, no GUI-camera flip (see below).
+            vec3 r = radians(guiRot);
+            float cx = cos(r.x), sx = sin(r.x);
+            float cy = cos(r.y), sy = sin(r.y);
+            float cz = cos(r.z), sz = sin(r.z);
+            float r00 =  cy*cz,            r01 = -cy*sz,            r02 =  sy;
+            float r10 =  sx*sy*cz + cx*sz, r11 = -sx*sy*sz + cx*cz, r12 = -sx*cy;
+            float r20 = -cx*sy*cz + sx*sz, r21 =  cx*sy*sz + sx*cz, r22 =  cx*cy;
+            // mat3(c0,c1,c2): GLSL columns. Rv as columns.
+            mat3 guiRotMat = mat3(
+                vec3(r00, r10, r20),
+                vec3(r01, r11, r21),
+                vec3(r02, r12, r22)
+            );
+            // sz = slotTextureSize = baked 1-block placeholder edge (corners 0->1).
+            float slotSize = distance(subgroupQuadBroadcast(Pos, 0),
+                                      subgroupQuadBroadcast(Pos, 1));
+            // Rotate the GUI display about guiPivot, supplied by the export dialog
+            // (GUI Pivot X/Y/Z, BB units -> blocks in the decoded frame). This lets
+            // the user dial the exact pivot to match BB's model-centre rotation
+            // (the encoder defaults it to the model bbox centre when unset).
+            vec3 m = (posoffset - guiPivot) * guiScale; // S about the chosen pivot
+            m = guiRotMat * m;                          // R about the chosen pivot (vanilla XYZ)
+            m += guiPivot + guiTrans / 16.0;            // restore + display T (1/16-block)
+            // No Y anchor lift for GUI: in-game calibration shows the ortho atlas
+            // framing below already lands the model at the right height. (An earlier
+            // +0.5 here over-raised it by half a block. The world/hand slots DO need
+            // the +0.5, applied via model.json display in saveSingleOutput.)
+            // ---- GUI atlas framing (MC 26.1.2 GuiItemAtlas.drawToSlot) ----
+            // Per slot MC bakes, INTO the vertex positions (ModelViewMat ~ identity
+            // for the atlas pass):
+            //   translate(slotCenter) * scale(sz,-sz,sz) * display.gui * translate(-0.5)
+            // with sz = slotTextureSize = 16*guiScale. The subgroup anchor (corner 2,
+            // read at line `Pos = subgroupQuadBroadcast(Pos,2)+posoffset`) is the baked
+            // placeholder corner 2, so it ALREADY carries translate(slotCenter) and
+            // scale(sz,-sz,sz). We only owe the per-vertex offset from that anchor.
+            //
+            // Derivation: anchor + posoffset must equal MC's baked vertex
+            //   Tc*Sg*D*Tm*v. Since Tc is a pure translation it cancels in the
+            //   difference, and Sg = scale(sz,-sz,sz) is linear, so
+            //   posoffset = Sg * ( D*Tm*v  -  Tm*vph2 ) = Sg * (modelOffset_block).
+            //   `m` above is exactly D*Tm*v in block units (S,R,T already applied,
+            //   matching the verified world/hand path where raw block-unit posoffset
+            //   is added to this same anchor and renders correctly). So in block
+            //   units the offset is `m`; multiply componentwise by (sz,-sz,sz).
+            //
+            // (slotSize computed above.) Uniform *slotSize on ALL THREE axes keeps posoffset.z in the SAME
+            // atlas-pixel/ortho(-1000..1000) units the baked anchor.z lives in, so
+            // co-located faces get distinct gl_Position.z and LEQUAL+depthWrite
+            // resolve them -> fixes the see-through (the old ad-hoc *64 on z, correct
+            // only at guiScale 4, crushed the per-face z deltas).
+            // The -slotSize on Y is MC's bake reflection scale(S,-S,S) that the old
+            // code never applied (m*64 had +Y, then a flat y+=-64 that only shifts,
+            // cannot un-mirror). Restoring this single Y reflection fixes upside-down
+            // AND the X/Z rotation desync (a single reflection is what makes the
+            // vanilla XYZ rotation compose correctly with the slot frame) AND matches
+            // the fragment-shader GUI normal flip (objmc_light.glsl: isGUI -> z*=-1).
+            // No y+=-64: the slot-center translate is already inside the anchor.
+            posoffset = m * vec3(slotSize, -slotSize, slotSize);
+            // guiRotMat stays plain vanilla Rv (no F flip, no zx axis flip).
+        }
+        if (isHand == 1) {
+            // A2 revert: vanilla owns the full first-person transform via each
+            // hand's own model.json display.firstperson_* (scale+rotation+
+            // translation). Left/right are independent per-slot models, so no
+            // shader hand-scale, no pivot, no clip-x handedness test. Keep the
+            // offset object-oriented so it tracks the hand pose.
+            posoffset = (vec4(posoffset,0) * ModelViewMat).xyz;
+        }
+        if (isHand + isGUI == 0) {
+            // World path: rebuild the model's orientation from the baked carrier
+            // basis so it follows its render transform — item-frame mounting
+            // (wall/floor/ceiling) + RMB, entity rotation, etc. Runs whenever
+            // autorotate is enabled.
+            //
+            // Previously also gated by `&& !hasStaticDisplay` so that setting a
+            // world-slot display would skip this and "match BB" exactly. But that
+            // gate is GLOBAL, so ANY world rotation (e.g. an on_shelf pose) also
+            // killed item-frame orientation — frames went static, facing one way on
+            // every mounting. Gate removed; suppressing this for a specific static
+            // slot, if ever needed, must be per-context, not a global bit.
+            if (any(greaterThan(autorotate,vec2(0)))) {
+                //normal estimated rotation calculation from The Der Discohund
+                vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
+                vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
+                vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
+                vPos1 = normalize(vPos0 - vPos1);
+                vPos2 = normalize(vPos0 - vPos2);
+                vPos2 = normalize(vPos2 - dot(vPos2, vPos1) * vPos1); // Gram-Schmidt: orthonormal basis is length-preserving (#11)
+                mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
+                posoffset = fullRotation * posoffset;
+            }
+        }
+    }
+#endif
+#ifdef BLOCK
+    }
+#endif
+    //final pos and uv
+    Pos = subgroupQuadBroadcast(Pos, 2) + posoffset;
+    //per-corner jitter so faces with identical uv begin/end still render
+    vec2 uvjit = vec2(onepixel.x*0.0001*corner, onepixel.y*0.0001*((corner+1)%4));
+    //texCoord*size is the per-frame uv (in pixels) inside one frame region.
+    vec2 texuvpx = texCoord*size;
+    if (ntextures > 1) {
+        //independent texture clock (issue #9): step the sampled frame region by
+        //texframe*size.y. fade flag (row 1, x=5.r) cross-fades on item/GUI.
+        ivec4 texmeta  = ivec4(texelFetch(Sampler0, topleft + ivec2(4,1), 0) * 255.0 + 0.5);
+        ivec4 texflags = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
+        float texFrametime = max(float(texmeta.r*65536 + texmeta.g*256 + texmeta.b), 1.0);
+        bool  texFade = bool(texflags.r);
+        int   texframe = int(texTime / texFrametime) % ntextures;
+        int   texnext  = (texframe + 1) % ntextures;
+        vec2 base  = vec2(topleft.x, topleft.y + headerheight + texframe*size.y);
+        vec2 base2 = vec2(topleft.x, topleft.y + headerheight + texnext *size.y);
+        texCoord  = (base  + texuvpx)/atlasSize + uvjit;
+        texCoord2 = (base2 + texuvpx)/atlasSize + uvjit;
+        transition = texFade ? fract(texTime / texFrametime) : 0.0;
+    } else {
+        texCoord = (vec2(topleft.x,topleft.y+headerheight) + texuvpx)/atlasSize + uvjit;
+    }
+
+    // ===========================================================
+    // DEBUG MODE (ENTITY only — block/terrain shaders don't define
+    // overlayColor/isGUI/isHand so we can't visualize there).
+    // Uncomment one of the blocks below to visualize a shader value
+    // as pixel color. Take screenshots, read RGB values, decode back
+    // via tools/decode_pixel.js.
+    // ===========================================================
+    //
+    // Encoding scheme: each channel maps a range [-X, +X] → [0, 255]
+    // via:   byte = ((value + X) / (2*X)) * 255
+    // Decode: value = (byte/255) * 2*X - X
+    //
+    // RANGE_HINT below sets X for each preset.
+#ifdef ENTITY
+    // Debug bypasses ALL lighting/texture/shadow paths by setting
+    // isCustom = 2. The entity/item fragment shaders check for this
+    // flag at the top of main() and emit overlayColor.rgb directly
+    // — no texture sampling, no light/shadow mix, no fog. Result:
+    // pixel RGB == debug value, no distortion. Works with or without
+    // "Без тени" set on the model.
+    #define OC_DBG_COLOR(c) isCustom = 2; overlayColor = vec4((c).rgb, 1.0)
+
+    // ---- A1: Pos before ModelViewMat (object space) ----
+    // RANGE_HINT = 32. Decode each channel: (byte/255)*64 - 32.
+    // OC_DBG_COLOR(vec4(
+    //     clamp((Pos.x + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((Pos.y + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((Pos.z + 32.0) / 64.0, 0.0, 1.0),
+    //     1.0
+    // ));
+
+    // ---- A2: posoffset alone (encoded vertex offset from anchor) ----
+    // RANGE_HINT = 16. Decode: (byte/255)*32 - 16.
+    // OC_DBG_COLOR(vec4(
+    //     clamp((posoffset.x + 16.0) / 32.0, 0.0, 1.0),
+    //     clamp((posoffset.y + 16.0) / 32.0, 0.0, 1.0),
+    //     clamp((posoffset.z + 16.0) / 32.0, 0.0, 1.0),
+    //     1.0
+    // ));
+
+    // ---- A3: anchor (subgroupQuadBroadcast Pos[2]) only ----
+    // RANGE_HINT = 32. Decode: (byte/255)*64 - 32.
+    // vec3 dbg_anchor = subgroupQuadBroadcast(Pos - posoffset, 2);
+    // OC_DBG_COLOR(vec4(
+    //     clamp((dbg_anchor.x + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((dbg_anchor.y + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((dbg_anchor.z + 32.0) / 64.0, 0.0, 1.0),
+    //     1.0
+    // ));
+
+    // ---- A4: slot detection (which render path is active) ----
+    // R=1 → isGUI, G=1 → isHand, B=1 → neither (third-person / equipment / ground)
+    // OC_DBG_COLOR(vec4(float(isGUI), float(isHand), float(1 - isGUI - isHand), 1.0));
+
+    // ---- A5: raw Position from VBO (before any objmc modification) ----
+    // Shows what coord system Minecraft submits Position in per slot.
+    // RANGE_HINT = 32. Decode: (byte/255)*64 - 32.
+    // OC_DBG_COLOR(vec4(
+    //     clamp((Position.x + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((Position.y + 32.0) / 64.0, 0.0, 1.0),
+    //     clamp((Position.z + 32.0) / 64.0, 0.0, 1.0),
+    //     1.0
+    // ));
+#endif
+}
+#ifdef ENTITY
+if (isCustom == 0) {
+    ivec4 am = ivec4(texelFetch(Sampler0, ivec2(0,0), 0)*255.0+0.5);
+    // 254 = legacy chest-only armor; 253 = per-limb armor (part id in t[8].b).
+    if (am.rgb == ivec3(12,34,56) && (am.a == 254 || am.a == 253)) {
+        isCustom = 1;
+        ivec2 ao = ivec2(0);
+        for (int i = 1; i < 9; i++) t[i] = getmeta(ao, i); // include t[8]: armor face index
+        ivec2 as = ivec2(t[1].r*256+t[1].g, t[1].b*256+t[7].r);
+        int anv = t[2].r*16777216+t[2].g*65536+t[2].b*256+t[7].g;
+        int anf = max(t[3].r*65536+t[3].g*256+t[3].b, 1);
+        int ant = max(t[3].a, 1);
+        float adur = max(float(t[4].r*65536+t[4].g*256+t[4].b), 1.0);
+        bool aap = getb(t[4].a, 6);
+        int avph = t[5].r*256+t[5].g;
+        int avth = t[5].b*256+t[7].b;
+        noshadow = getb(t[6].r, 7, 1);
+        float at = GameTime * 24000.0;
+        at = aap ? at + adur : 0.0;
+        int afr = int(at * float(anf) / adur) % anf;
+        // Target body part for per-limb armor. Per-limb exports use marker 253 and put
+        // the part id in t[8].b; legacy armor uses marker 254 where t[8].b holds stale
+        // GUI data, so it is forced to chest (0). Out-of-range also clamps to chest.
+        int atarget = (am.a == 253) ? t[8].b : 0;
+        if (atarget < 0 || atarget > 7) atarget = 0;
+        // MC renders left limbs (left_arm 3, left_leg 5, left_foot 7) X-mirrored
+        // (CubeListBuilder.mirror); un-mirrored below.
+        bool aleft = (atarget == 3 || atarget == 5 || atarget == 7);
+        // Per-part lookups indexed by atarget:
+        //   0 chest  1 head  2 r_arm  3 l_arm  4 r_leg  5 l_leg  6 r_foot  7 l_foot
+        // AMOD = vertex modulus (parts*6 faces*4 corners), ABOX = carrier abody index,
+        // AOFF = anchor offset (chest measured; others calibrated in-game, 0 until then).
+        const int  AMOD[8] = int[8]( 72, 48, 72, 72, 72, 72, 48, 48 );
+        const int  ABOX[8] = int[8](  2,  0,  0,  1,  1,  0,  1,  0 );
+        const vec3 AOFF[8] = vec3[8](
+            // Per-part anchor offset, calibrated in-game (Y incl. the left-limb fudge).
+            vec3(0.2925, -0.785,  -0.175),   // 0 chest
+            vec3(0.2925, -0.045, -0.2925),  // 1 head
+            vec3(0.2375,  -0.66,  -0.175),   // 2 right_arm
+            vec3(0.2375,  0.16,   -0.175),   // 3 left_arm
+            vec3(0.14,   -0.765,   -0.14),    // 4 right_leg
+            vec3(0.14,   -0.015,   -0.14),    // 5 left_leg
+            vec3(0.17,   -0.804, -0.17),    // 6 right_foot
+            vec3(0.17,   0.004,  -0.17)     // 7 left_foot
+        );
+        // Anchor corner per part: which carrier-quad corner the model hangs from.
+        // 2 = legacy (head/chest fine). Animated limbs must anchor near the BONE PIVOT
+        // (shoulder/hip = top of the limb) or they swing from the wrong end; candidate
+        // corner for arms/legs/feet, dialed in-game.
+        const int ACOR[8] = int[8]( 2, 2, 2, 2, 2, 2, 2, 2 );
+        int aid = gl_VertexID % AMOD[atarget];
+        int aface = aid / 4;
+        int abody = aface / 6;
+        int ac = aid % 4;
+        // Approach C: model-face index from the texture header (t[8].r:.g),
+        // NOT from gl_VertexID -- count-independent across batched wearers.
+        int afk = t[8].r * 256 + t[8].g;
+        // ---- A6 debug (Phase-0 gate probe): colour by carrier box / face index.
+        // To see ALL parts, also comment out the `Pos = vec3(9999.0)` cull below.
+        // R steps = abody, G steps = face index.
+        // OC_DBG_COLOR(vec4(float(abody)/3.0, float(aface%6)/5.0, 0.0, 1.0));
+        // render only the chosen part's NORTH (front, face 3) carrier quad
+        if (abody != ABOX[atarget] || (aface % 6) != 3) {
+            Pos = vec3(9999.0);
+        } else {
+            int avid = (afk * 4 + ac) % anv;
+            avid += afr * anv;
+            int ahh = 2 + int(ceil(float(anv)*0.25/float(as.x)));
+            int ah = ahh + (as.y * ant);
+            ivec2 ai = getvert(ao, as.x, ah+avph+avth, avid, false);
+            posoffset = getpos(ao, as.x, ah, ai.x);
+            texCoord = getuv(ao, as.x, ah+avph, ai.y);
+            texCoord = (vec2(0, ahh) + texCoord*vec2(as))/vec2(atlasSize)
+                + vec2(onepixel.x*0.0001*float(ac), onepixel.y*0.0001*float((ac+1)%4));
+            // Un-mirror left limbs: flip model X about its centre (geometry is centred)
+            // BEFORE the offset, so there is no lateral shift; combined with the det(-1)
+            // left basis this cancels MC's X-mirror — left reads the same way as right.
+            if (aleft) posoffset.x = -posoffset.x;
+            posoffset -= AOFF[atarget];
+            // Full 3D orientation from the carrier-quad corners (Der Discohund basis),
+            // exactly like the world path above. This captures all THREE axes including
+            // limb TWIST -- the 2-DOF normal method (ay/ap) lost the twist, so animated
+            // arms/legs could not fully follow the swing.
+            vec3 a0 = subgroupQuadBroadcast(Pos, 0);
+            vec3 a1 = subgroupQuadBroadcast(Pos, 1);
+            vec3 a2 = subgroupQuadBroadcast(Pos, 2);
+            vec3 a3 = subgroupQuadBroadcast(Pos, 3);
+            vec3 e1 = normalize(a0 - a1);
+            vec3 e2 = normalize(a0 - a3);
+            e2 = normalize(e2 - dot(e2, e1) * e1);               // Gram-Schmidt
+            // Left limbs (aleft) keep the negated up axis (e2) — the upright fix; the
+            // X-mirror itself is cancelled by the posoffset.x flip above. Right/head/
+            // chest use the calibrated basis unchanged.
+            mat3 abasis = aleft
+                ? mat3(-e1, -e2, -cross(e1, e2))   // left: up negated; X-mirror handled above
+                : mat3(-e1,  e2, -cross(e1, e2));  // right/head/chest: calibrated, unchanged
+            posoffset = abasis * posoffset;        // orient to carrier; faces front, upright
+            // Anchor at the per-part corner ACOR — rotation-coherent (corner + basis both
+            // rotate with the wearer). The calibrated AOFF above is measured against this
+            // corner, so restoring the old AOFF means restoring this anchor too.
+            int acn = ACOR[atarget];
+            Pos = ((acn == 0) ? a0 : (acn == 1) ? a1 : (acn == 3) ? a3 : a2) + posoffset;
+        }
+    }
+}
+#endif
+//debug
+//else {
+//    posoffset = vec3(gl_VertexID % 4 - 2, gl_VertexID % 4 / 2 * 2, -(gl_VertexID % 4) + 2 * 2);
+//    Pos += posoffset;
+//    vertexColor = vec4(1.0,0.0,0.0,1.0);
+//}

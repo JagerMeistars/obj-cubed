@@ -1,0 +1,17 @@
+_preview/
+_*.txt
+_*.js
+node_modules/
+*.bak
+
+# tooling / session
+.claude/
+.remember/
+
+# example resource-pack exports — ship shaders only, not the demo pack
+objcubed/assets/minecraft/items/
+objcubed/assets/minecraft/models/
+objcubed/assets/minecraft/atlases/
+objcubed/assets/minecraft/equipment/
+objcubed/assets/minecraft/textures/entity/
+objcubed/assets/minecraft/textures/block/
