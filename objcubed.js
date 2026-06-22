@@ -1346,7 +1346,12 @@
         const ihdr = Buffer.alloc(13);
         ihdr.writeUInt32BE(width, 0); ihdr.writeUInt32BE(height, 4);
         ihdr[8] = 8; ihdr[9] = 6;
-        const src = Buffer.isBuffer(rgbaUint8) ? rgbaUint8 : Buffer.from(rgbaUint8.buffer || rgbaUint8);
+        // Respect a typed-array VIEW's byteOffset/byteLength: `Buffer.from(view.buffer)`
+        // alone would wrap the whole underlying ArrayBuffer (ignoring a .subarray() span).
+        const src = Buffer.isBuffer(rgbaUint8) ? rgbaUint8
+            : (rgbaUint8 && rgbaUint8.buffer)
+                ? Buffer.from(rgbaUint8.buffer, rgbaUint8.byteOffset, rgbaUint8.byteLength)
+                : Buffer.from(rgbaUint8);
         const scanLen = 1 + width * 4;
         const raw = Buffer.alloc(height * scanLen, 0);
         for (let y = 0; y < height; y++) {
@@ -1941,7 +1946,11 @@
                 const part = faceToPart ? faceToPart[fi] : -1;
                 const n = Math.min(4, face.length);
                 for (let i = 0; i < n; i++) indexVert(o, face[i], mtl, part);
-                if (face.length === 3) indexVert(o, face[1], mtl, part);
+                // Pad a triangle to a quad by repeating the LAST vertex (v0,v1,v2,v2):
+                // the 2nd sub-triangle (v0,v2,v2) is then zero-area/degenerate. Repeating
+                // the MIDDLE vertex instead gave (v0,v2,v1) — a reverse-wound coincident
+                // face that flickers / z-fights.
+                if (face.length === 3) indexVert(o, face[2], mtl, part);
                 if (face.length > 4) console.warn('[obj3] N-Gon — only first 4 verts used');
             }
         }
@@ -1964,7 +1973,11 @@
         return pos.map((v, i) => [...u24(8388608 + v*65536*scale + off[i]*65536), 255]);
     }
     function uvPixels(uv) {
-        return uv.map(v => [...u24(v*65535), 255]);
+        // Clamp to [0,1]: the shader samples within one frame, so a UV outside the
+        // unit square (tiling / negative) would otherwise wrap or read garbage
+        // (v*65535 overflows the 16 low bits the shader reads). A buildOutput check
+        // warns the user when this clamp actually changed anything.
+        return uv.map(v => [...u24(Math.max(0, Math.min(1, v)) * 65535), 255]);
     }
     function vertPixels(vert) {
         const [poi, uvi] = vert;
@@ -2588,6 +2601,8 @@
             const frameCount = Math.round(th / tw);
             if (th % tw !== 0 || frameCount < 1)
                 throw new Error(`Animated texture strip must be a vertical stack of square frames: height ${th} is not a whole multiple of width ${tw}.`);
+            if (frameCount > 255)
+                throw new Error(`Animated texture has ${frameCount} frames; the maximum is 255 (the frame count is stored in a single byte). Use fewer/taller frames.`);
             if (frameCount > 1) { ntextures = frameCount; frameH = th / ntextures; }
         }
         // Texture clock: how many ticks each frame holds (>=1), and whether
@@ -2719,6 +2734,10 @@
         const [sxH, sxL] = q16(guiS[0], 0, 4),    [syH, syL] = q16(guiS[1], 0, 4),    [szH, szL] = q16(guiS[2], 0, 4);
         const [txH, txL] = q16(guiT[0], -128, 128), [tyH, tyL] = q16(guiT[1], -128, 128), [tzH, tzL] = q16(guiT[2], -128, 128);
         const [rxH, rxL] = q16(guiR[0], 0, 360),  [ryH, ryL] = q16(guiR[1], 0, 360),  [rzH, rzL] = q16(guiR[2], 0, 360);
+        // q16 silently clamps to [-128,128); a large/offset model can push the GUI
+        // rotation pivot past that, shifting the icon's rotation centre — warn first.
+        if (guiP.some(v => v < -128 || v >= 128))
+            surfaceWarning(`GUI rotation pivot (${guiP.map(v => v.toFixed(1)).join(', ')}) is outside [-128, 128) and was clamped — the inventory icon will spin about a shifted point. Lower Scale or move the model toward the origin.`);
         const [pxH, pxL] = q16(guiP[0], -128, 128);
         const [pyH, pyL] = q16(guiP[1], -128, 128);
         const [pzH, pzL] = q16(guiP[2], -128, 128);
@@ -2843,6 +2862,8 @@
 
         // UV data
         ybase += vpH;
+        if (data.uvs.some(uv => uv.some(v => v < -1e-6 || v > 1 + 1e-6)))
+            surfaceWarning('some UVs fall outside the 0..1 frame (tiling/negative) and were clamped — those faces may look wrong. Keep the model UV-mapped inside the texture frame.');
         for (let i = 0; i < data.uvs.length; i++) {
             for (const [j, pxArr] of uvPixels(data.uvs[i]).entries()) {
                 const p = i*2+j;
@@ -5390,7 +5411,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.41',
+        version: '0.5.42',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
