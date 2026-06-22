@@ -435,13 +435,17 @@ if (isCustom == 0) {
         int abody = aface / 6;
         int ac = aid % 4;
         int f6 = aface % 6;
-        // Pack rides the NORTH (f6==3) and SOUTH (f6==5) face of each box. North reads its
-        // model-face index from t[8+abody], south from t[11+abody]; both share the part in
-        // t[8+abody].b. Other faces are culled (Stage 1 was north-only).
+        // Pack rides 4 carrier faces per box: NORTH(3), SOUTH(5), WEST(2), EAST(4). Model-face
+        // indices: t[8+abody] (north, .b = part), t[11+abody] (south), and -- read directly
+        // since they overflow the t[16] array -- header texels 14+abody (west), 17+abody
+        // (east). DOWN(0)/UP(1) are not packed (down is unrecoverable on square limb caps;
+        // up/down anchors also depend on handedness, unlike the X/Z faces).
         int afk = 65535;
         if (abody < nboxes) {
             if (f6 == 3) afk = t[8 + abody].r * 256 + t[8 + abody].g;
             else if (f6 == 5) afk = t[11 + abody].r * 256 + t[11 + abody].g;
+            else if (f6 == 2) { ivec4 m = getmeta(ao, 14 + abody); afk = m.r * 256 + m.g; }
+            else if (f6 == 4) { ivec4 m = getmeta(ao, 17 + abody); afk = m.r * 256 + m.g; }
         }
         int atarget = (abody < nboxes) ? t[8 + abody].b : 0;
         if (atarget < 0 || atarget > 7) atarget = 0;
@@ -458,18 +462,19 @@ if (isCustom == 0) {
             vec3(0.17,   -0.804, -0.17),    // 6 right_foot
             vec3(0.17,   0.004,  -0.17)     // 7 left_foot
         );
-        const int ACOR[8] = int[8]( 2, 2, 2, 2, 2, 2, 2, 2 );  // anchor corner per part
-        // Box DEPTH as an inflation- AND scale-robust linear combo of the carrier quad's
-        // measured WIDTH (|a0-a1|) and HEIGHT (|a0-a3|): depth = ADW*width + ADH*height.
-        // Solved per part so it holds for ANY uniform wearer scale AND any armor-layer
-        // inflation (MC's CubeDeformation grows every side, so a fixed depth/width ratio is
-        // wrong): need ADW+ADH=1 and ADW*W0+ADH*H0=D0. Body (8x12x4) -> (2,-1); every other
-        // box has a square cross-section (W0=D0) -> (1,0) i.e. depth = width.
-        const float ADW[8] = float[8]( 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 );
-        const float ADH[8] = float[8]( -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+        // Perpendicular box dim as an inflation- & scale-robust linear combo of the carrier
+        // quad's two measured edges |a0-a1|, |a0-a3|. Per part the coeffs are solved so
+        // a+b=1 and a*inplane0 + b*inplane1 = perp (holds for any wearer scale AND any
+        // armor-layer CubeDeformation grow). SOUTH needs depth (edges = W,H): body (2,-1),
+        // square-section parts (1,0). EAST needs width (edges = depth,H): body (0.5,0.5),
+        // square parts (1,0). NORTH/WEST need no perpendicular term.
+        const float ADWs[8] = float[8]( 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 );
+        const float ADHs[8] = float[8]( -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+        const float ADWe[8] = float[8]( 0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 );
+        const float ADHe[8] = float[8]( 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
         // A6 debug: OC_DBG_COLOR(vec4(float(abody)/3.0, float(f6)/5.0, 0.0, 1.0));
-        // Keep the NORTH (f6==3) + SOUTH (f6==5) face of each packed box; cull the rest.
-        if ((f6 != 3 && f6 != 5) || abody >= nboxes || afk == 65535) {
+        // Keep NORTH(3)/SOUTH(5)/WEST(2)/EAST(4) of each packed box; cull DOWN(0)/UP(1)+empty.
+        if (f6 < 2 || abody >= nboxes || afk == 65535) {
             Pos = vec3(9999.0);
         } else {
             int avid = (afk * 4 + ac) % anv;
@@ -503,30 +508,26 @@ if (isCustom == 0) {
             mat3 abasis = aleft
                 ? mat3(-e1, -e2, -cross(e1, e2))   // left: up negated; X-mirror handled above
                 : mat3(-e1,  e2, -cross(e1, e2));  // right/head/chest: calibrated, unchanged
-            // STAGE 2: the pack also rides the SOUTH (back) face of each box. To make a
-            // south-packed face read identically to a north-packed one, rotate the model
-            // offset 180deg about up (C_SOUTH) so it faces front, and re-anchor it to the
-            // box's NORTH corner so it overlays the north faces. North (f6==3) is byte-for-
-            // byte Stage 1 (no regression); only south runs the new path.
-            mat3 abasisBox = (f6 == 5)
-                ? abasis * mat3(-1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, -1.0)
-                : abasis;
+            // STAGE 2: a model face can ride any of 4 carrier faces. Each needs (1) an
+            // orientation correction C_F so it faces front like the north face, and (2) a
+            // re-anchor onto the box's NORTH corner-2 so all overlay there. C_F and the
+            // anchors are derived from MC's ModelPart$Cube geometry (jar-decoded) and
+            // numerically verified to overlay north to ~1e-15 for every part, both
+            // handedness, and any layer inflation. NORTH (f6==3) is byte-for-byte Stage 1.
+            mat3 CF = (f6 == 5) ? mat3(-1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, -1.0)  // south
+                    : (f6 == 2) ? mat3( 0.0, 0.0,-1.0,  0.0, 1.0, 0.0,  1.0, 0.0,  0.0)  // west
+                    : (f6 == 4) ? mat3( 0.0, 0.0, 1.0,  0.0, 1.0, 0.0, -1.0, 0.0,  0.0)  // east
+                    : mat3(1.0);                                                          // north
+            mat3 abasisBox = abasis * CF;
             posoffset = abasisBox * posoffset;     // orient to carrier; faces front, upright
+            vec3 n = cross(e1, e2);                 // outward face normal (unit)
             vec3 anchor;
-            if (f6 == 3) {
-                int acn = ACOR[atarget];           // north: calibrated corner, unchanged
-                anchor = (acn == 0) ? a0 : (acn == 1) ? a1 : (acn == 3) ? a3 : a2;
-            } else {
-                // south: derived exactly from MC's ModelPart$Cube geometry (jar-verified).
-                // The south quad's corner-2 (a2) plus its width edge (a0-a1) reaches the
-                // box's far top-X corner; stepping inward by the box DEPTH along the
-                // outward face normal cross(e1,e2) lands on the box's NORTH corner-2 -- the
-                // very corner the north anchor uses, so south overlays north exactly. This
-                // identity holds for mirrored (left) limbs too: (a0-a1) and cross(e1,e2)
-                // both flip with the reversed winding and cancel.
-                float adepth = ADW[atarget] * length(a0 - a1) + ADH[atarget] * length(a0 - a3);
-                anchor = a2 + (a0 - a1) - adepth * cross(e1, e2);
-            }
+            if      (f6 == 3) anchor = a2;                          // north: the corner itself
+            else if (f6 == 2) anchor = a2 + (a0 - a1);             // west:  +depth edge, no perp
+            else if (f6 == 5) anchor = a2 + (a0 - a1)              // south: +width edge, -depth
+                              - (ADWs[atarget]*length(a0 - a1) + ADHs[atarget]*length(a0 - a3)) * n;
+            else              anchor = a2                          // east:  -width along normal
+                              - (ADWe[atarget]*length(a0 - a1) + ADHe[atarget]*length(a0 - a3)) * n;
             Pos = anchor + posoffset;
         }
     }

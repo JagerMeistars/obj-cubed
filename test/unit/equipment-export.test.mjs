@@ -18,14 +18,15 @@ const { PNG } = require('pngjs');
 // Force posix-style joins so the asserted keys match regardless of host OS.
 const posixPath = { ...nodePath, ...nodePath.posix };
 
-const TW = 8;
+const TW = 24;
 const TY = 2;
 
 function makeResult(nfaces) {
   // Full encoded texture bytes: tw*ty*4, with the marker [12,34,56,255] at the
-  // very first pixel (bytes 0..3). The equipment block copies this buffer per
-  // face and patches byte[3] and bytes 32/33, so the buffer must be long enough
-  // that those offsets exist (tw*ty*4 = 64 >= 34).
+  // very first pixel (bytes 0..3). The equipment block copies this buffer per face
+  // and patches the packed header (texels 8..19 = bytes 32..79 for 3 boxes), so the
+  // buffer must be wide enough that those header texels live in ROW 0 (tw>=20) and
+  // long enough to hold them. TW=24 -> row 0 is 96 bytes, holds texels 0..23.
   const rawBuf = Buffer.alloc(TW * TY * 4);
   rawBuf[0] = 12;
   rawBuf[1] = 34;
@@ -64,23 +65,25 @@ function setup() {
 const EQ_TEX_DIR = '/rp/assets/minecraft/textures/entity/equipment/humanoid';
 const EQ_JSON = '/rp/assets/minecraft/equipment/cat_chest.json';
 
-// Decode the box-packed armor layer header: t[8].a = nboxes; per box abody, the
-// NORTH face index is t[8+abody].r:g, the part .b, the SOUTH face t[11+abody].r:g.
-// Either face index 65535 -> null (that face culled).
+// Decode the box-packed armor layer header: t[8].a = nboxes; per box abody, NORTH
+// face index t[8+abody].r:g (part .b), SOUTH t[11+abody], WEST texel 14+abody, EAST
+// texel 17+abody. Any face index 65535 -> null (that carrier face culled).
 function decodePacked(png) {
   const d = PNG.sync.read(Buffer.from(png)).data;
   const nboxes = d[35];
+  const rd = o => { const v = d[o] * 256 + d[o + 1]; return v === 65535 ? null : v; };
   const boxes = [];
   for (let abody = 0; abody < nboxes; abody++) {
-    const no = (8 + abody) * 4, so = (11 + abody) * 4;
-    const nk = d[no] * 256 + d[no + 1], sk = d[so] * 256 + d[so + 1];
-    boxes.push({ northK: nk === 65535 ? null : nk, part: d[no + 2], southK: sk === 65535 ? null : sk });
+    boxes.push({
+      northK: rd((8 + abody) * 4), part: d[(8 + abody) * 4 + 2],
+      southK: rd((11 + abody) * 4), westK: rd((14 + abody) * 4), eastK: rd((17 + abody) * 4),
+    });
   }
   return { marker: d[3], nboxes, boxes };
 }
 
 describe('equipment (armor) export — Approach C', () => {
-  it('legacy chest: two faces (north+south) per layer, box-packed onto the body box (marker 253)', async () => {
+  it('legacy chest: four faces (N/S/W/E) per layer, box-packed onto the body box (marker 253)', async () => {
     const { api, memfs } = setup();
 
     await api.saveSingleOutput(makeResult(3), {}, {
@@ -93,27 +96,24 @@ describe('equipment (armor) export — Approach C', () => {
 
     const keys = [...memfs.writes.keys()];
 
-    // (1) Two faces per layer: 3 faces -> ceil(3/2) = 2 textures.
-    for (let L = 0; L < 2; L++) expect(keys).toContain(`${EQ_TEX_DIR}/cat_chest_${L}.png`);
-    expect(keys.filter(p => p.startsWith(EQ_TEX_DIR + '/')).length).toBe(2);
+    // (1) Four faces per layer: 3 faces -> ceil(3/4) = 1 texture.
+    expect(keys).toContain(`${EQ_TEX_DIR}/cat_chest_0.png`);
+    expect(keys.filter(p => p.startsWith(EQ_TEX_DIR + '/')).length).toBe(1);
 
     // (2) marker 253, nboxes=3 (chest carrier); faces ride the BODY box (abody 2 in
-    // carrier [r_arm, l_arm, body]) as north@2L + south@2L+1; arms empty.
+    // carrier [r_arm, l_arm, body]) as north@0, south@1, west@2, east@(none); arms empty.
     const d0 = decodePacked(memfs.writes.get(`${EQ_TEX_DIR}/cat_chest_0.png`));
     expect(d0.marker).toBe(253);
     expect(d0.nboxes).toBe(3);
-    expect(d0.boxes[2]).toEqual({ northK: 0, part: 0, southK: 1 }); // body: faces 0 (N) + 1 (S)
+    expect(d0.boxes[2]).toEqual({ northK: 0, part: 0, southK: 1, westK: 2, eastK: null });
     expect(d0.boxes[0].northK).toBeNull();                          // r_arm empty
     expect(d0.boxes[1].northK).toBeNull();                          // l_arm empty
-    const d1 = decodePacked(memfs.writes.get(`${EQ_TEX_DIR}/cat_chest_1.png`));
-    expect(d1.boxes[2]).toEqual({ northK: 2, part: 0, southK: null }); // body: face 2 (N), no S
 
-    // (3) Equipment definition references each layer texture.
+    // (3) Equipment definition references the layer texture.
     const def = JSON.parse(memfs.writes.get(EQ_JSON));
     expect(Array.isArray(def.layers.humanoid)).toBe(true);
-    expect(def.layers.humanoid.length).toBe(2);
-    for (let L = 0; L < 2; L++)
-      expect(def.layers.humanoid[L].texture).toBe(`minecraft:cat_chest_${L}`);
+    expect(def.layers.humanoid.length).toBe(1);
+    expect(def.layers.humanoid[0].texture).toBe('minecraft:cat_chest_0');
 
     // (4) give helper.
     const give = memfs.writes.get('/rp/assets/minecraft/equipment/cat_chest_give.txt');
@@ -143,7 +143,7 @@ describe('equipment (armor) export — Approach C', () => {
       expect([...memfs.writes.keys()], p.slot).toContain(texPath);
       const dec = decodePacked(memfs.writes.get(texPath));
       expect(dec.nboxes, `${p.slot} nboxes`).toBe(p.nboxes);
-      expect(dec.boxes[p.abody], `${p.slot} box`).toEqual({ northK: 0, part: p.id, southK: null });
+      expect(dec.boxes[p.abody], `${p.slot} box`).toEqual({ northK: 0, part: p.id, southK: null, westK: null, eastK: null });
       const def = JSON.parse(memfs.writes.get(`/rp/assets/minecraft/equipment/cat_${p.slot}.json`));
       expect(Array.isArray(def.layers[p.layer]), `${p.slot} layer`).toBe(true);
       const give = memfs.writes.get(`/rp/assets/minecraft/equipment/cat_${p.slot}_give.txt`);
@@ -213,10 +213,10 @@ describe('equipment (armor) export — Approach C', () => {
       memfs.writes.get('/rp/assets/minecraft/textures/entity/equipment/humanoid/cat_chestplate_0.png'));
     expect(dec.marker).toBe(253);
     expect(dec.nboxes).toBe(3);
-    // carrier order [r_arm(2), l_arm(3), body(0)]; one face each -> north only, no south.
-    expect(dec.boxes[0]).toEqual({ northK: 1, part: 2, southK: null }); // r_arm = face 1
-    expect(dec.boxes[1]).toEqual({ northK: 2, part: 3, southK: null }); // l_arm = face 2
-    expect(dec.boxes[2]).toEqual({ northK: 0, part: 0, southK: null }); // body  = face 0
+    // carrier order [r_arm(2), l_arm(3), body(0)]; one face each -> north only.
+    expect(dec.boxes[0]).toEqual({ northK: 1, part: 2, southK: null, westK: null, eastK: null }); // r_arm
+    expect(dec.boxes[1]).toEqual({ northK: 2, part: 3, southK: null, westK: null, eastK: null }); // l_arm
+    expect(dec.boxes[2]).toEqual({ northK: 0, part: 0, southK: null, westK: null, eastK: null }); // body
     const give = memfs.writes.get('/rp/assets/minecraft/equipment/cat_chestplate_give.txt');
     expect(give).toContain('leather_chestplate');
     expect(give).toContain('slot:"chest"');
@@ -239,9 +239,9 @@ describe('equipment (armor) export — Approach C', () => {
     // chestplate layer packs r_arm(part2,face2) + body(part0,face1); l_arm empty.
     const dec = decodePacked(
       memfs.writes.get('/rp/assets/minecraft/textures/entity/equipment/humanoid/cat_chestplate_0.png'));
-    expect(dec.boxes[0]).toEqual({ northK: 2, part: 2, southK: null }); // r_arm
+    expect(dec.boxes[0]).toEqual({ northK: 2, part: 2, southK: null, westK: null, eastK: null }); // r_arm
     expect(dec.boxes[1].northK).toBeNull();                             // l_arm none
-    expect(dec.boxes[2]).toEqual({ northK: 1, part: 0, southK: null }); // body
+    expect(dec.boxes[2]).toEqual({ northK: 1, part: 0, southK: null, westK: null, eastK: null }); // body
   });
 
   it('piece mode: duplicate element names resolve by OBJ block order (the real bug)', async () => {
@@ -274,16 +274,17 @@ describe('equipment (armor) export — Approach C', () => {
       exportAsEquipment: true, cmdName: 'cat', selectedPieces: ['chestplate'],
     });
     const def = JSON.parse(memfs.writes.get('/rp/assets/minecraft/equipment/cat_chestplate.json'));
-    // body(6 faces) + r_arm(6) packed 2-per-box-per-layer (l_arm empty) -> 3 layers, not 6/12.
-    expect(def.layers.humanoid.length).toBe(3);
-    for (let L = 0; L < 3; L++) {
+    // body(6 faces) + r_arm(6) packed 4-per-box-per-layer (l_arm empty) -> 2 layers, not 6/12.
+    expect(def.layers.humanoid.length).toBe(2);
+    // r_arm faces 6-11 and body faces 0-5, each split N/S/W/E across 2 layers.
+    const expR = [{ northK: 6, southK: 7, westK: 8, eastK: 9 }, { northK: 10, southK: 11, westK: null, eastK: null }];
+    const expB = [{ northK: 0, southK: 1, westK: 2, eastK: 3 }, { northK: 4, southK: 5, westK: null, eastK: null }];
+    for (let L = 0; L < 2; L++) {
       const dec = decodePacked(
         memfs.writes.get(`/rp/assets/minecraft/textures/entity/equipment/humanoid/cat_chestplate_${L}.png`));
-      // r_arm faces 6-11: north@6+2L, south@7+2L
-      expect(dec.boxes[0], `layer ${L} r_arm`).toEqual({ northK: 6 + 2 * L, part: 2, southK: 7 + 2 * L });
+      expect(dec.boxes[0], `layer ${L} r_arm`).toEqual({ ...expR[L], part: 2 });
       expect(dec.boxes[1].northK, `layer ${L} l_arm`).toBeNull();                  // l_arm none
-      // body faces 0-5: north@2L, south@2L+1
-      expect(dec.boxes[2], `layer ${L} body`).toEqual({ northK: 2 * L, part: 0, southK: 2 * L + 1 });
+      expect(dec.boxes[2], `layer ${L} body`).toEqual({ ...expB[L], part: 0 });
     }
   });
 

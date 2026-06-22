@@ -3303,9 +3303,11 @@
                     leggings:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   allowed: [4, 5],    carrier: [5, 4, 0], nboxes: 3 },
                     boots:      { layer: 'humanoid',          slot: 'feet',  give: 'boots',      allowed: [6, 7],    carrier: [7, 6],    nboxes: 2 },
                 };
-                // Write one packed layer PNG: t[8].a = nboxes; per box abody, the NORTH model
-                // face index (16-bit) is in t[8+abody].r:g, the part in .b, and the SOUTH face
-                // index in t[11+abody].r:g. Missing face -> 65535 (the shader culls it).
+                // Write one packed layer PNG: t[8].a = nboxes; per box abody, 4 carrier-face
+                // model-face indices (16-bit) -> north t[8+abody].r:g (part in .b), south
+                // t[11+abody], west header-texel 14+abody, east 17+abody. Missing face ->
+                // 65535 (the shader culls it). Header texels reach 17+nboxes-1 (=19 for 3
+                // boxes) -> needs texture width >= 20.
                 const writePackedLayer = (texPath, nboxes, slots) => {
                     const buf = result.rawBuf.slice();
                     buf[3] = 253;                               // armor marker
@@ -3317,13 +3319,15 @@
                     };
                     for (let abody = 0; abody < nboxes; abody++) {
                         const s = slots[abody] || {};
-                        put16(8 + abody, s.northK);             // north face -> t[8+abody].r:g
+                        put16(8 + abody, s.northK);             // north -> t[8+abody].r:g
                         buf[(8 + abody) * 4 + 2] = (s.part || 0) & 255;   // part -> t[8+abody].b
-                        put16(11 + abody, s.southK);            // south face -> t[11+abody].r:g
+                        put16(11 + abody, s.southK);            // south -> t[11+abody]
+                        put16(14 + abody, s.westK);             // west  -> texel 14+abody
+                        put16(17 + abody, s.eastK);             // east  -> texel 17+abody
                     }
                     fs.writeFileSync(texPath, encodePNG(result.tw, result.ty, buf));
                 };
-                if (result.tw < 14) console.warn('[obj³] armor: texture width <14px — packed header may overrun into geometry');
+                if (result.tw < 20) console.warn('[obj³] armor: texture width <20px — packed header may overrun into geometry');
 
                 if (Array.isArray(cfg.selectedPieces) && cfg.selectedPieces.length) {
                     // PER-PIECE (whole-set) export, BOX-PACKED.
@@ -3341,15 +3345,15 @@
                         const boxFaces = piece.carrier.map(part =>
                             piece.allowed.indexOf(part) === -1 ? []
                                 : faceToPart.reduce((a, p, k) => { if (p === part) a.push(k); return a; }, []));
-                        // Two faces per box per layer (north @ 2L, south @ 2L+1).
-                        const layerCount = Math.max(1, ...boxFaces.map(f => Math.ceil(f.length / 2)));
+                        // Four faces per box per layer: north@4L, south@4L+1, west@4L+2, east@4L+3.
+                        const layerCount = Math.max(1, ...boxFaces.map(f => Math.ceil(f.length / 4)));
                         const layers = [];
                         for (let L = 0; L < layerCount; L++) {
                             const slots = piece.carrier.map((part, abody) => {
-                                const nk = boxFaces[abody][2 * L];
-                                const sk = boxFaces[abody][2 * L + 1];
-                                if (nk == null && sk == null) return undefined;
-                                return { northK: nk == null ? null : nk, southK: sk == null ? null : sk, part };
+                                const fk = j => { const k = boxFaces[abody][4 * L + j]; return k == null ? null : k; };
+                                const nk = fk(0), sk = fk(1), wk = fk(2), ek = fk(3);
+                                if (nk == null && sk == null && wk == null && ek == null) return undefined;
+                                return { northK: nk, southK: sk, westK: wk, eastK: ek, part };
                             });
                             if (slots.every(s => !s)) continue;           // empty layer
                             const texName = `${eqName}_${L}`;
@@ -3385,11 +3389,14 @@
                     const eqTexDir = path.join(root, 'assets', equipNs, 'textures', 'entity', 'equipment', layerType);
                     fs.mkdirSync(eqTexDir, { recursive: true });
                     const layers = [];
-                    for (let L = 0; L < Math.ceil(nLayers / 2); L++) {
+                    const fk = i => (i < nLayers) ? i : null;
+                    for (let L = 0; L < Math.ceil(nLayers / 4); L++) {
                         const slots = [];
                         slots[abodyOfTarget] = {
-                            northK: 2 * L,
-                            southK: (2 * L + 1 < nLayers) ? 2 * L + 1 : null,
+                            northK: 4 * L,
+                            southK: fk(4 * L + 1),
+                            westK: fk(4 * L + 2),
+                            eastK: fk(4 * L + 3),
                             part: partInfo.id,
                         };
                         const texName = `${eqName}_${L}`;
@@ -5328,7 +5335,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.36',
+        version: '0.5.37',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

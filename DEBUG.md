@@ -57,25 +57,31 @@ Differences between rows are exactly the per-slot pipeline drift.
 boxes (chest 3 = body+arms, head/feet 2, legs 3). The encoder packs model faces onto each
 box's carrier faces and the shader reads them back per layer, so a chestplate rides
 body+r_arm+l_arm on one draw instead of three. Header per layer: `t[8].a` = nboxes; per box
-`abody`, NORTH face index in `t[8+abody].r:g`, body part in `.b`, SOUTH face index in
-`t[11+abody].r:g`; index 65535 = that face culled. The shader derives `amod = nboxes*24`,
-keeps the NORTH (`f6==3`) + SOUTH (`f6==5`) face of each box. abody→part order per slot:
-chest [r_arm,l_arm,body], legs [l_leg,r_leg,waist], feet [l_foot,r_foot], head [head].
+`abody`, model-face indices at NORTH `t[8+abody].r:g` (part in `.b`), SOUTH `t[11+abody]`,
+WEST header-texel `14+abody`, EAST `17+abody` (west/east read directly via `getmeta` — they
+overflow the `t[16]` array; needs texture width ≥ 20). index 65535 = that carrier face culled.
+The shader derives `amod = nboxes*24` and keeps `f6 ∈ {2,3,4,5}` (W,N,E,S) of each box.
+abody→part order per slot: chest [r_arm,l_arm,body], legs [l_leg,r_leg,waist], feet
+[l_foot,r_foot], head [head].
+
+Each non-north carrier face needs an orientation matrix `C_F` (so it faces front like north)
+and a re-anchor onto the box's NORTH corner-2 so all faces overlay there. Both are **derived
+from MC's `ModelPart$Cube` geometry** (jar-decoded: DOWN `[F,E,A,B]`, UP `[C,D,H,G]`, WEST
+`[A,E,H,D]`, NORTH `[B,A,D,C]`, EAST `[F,B,C,G]`, SOUTH `[E,F,G,H]`; `mirror` swaps x0↔x1 and
+reverses each quad's winding for left limbs) and numerically verified to overlay north to
+~1e-15 for every part, both handedness, inflation grow 0/0.5/1. Anchors (n = cross(e1,e2)):
+north `a2`; west `a2+(a0-a1)`; south `a2+(a0-a1) - depthₛ·n`; east `a2 - widthₑ·n`. The perp
+dims (depthₛ, widthₑ) are inflation/scale-robust linear combos `a·|a0-a1| + b·|a0-a3|`:
+depthₛ body (2,-1) else (1,0); widthₑ body (0.5,0.5) else (1,0). `C_F` (columns): SOUTH
+diag(-1,1,-1), WEST [(0,0,-1),(0,1,0),(1,0,0)], EAST [(0,0,1),(0,1,0),(-1,0,0)].
 
 - **Stage 1 (v0.5.32):** north-only, 1 face/box/layer. 168→84 layers/chestplate, 45→120 FPS.
-- **Stage 2a (v0.5.35):** + south, 2 faces/box/layer → 84→42. The south model offset gets a
-  180°-about-up correction `C_SOUTH = diag(-1,1,-1)` (so it faces front like north) and a
-  re-anchor onto the box's north corner-2 so it overlays the north faces:
-  `anchor = a2 + (a0-a1) - depth·cross(e1,e2)`, `depth = ADW·|a0-a1| + ADH·|a0-a3|`
-  (width & height measured off the quad). ADW/ADH solved per part so depth is robust to BOTH
-  wearer scale AND armor-layer inflation (MC `CubeDeformation` grows every side, so a fixed
-  depth/width ratio is off by ~1/16 block on the body): body (8x12x4)→(2,-1), all square-
-  section boxes→(1,0). Both the matrix and the anchor are **derived from MC's `ModelPart$Cube`
-  geometry** (jar-decoded: NORTH quad `[B,A,D,C]`, SOUTH `[E,F,G,H]`, mirror reverses winding
-  for left limbs) and numerically verified to overlay north to ~1e-15 for every part, every
-  inflation (grow 0/0.5/1), incl. mirrored left.
-- **Stage 2b (designed):** the remaining 4 faces (down/up/west/east) per box, with their own
-  R_F + re-anchor by the same method, → ~6× over Stage 1. Not yet built.
+- **Stage 2a (v0.5.36):** + south, 2/box → 84→42 (~4× vs original).
+- **Stage 2b (v0.5.37):** + west + east, 4/box → 42→21 (~8× vs original). UP and DOWN are NOT
+  packed: their anchors depend on handedness (X-mirror flips the Y-faces, unlike the Z/X
+  faces N/S/W/E whose coeffs are handedness-uniform), and DOWN is geometrically unrecoverable
+  on a square limb cap (4×4 face can't reveal the 12-long limb). Adding UP (body/head only)
+  would need handedness branches for marginal gain.
 
 - `AOFF[8]` — per-part anchor offset (all calibrated; see the table below).
 
