@@ -274,12 +274,24 @@ if (marker == ivec4(12,34,56,255)) {
             // guiRotMat stays plain vanilla Rv (no F flip, no zx axis flip).
         }
         if (isHand == 1) {
-            // A2 revert: vanilla owns the full first-person transform via each
-            // hand's own model.json display.firstperson_* (scale+rotation+
-            // translation). Left/right are independent per-slot models, so no
-            // shader hand-scale, no pivot, no clip-x handedness test. Keep the
-            // offset object-oriented so it tracks the hand pose.
-            posoffset = (vec4(posoffset,0) * ModelViewMat).xyz;
+            // MC 26.1.2 bakes display into the carrier vertices (ModelViewMat ~ identity),
+            // so the old `posoffset * ModelViewMat` became a no-op and hands ignored
+            // display rotation+scale. Rebuild rotation+scale from the baked carrier edges
+            // (same as the world path): the 1-block placeholder edge is 1.0 in block units
+            // at scale 1, so each baked edge length IS display.scale on that axis. Apply
+            // scale in model space then the orthonormal rotation. Translation still rides
+            // the baked anchor (corner 2); the hand pose still rides gl_Position's ModelView.
+            vec3 hp0 = subgroupQuadBroadcast(Pos, 0);
+            vec3 hex = hp0 - subgroupQuadBroadcast(Pos, 1);
+            vec3 hey = hp0 - subgroupQuadBroadcast(Pos, 3);
+            float hsx = length(hex), hsy = length(hey);
+            vec3 hux = normalize(hex);
+            vec3 huy = normalize(hey - dot(hey, hux) * hux);
+            mat3 hrot = mat3(huy, hux, cross(huy, hux));
+            // UNIFORM scale (see world path): the flat placeholder only exposes 2 in-plane
+            // edges, so per-axis scale can't be recovered post-bake; average them.
+            float hscale = (hsx + hsy) * 0.5;
+            posoffset = hrot * (posoffset * hscale);
         }
         if (isHand + isGUI == 0) {
             // World path: rebuild the model's orientation from the baked carrier
@@ -298,11 +310,23 @@ if (marker == ivec4(12,34,56,255)) {
                 vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
                 vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
                 vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
-                vPos1 = normalize(vPos0 - vPos1);
-                vPos2 = normalize(vPos0 - vPos2);
-                vPos2 = normalize(vPos2 - dot(vPos2, vPos1) * vPos1); // Gram-Schmidt: orthonormal basis is length-preserving (#11)
+                // Baked carrier edges carry display ROTATION *and* SCALE (MC 26.1.2 bakes
+                // display into the vertices). The 1-block placeholder edge is 1.0 in block
+                // units at scale 1, so each baked edge length IS display.scale on that axis.
+                // The old normalize() threw the scale away -> the size never applied. Keep
+                // it: scale in model space, then the (unchanged) orthonormal rotation.
+                vec3 ex = vPos0 - vPos1, ey = vPos0 - vPos2;
+                float sx = length(ex), sy = length(ey);
+                vPos1 = normalize(ex);
+                vPos2 = normalize(ey - dot(ey, vPos1) * vPos1); // Gram-Schmidt
                 mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
-                posoffset = fullRotation * posoffset;
+                // UNIFORM scale only: the flat 1-face placeholder exposes just its two
+                // in-plane edges, so the third (perpendicular/depth) display-scale axis is
+                // physically unrecoverable, and which display axis maps to which in-plane
+                // edge depends on the bake. Average the two measured edges -> correct for
+                // uniform display.scale (the common case; matches the GUI path's slotSize).
+                float wscale = (sx + sy) * 0.5;
+                posoffset = fullRotation * (posoffset * wscale);
             }
         }
     }

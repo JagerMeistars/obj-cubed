@@ -95,7 +95,7 @@ describe('resource pack export (#7)', () => {
     }
   });
 
-  it('writes a +8 Y anchor baseline for model.json-driven slots (not ~0.5 block low; block defaults cannot leak)', async () => {
+  it('writes a +3 Y anchor baseline for model.json-driven slots (not ~0.5 block low; block defaults cannot leak)', async () => {
     const { api, memfs } = setup();
 
     // User touched NO display settings: displayTransforms = {}.
@@ -103,14 +103,14 @@ describe('resource pack export (#7)', () => {
       resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
     });
 
-    // The carrier anchor (corner 2) puts every model.json-driven slot ~0.5 block
-    // (8 BB) low. GUI fixes this in-shader; these slots get an explicit +8 Y
-    // baseline written here. The explicit entry also stops Minecraft leaking
-    // block-model display defaults (scale ~0.4) into un-set slots.
+    // The carrier anchor lift: model.json-driven hand/head slots get an explicit Y
+    // baseline (ANCHOR_LIFT_Y) so they don't sit low and so MC's block-model display
+    // defaults (scale ~0.4) can't leak in. Reduced 8->3 after MC 26.1.2's vertex-bake
+    // raised the anchor (the +8 then read ~5 too high in-game).
     const model = JSON.parse(
       memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json')
     );
-    const LIFTED = { rotation: [0, 0, 0], translation: [0, 8, 0], scale: [1, 1, 1] };
+    const LIFTED = { rotation: [0, 0, 0], translation: [0, 3, 0], scale: [1, 1, 1] };
     for (const s of ['firstperson_righthand', 'firstperson_lefthand',
                      'thirdperson_righthand', 'head']) {
       expect(model.display[s], s).toEqual(LIFTED);

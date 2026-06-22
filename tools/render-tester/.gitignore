@@ -1,0 +1,6 @@
+*.o
+probe
+compile
+entity.vert.glsl
+entity.frag.glsl
+*.raw

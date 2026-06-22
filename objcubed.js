@@ -3249,10 +3249,14 @@
                 'thirdperson_righthand', 'thirdperson_lefthand',
                 'firstperson_righthand', 'firstperson_lefthand', 'head',
             ];
+            // Calibrated anchor lift (BB units, 16 = 1 block). Was 8 (=0.5 block); after
+            // MC 26.1.2 bakes display into the vertices the anchor sits higher, so the model
+            // ended up ~5 too high — reduced to 3. Tune here if hand/head height drifts.
+            const ANCHOR_LIFT_Y = 3;
             const liftY8 = (d) => {
                 const base = d || IDENTITY_DISPLAY;
                 const t = base.translation || [0, 0, 0];
-                return { ...base, translation: [t[0] || 0, (t[1] || 0) + 8, t[2] || 0] };
+                return { ...base, translation: [t[0] || 0, (t[1] || 0) + ANCHOR_LIFT_Y, t[2] || 0] };
             };
             for (const slot of exportedSlots) {
                 const slotDisplay = { ...displayTransforms };
@@ -5411,7 +5415,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.42',
+        version: '0.5.43',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
