@@ -3399,6 +3399,12 @@
                             writePackedLayer(path.join(eqTexDir, `${texName}.png`), piece.nboxes, slots);
                             layers.push({ texture: `${equipNs}:${texName}` });
                         }
+                        // A piece with no tagged faces would write an empty {layers:{type:[]}}
+                        // def (invisible armor) and still report success — skip + tell the user.
+                        if (layers.length === 0) {
+                            surfaceWarning(`armor piece "${pieceKey}" has no tagged faces for its body parts — nothing was written for it. Right-click the relevant groups → obj³: Body part to tag them.`);
+                            continue;
+                        }
                         fs.writeFileSync(path.join(equipJsonDir, `${eqName}.json`),
                             JSON.stringify({ layers: { [piece.layer]: layers } }, null, 2), 'utf8');
                         fs.writeFileSync(path.join(equipJsonDir, `${eqName}_give.txt`),
@@ -5384,7 +5390,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.40',
+        version: '0.5.41',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

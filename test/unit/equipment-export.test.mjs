@@ -388,6 +388,19 @@ describe('equipment (armor) export — Approach C', () => {
     expect(ref.get(0)).toEqual([1, 2, 0]); // group origin/16, NOT the bbox-center (10.5,0,0)
   });
 
+  it('piece mode: a piece with no tagged faces writes no def/give (not empty equipment)', async () => {
+    const { api, memfs } = setup();
+    const r = makeResult(2);
+    r.faceGroups = ['right_leg', 'left_leg']; // parts 4,5 — legs only; chestplate gets nothing
+    await api.saveSingleOutput(r, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+      exportAsEquipment: true, cmdName: 'cat', selectedPieces: ['chestplate', 'leggings'],
+    });
+    const keys = [...memfs.writes.keys()];
+    expect(keys).toContain('/rp/assets/minecraft/equipment/cat_leggings.json'); // has leg faces
+    expect(keys.some(k => k.includes('cat_chestplate'))).toBe(false);           // empty -> skipped entirely
+  });
+
   it('REGRESSION: exportAsEquipment=false writes NO equipment files', async () => {
     const { api, memfs } = setup();
     await api.saveSingleOutput(makeResult(3), {}, {
