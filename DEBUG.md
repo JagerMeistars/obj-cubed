@@ -58,8 +58,9 @@ boxes (chest 3 = body+arms, head/feet 2, legs 3). The encoder packs model faces 
 box's carrier faces and the shader reads them back per layer, so a chestplate rides
 body+r_arm+l_arm on one draw instead of three. Header per layer: `t[8].a` = nboxes; per box
 `abody`, model-face indices at NORTH `t[8+abody].r:g` (part in `.b`), SOUTH `t[11+abody]`,
-WEST header-texel `14+abody`, EAST `17+abody` (west/east read directly via `getmeta` — they
-overflow the `t[16]` array; needs texture width ≥ 20). index 65535 = that carrier face culled.
+WEST header-texel `14+abody`, EAST `17+abody`, and the 4 faces' EMISSIVE levels in texel
+`20+abody` (r=N g=S b=W a=E). West/east/emissive are read directly via `getmeta` — they
+overflow the `t[16]` array; needs texture width ≥ 23. index 65535 = that carrier face culled.
 The shader derives `amod = nboxes*24` and keeps `f6 ∈ {2,3,4,5}` (W,N,E,S) of each box.
 abody→part order per slot: chest [r_arm,l_arm,body], legs [l_leg,r_leg,waist], feet
 [l_foot,r_foot], head [head].
@@ -82,6 +83,15 @@ diag(-1,1,-1), WEST [(0,0,-1),(0,1,0),(1,0,0)], EAST [(0,0,1),(0,1,0),(-1,0,0)].
   faces N/S/W/E whose coeffs are handedness-uniform), and DOWN is geometrically unrecoverable
   on a square limb cap (4×4 face can't reveal the 12-long limb). Adding UP (body/head only)
   would need handedness branches for marginal gain.
+
+**Per-face emissive (v0.5.38).** The vanilla `light_emission` model property only affects
+item/block models, never equipment layers, so armor emissive is handled in-shader: the encoder
+bakes each packed face's emissive level (0..15) into texel `20+abody` (r=N g=S b=W a=E), and
+the armor block reads `aemis` for the current face and sets `noshadow = 1` when `aemis > 0`,
+so `objmc_light.glsl` skips all shading/lightmap for that face → fullbright. `noshadow` is
+`flat` and per-face (all 4 corners agree). Whole-piece "No Shadow" still works (global). Mark
+faces in BB via right-click → emissive, then re-export. Currently boolean (any level → full);
+the level byte is stored for a future graded-emission option.
 
 - `AOFF[8]` — per-part anchor offset (all calibrated; see the table below).
 

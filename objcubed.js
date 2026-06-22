@@ -2910,7 +2910,7 @@
         const warnStr = verifyWarns.length ? ` (${verifyWarns.length} warning(s) — see console)` : '';
         const debugInfo = `${nfaces} faces · ${nframes} frame(s) · ${tw}×${ty}px` + warnStr;
 
-        return { pngBuffer, rawBuf: buf, elements, nfaces, nvertices, nframes, tw, ty, debugInfo, faceGroups, faceBlocks, faceToPart };
+        return { pngBuffer, rawBuf: buf, elements, nfaces, nvertices, nframes, tw, ty, debugInfo, faceGroups, faceBlocks, faceToPart, faceEmission };
     }
 
     // =========================================================
@@ -3303,11 +3303,16 @@
                     leggings:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   allowed: [4, 5],    carrier: [5, 4, 0], nboxes: 3 },
                     boots:      { layer: 'humanoid',          slot: 'feet',  give: 'boots',      allowed: [6, 7],    carrier: [7, 6],    nboxes: 2 },
                 };
+                // Per-face emissive levels (light_emission, 0..15) so the armor shader can make
+                // individual faces fullbright -- the vanilla light_emission model property only
+                // affects item/block models, never equipment layers.
+                const faceEmission = result.faceEmission
+                    || (result.faceGroups || []).map(g => { const tk = parseFaceToken(g); return tk ? tk.emis : 0; });
                 // Write one packed layer PNG: t[8].a = nboxes; per box abody, 4 carrier-face
                 // model-face indices (16-bit) -> north t[8+abody].r:g (part in .b), south
-                // t[11+abody], west header-texel 14+abody, east 17+abody. Missing face ->
-                // 65535 (the shader culls it). Header texels reach 17+nboxes-1 (=19 for 3
-                // boxes) -> needs texture width >= 20.
+                // t[11+abody], west header-texel 14+abody, east 17+abody; the 4 faces' emissive
+                // levels pack into texel 20+abody (r=N,g=S,b=W,a=E). Missing face -> 65535
+                // (culled). Header texels reach 20+nboxes-1 (=22 for 3 boxes) -> needs tw >= 23.
                 const writePackedLayer = (texPath, nboxes, slots) => {
                     const buf = result.rawBuf.slice();
                     buf[3] = 253;                               // armor marker
@@ -3317,6 +3322,7 @@
                         if (k == null) { buf[o] = 255; buf[o + 1] = 255; }
                         else { buf[o] = Math.trunc(k / 256) % 256; buf[o + 1] = k % 256; }
                     };
+                    const emisOf = k => (k == null ? 0 : Math.max(0, Math.min(255, faceEmission[k] | 0)));
                     for (let abody = 0; abody < nboxes; abody++) {
                         const s = slots[abody] || {};
                         put16(8 + abody, s.northK);             // north -> t[8+abody].r:g
@@ -3324,10 +3330,13 @@
                         put16(11 + abody, s.southK);            // south -> t[11+abody]
                         put16(14 + abody, s.westK);             // west  -> texel 14+abody
                         put16(17 + abody, s.eastK);             // east  -> texel 17+abody
+                        const eo = (20 + abody) * 4;            // emissive -> texel 20+abody
+                        buf[eo] = emisOf(s.northK); buf[eo + 1] = emisOf(s.southK);
+                        buf[eo + 2] = emisOf(s.westK); buf[eo + 3] = emisOf(s.eastK);
                     }
                     fs.writeFileSync(texPath, encodePNG(result.tw, result.ty, buf));
                 };
-                if (result.tw < 20) console.warn('[obj³] armor: texture width <20px — packed header may overrun into geometry');
+                if (result.tw < 23) console.warn('[obj³] armor: texture width <23px — packed header may overrun into geometry');
 
                 if (Array.isArray(cfg.selectedPieces) && cfg.selectedPieces.length) {
                     // PER-PIECE (whole-set) export, BOX-PACKED.
@@ -5335,7 +5344,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.37',
+        version: '0.5.38',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

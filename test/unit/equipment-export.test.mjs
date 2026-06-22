@@ -222,6 +222,24 @@ describe('equipment (armor) export — Approach C', () => {
     expect(give).toContain('slot:"chest"');
   });
 
+  it('piece mode: per-face emissive (light_emission) bakes into texel 20+abody', async () => {
+    const { api, memfs } = setup();
+    const r = makeResult(3);
+    r.faceGroups = ['body', 'right_arm', 'left_arm']; // faces 0,1,2 -> parts 0,2,3
+    r.faceEmission = [7, 0, 15];                      // face0(body)=7, face1(r_arm)=0, face2(l_arm)=15
+    await api.saveSingleOutput(r, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+      exportAsEquipment: true, cmdName: 'cat', selectedPieces: ['chestplate'],
+    });
+    const d = PNG.sync.read(Buffer.from(
+      memfs.writes.get('/rp/assets/minecraft/textures/entity/equipment/humanoid/cat_chestplate_0.png'))).data;
+    // carrier [r_arm(abody0,face1), l_arm(abody1,face2), body(abody2,face0)], each on NORTH.
+    // Emissive texel = 20+abody, channel r (=north). Levels follow the face, not the box.
+    expect(d[(20 + 0) * 4 + 0]).toBe(0);   // r_arm north = face1 -> emis 0
+    expect(d[(20 + 1) * 4 + 0]).toBe(15);  // l_arm north = face2 -> emis 15
+    expect(d[(20 + 2) * 4 + 0]).toBe(7);   // body  north = face0 -> emis 7
+  });
+
   it('piece mode: a full-set model partitions across pieces (each gets only its parts)', async () => {
     const { api, memfs } = setup();
     const r = makeResult(5);

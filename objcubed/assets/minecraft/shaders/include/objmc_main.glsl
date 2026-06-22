@@ -441,11 +441,13 @@ if (isCustom == 0) {
         // (east). DOWN(0)/UP(1) are not packed (down is unrecoverable on square limb caps;
         // up/down anchors also depend on handedness, unlike the X/Z faces).
         int afk = 65535;
+        int aemis = 0;                              // this carrier face's emissive level (0..15)
         if (abody < nboxes) {
-            if (f6 == 3) afk = t[8 + abody].r * 256 + t[8 + abody].g;
-            else if (f6 == 5) afk = t[11 + abody].r * 256 + t[11 + abody].g;
-            else if (f6 == 2) { ivec4 m = getmeta(ao, 14 + abody); afk = m.r * 256 + m.g; }
-            else if (f6 == 4) { ivec4 m = getmeta(ao, 17 + abody); afk = m.r * 256 + m.g; }
+            ivec4 em = getmeta(ao, 20 + abody);     // per-box emissive: r=N g=S b=W a=E
+            if (f6 == 3) { afk = t[8 + abody].r * 256 + t[8 + abody].g; aemis = em.r; }
+            else if (f6 == 5) { afk = t[11 + abody].r * 256 + t[11 + abody].g; aemis = em.g; }
+            else if (f6 == 2) { ivec4 m = getmeta(ao, 14 + abody); afk = m.r * 256 + m.g; aemis = em.b; }
+            else if (f6 == 4) { ivec4 m = getmeta(ao, 17 + abody); afk = m.r * 256 + m.g; aemis = em.a; }
         }
         int atarget = (abody < nboxes) ? t[8 + abody].b : 0;
         if (atarget < 0 || atarget > 7) atarget = 0;
@@ -477,6 +479,10 @@ if (isCustom == 0) {
         if (f6 < 2 || abody >= nboxes || afk == 65535) {
             Pos = vec3(9999.0);
         } else {
+            // Per-face emissive: a face marked light_emission in BB renders fullbright.
+            // noshadow==1 makes objmc_light skip all shading/lightmap for this face (it is
+            // flat + per-face, so the 4 corners agree). Whole-piece "No Shadow" already set it.
+            if (aemis > 0) noshadow = 1;
             int avid = (afk * 4 + ac) % anv;
             avid += afr * anv;
             int ahh = 2 + int(ceil(float(anv)*0.25/float(as.x)));
