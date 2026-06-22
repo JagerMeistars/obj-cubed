@@ -57,3 +57,35 @@ describe('datapack function layout (#8)', () => {
     });
   }
 });
+
+describe('datapack correctness (review batch 2)', () => {
+  it('sanitizes namespace + animId to valid resource-location chars', () => {
+    const files = api.generateDatapackFiles('Walk Cycle!', 5, 'My Pack', 'equipment', 'mainhand');
+    const keys = [...files.keys()];
+    expect(keys).toContain('data/my_pack/function/walk_cycle_/play.mcfunction');
+    // No uppercase / space / punctuation leaks into any path…
+    for (const k of keys) expect(k, k).not.toMatch(/[^a-z0-9_./-]/);
+    // …nor into any `function <ns>:<id>/…` reference in the bodies.
+    for (const body of files.values()) {
+      let m; const re = /function\s+(\S+)/g;
+      while ((m = re.exec(body)) !== null) expect(m[1], m[1]).not.toMatch(/[A-Z !]/);
+    }
+  });
+
+  it('pack.mcmeta has a valid (min<=max) format range + pack_format', () => {
+    const meta = JSON.parse(
+      api.generateDatapackFiles('walk', 5, 'objcubed', 'equipment', 'mainhand').get('pack.mcmeta'));
+    expect(typeof meta.pack.pack_format).toBe('number');
+    expect(typeof meta.pack.min_format).toBe('number');
+    expect(typeof meta.pack.max_format).toBe('number');
+    expect(meta.pack.min_format).toBeLessThanOrEqual(meta.pack.max_format);
+  });
+
+  it('play restarts at frame 0 (no stale-offset resume); play_from still uses @s', () => {
+    const files = api.generateDatapackFiles('walk', 5, 'objcubed', 'equipment', 'mainhand');
+    const play = files.get('data/objcubed/function/walk/play.mcfunction');
+    expect(play).not.toMatch(/-= @s/);   // no stale-offset subtraction
+    expect(play).toMatch(/%= #dur/);     // phase = gametime % dur -> frame 0 now
+    expect(files.get('data/objcubed/function/walk/play_from.mcfunction')).toMatch(/-= @s/);
+  });
+});

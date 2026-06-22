@@ -3304,6 +3304,10 @@
                 );
                 const dpBase = cfg.datapackOutputDir || path.join(root, '..', 'datapacks');
                 saveDatapackFiles(dpFiles, path.join(dpBase, 'objcubed'));
+            } else if (cfg.generateDatapack && result.nframes <= 1) {
+                // Datapack drives multi-frame playback; a single frame has nothing to
+                // play. Silently skipping left the user expecting control functions.
+                surfaceWarning('datapack was requested but the model has only 1 frame — no animation to drive, so no datapack was generated. Add an animation with 2+ frames.');
             }
 
             // Equipment (armor) export — Approach C. Written under the SAME
@@ -3454,10 +3458,13 @@
     // =========================================================
 
     function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot) {
-        const ns = namespace || 'objcubed';
-        const id = animId;
-        const pub = `${animId}`;
-        const priv = `${animId}/zzz`;
+        // Sanitize to valid resource-location chars [a-z0-9_.-]: free-text like
+        // "My Pack" / "Walk!" would otherwise produce invalid namespaces and
+        // `function ns:id` refs (baseItem/cmdName are already sanitized this way).
+        const ns = ((namespace || 'objcubed').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')) || 'objcubed';
+        const id = ((animId || 'anim').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')) || 'anim';
+        const pub = `${id}`;
+        const priv = `${id}/zzz`;
         const files = new Map();
 
         const EQUIP_PATH = {
@@ -3481,8 +3488,12 @@
         files.set('pack.mcmeta', JSON.stringify({
             pack: {
                 description: 'obj³ animations',
-                min_format: [101, 1],
-                max_format: 101,
+                // Bare ints with min <= max. The old min_format:[101,1] (101.1) vs
+                // max_format:101 (101.0) was an inverted/empty range MC flags as
+                // incompatible. Permissive upper bound so it loads across versions.
+                pack_format: 101,
+                min_format: 101,
+                max_format: 9999,
             },
         }, null, 2));
 
@@ -3494,11 +3505,14 @@
             `scoreboard players set #cycle ${id} 24000`,
         ].join('\n'));
 
-        // play — smooth autoplay loop (synced to GameTime, resumes from current @s frame)
+        // play — autoplay loop starting at frame 0 (synced to GameTime). Stores the
+        // phase offset (gametime % dur) so frame 0 shows now and advances; re-issuing
+        // restarts cleanly. (The old code did `-= @s` first, which on a second call read
+        // the stored OFFSET as if it were the frame and jumped to a stale phase — use
+        // play_from to start at a specific frame.)
         files.set(`data/${ns}/function/${pub}/play.mcfunction`, [
             `function ${ns}:${pub}/init`,
             `execute store result score #gt ${id} run time query gametime`,
-            `scoreboard players operation #gt ${id} -= @s ${id}`,
             `scoreboard players operation #gt ${id} %= #dur ${id}`,
             `scoreboard players operation @s ${id} = #gt ${id}`,
             `tag @s add ${id}.auto`,
@@ -5370,7 +5384,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.39',
+        version: '0.5.40',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
