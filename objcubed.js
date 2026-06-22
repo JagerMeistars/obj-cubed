@@ -3292,26 +3292,36 @@
                 const equipJsonDir = path.join(root, 'assets', equipNs, 'equipment');
                 fs.mkdirSync(equipJsonDir, { recursive: true });
                 const nLayers = result.nfaces;
-                // Each armor PIECE -> vanilla layer type, equippable slot, give item, and
-                // the body-part ids it covers (jar-verified; each part is in exactly ONE
-                // piece so faces partition cleanly). Parts: 0 body,1 head,2 r_arm,3 l_arm,
-                // 4 r_leg,5 l_leg,6 r_foot,7 l_foot. Boots ride the lower legs but use the
-                // foot ids 6/7 (calibrated separately) so they split from leggings (4/5).
+                // Each armor PIECE -> layer type, slot, give item, the body parts it covers,
+                // and its CARRIER box layout (abody -> part, from the shader's ABOX table) for
+                // box-packing: one layer rides one model face per carrier box's north face,
+                // so a chestplate packs body+r_arm+l_arm into one draw instead of three.
+                // Parts: 0 body,1 head,2 r_arm,3 l_arm,4 r_leg,5 l_leg,6 r_foot,7 l_foot.
                 const PIECE_MAP = {
-                    helmet:     { layer: 'humanoid',          slot: 'head',  give: 'helmet',     allowed: [1] },
-                    chestplate: { layer: 'humanoid',          slot: 'chest', give: 'chestplate', allowed: [0, 2, 3] },
-                    leggings:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   allowed: [4, 5] },
-                    boots:      { layer: 'humanoid',          slot: 'feet',  give: 'boots',      allowed: [6, 7] },
+                    helmet:     { layer: 'humanoid',          slot: 'head',  give: 'helmet',     allowed: [1],       carrier: [1],       nboxes: 2 },
+                    chestplate: { layer: 'humanoid',          slot: 'chest', give: 'chestplate', allowed: [0, 2, 3], carrier: [2, 3, 0], nboxes: 3 },
+                    leggings:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   allowed: [4, 5],    carrier: [5, 4, 0], nboxes: 3 },
+                    boots:      { layer: 'humanoid',          slot: 'feet',  give: 'boots',      allowed: [6, 7],    carrier: [7, 6],    nboxes: 2 },
                 };
+                // Write one packed layer PNG: t[8].a = nboxes; per box abody, t[8+abody].r:g =
+                // model-face index (16-bit), .b = body part. Empty box -> face index 65535.
+                const writePackedLayer = (texPath, nboxes, slots) => {
+                    const buf = result.rawBuf.slice();
+                    buf[3] = 253;                               // armor marker
+                    buf[8 * 4 + 3] = nboxes & 255;              // t[8].a = box count
+                    for (let abody = 0; abody < nboxes; abody++) {
+                        const s = slots[abody];
+                        const o = (8 + abody) * 4;
+                        if (!s || s.faceK == null) { buf[o] = 255; buf[o + 1] = 255; buf[o + 2] = 0; }
+                        else { buf[o] = Math.trunc(s.faceK / 256) % 256; buf[o + 1] = s.faceK % 256; buf[o + 2] = s.part & 255; }
+                    }
+                    fs.writeFileSync(texPath, encodePNG(result.tw, result.ty, buf));
+                };
+                if (result.tw < 11) console.warn('[obj³] armor: texture width <11px — packed header may overrun into geometry');
 
                 if (Array.isArray(cfg.selectedPieces) && cfg.selectedPieces.length) {
-                    // PER-PIECE (whole-set) export. Each model face carries its OWN part id
-                    // (t[8].b) -- the shader anchors each Approach-C layer independently, so
-                    // ONE piece spans multiple parts (chestplate = body + both arms, etc.)
-                    // with NO shader change. A piece emits ONLY the faces whose part is in
-                    // its allowed set (partition), so a full-set model splits cleanly.
+                    // PER-PIECE (whole-set) export, BOX-PACKED.
                     const faceToPart = result.faceToPart || buildFaceToPart(result.faceGroups, result.faceBlocks);
-                    // Diagnostic: show how faces split across parts (-1 = untagged/skipped).
                     const _partCounts = {};
                     faceToPart.forEach(p => { _partCounts[p] = (_partCounts[p] || 0) + 1; });
                     console.log('[obj³] armor face→part counts (-1 = untagged):', JSON.stringify(_partCounts));
@@ -3321,16 +3331,20 @@
                         const eqName = `${modelName}_${pieceKey}`;
                         const eqTexDir = path.join(root, 'assets', equipNs, 'textures', 'entity', 'equipment', piece.layer);
                         fs.mkdirSync(eqTexDir, { recursive: true });
+                        // Faces per carrier box (by abody) = that box's part's faces, in order.
+                        const boxFaces = piece.carrier.map(part =>
+                            piece.allowed.indexOf(part) === -1 ? []
+                                : faceToPart.reduce((a, p, k) => { if (p === part) a.push(k); return a; }, []));
+                        const layerCount = Math.max(1, ...boxFaces.map(f => f.length));
                         const layers = [];
-                        for (let k = 0; k < nLayers; k++) {
-                            if (piece.allowed.indexOf(faceToPart[k]) === -1) continue; // partition: only this piece's faces
-                            const texName = `${eqName}_${k}`;
-                            const buf = result.rawBuf.slice();
-                            buf[3] = 253;                               // armor marker
-                            buf[8 * 4 + 0] = Math.trunc(k / 256) % 256; // t[8].r = k high (true model-face index)
-                            buf[8 * 4 + 1] = k % 256;                   // t[8].g = k low
-                            buf[8 * 4 + 2] = faceToPart[k] & 255;       // t[8].b = THIS face's body part
-                            fs.writeFileSync(path.join(eqTexDir, `${texName}.png`), encodePNG(result.tw, result.ty, buf));
+                        for (let L = 0; L < layerCount; L++) {
+                            const slots = piece.carrier.map((part, abody) => {
+                                const fk = boxFaces[abody][L];
+                                return fk == null ? undefined : { faceK: fk, part };
+                            });
+                            if (slots.every(s => !s)) continue;           // empty layer
+                            const texName = `${eqName}_${L}`;
+                            writePackedLayer(path.join(eqTexDir, `${texName}.png`), piece.nboxes, slots);
                             layers.push({ texture: `${equipNs}:${texName}` });
                         }
                         fs.writeFileSync(path.join(equipJsonDir, `${eqName}.json`),
@@ -3339,20 +3353,23 @@
                             `give @s minecraft:leather_${piece.give}[minecraft:equippable={slot:"${piece.slot}",asset_id:"${equipNs}:${eqName}"}]\n`, 'utf8');
                     }
                 } else {
-                    // LEGACY single-part export: whole model anchored to ONE part.
+                    // LEGACY single-part export: whole model anchored to ONE part. Uses the
+                    // same box-packed format with only the target box active (others empty),
+                    // one face per layer (no packing gain, but one shader path).
                     const PART_MAP = {
-                        chest:      { layer: 'humanoid',          slot: 'chest', give: 'chestplate', id: 0 },
-                        head:       { layer: 'humanoid',          slot: 'head',  give: 'helmet',     id: 1 },
-                        right_arm:  { layer: 'humanoid',          slot: 'chest', give: 'chestplate', id: 2 },
-                        left_arm:   { layer: 'humanoid',          slot: 'chest', give: 'chestplate', id: 3 },
-                        right_leg:  { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   id: 4 },
-                        left_leg:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   id: 5 },
-                        right_foot: { layer: 'humanoid',          slot: 'feet',  give: 'boots',      id: 6 },
-                        left_foot:  { layer: 'humanoid',          slot: 'feet',  give: 'boots',      id: 7 },
-                        legs:       { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   id: 5 },
-                        feet:       { layer: 'humanoid',          slot: 'feet',  give: 'boots',      id: 7 },
+                        chest:      { layer: 'humanoid',          slot: 'chest', give: 'chestplate', carrier: [2, 3, 0], nboxes: 3, id: 0 },
+                        head:       { layer: 'humanoid',          slot: 'head',  give: 'helmet',     carrier: [1],       nboxes: 2, id: 1 },
+                        right_arm:  { layer: 'humanoid',          slot: 'chest', give: 'chestplate', carrier: [2, 3, 0], nboxes: 3, id: 2 },
+                        left_arm:   { layer: 'humanoid',          slot: 'chest', give: 'chestplate', carrier: [2, 3, 0], nboxes: 3, id: 3 },
+                        right_leg:  { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   carrier: [5, 4, 0], nboxes: 3, id: 4 },
+                        left_leg:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   carrier: [5, 4, 0], nboxes: 3, id: 5 },
+                        right_foot: { layer: 'humanoid',          slot: 'feet',  give: 'boots',      carrier: [7, 6],    nboxes: 2, id: 6 },
+                        left_foot:  { layer: 'humanoid',          slot: 'feet',  give: 'boots',      carrier: [7, 6],    nboxes: 2, id: 7 },
+                        legs:       { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   carrier: [5, 4, 0], nboxes: 3, id: 5 },
+                        feet:       { layer: 'humanoid',          slot: 'feet',  give: 'boots',      carrier: [7, 6],    nboxes: 2, id: 7 },
                     };
                     const partInfo = PART_MAP[cfg.equipmentSlot] || PART_MAP.chest;
+                    const abodyOfTarget = Math.max(0, partInfo.carrier.indexOf(partInfo.id));
                     const layerType = partInfo.layer;
                     const slotKey = (cfg.equipmentSlot || 'chest').replace(/[^a-z0-9_]/gi, '_').toLowerCase();
                     const eqName = `${modelName}_${slotKey}`;
@@ -3360,13 +3377,10 @@
                     fs.mkdirSync(eqTexDir, { recursive: true });
                     const layers = [];
                     for (let k = 0; k < nLayers; k++) {
+                        const slots = [];
+                        slots[abodyOfTarget] = { faceK: k, part: partInfo.id };
                         const texName = `${eqName}_${k}`;
-                        const buf = result.rawBuf.slice();
-                        buf[3] = 253;
-                        buf[8 * 4 + 0] = Math.trunc(k / 256) % 256;
-                        buf[8 * 4 + 1] = k % 256;
-                        buf[8 * 4 + 2] = partInfo.id & 255;
-                        fs.writeFileSync(path.join(eqTexDir, `${texName}.png`), encodePNG(result.tw, result.ty, buf));
+                        writePackedLayer(path.join(eqTexDir, `${texName}.png`), partInfo.nboxes, slots);
                         layers.push({ texture: `${equipNs}:${texName}` });
                     }
                     fs.writeFileSync(path.join(equipJsonDir, `${eqName}.json`),
@@ -5301,7 +5315,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.31',
+        version: '0.5.32',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

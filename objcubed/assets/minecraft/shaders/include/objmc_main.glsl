@@ -406,7 +406,7 @@ if (isCustom == 0) {
     if (am.rgb == ivec3(12,34,56) && (am.a == 254 || am.a == 253)) {
         isCustom = 1;
         ivec2 ao = ivec2(0);
-        for (int i = 1; i < 9; i++) t[i] = getmeta(ao, i); // include t[8]: armor face index
+        for (int i = 1; i < 11; i++) t[i] = getmeta(ao, i); // t[8..10]: per-box pack (face index + part)
         ivec2 as = ivec2(t[1].r*256+t[1].g, t[1].b*256+t[7].r);
         int anv = t[2].r*16777216+t[2].g*65536+t[2].b*256+t[7].g;
         int anf = max(t[3].r*65536+t[3].g*256+t[3].b, 1);
@@ -422,17 +422,22 @@ if (isCustom == 0) {
         // Target body part for per-limb armor. Per-limb exports use marker 253 and put
         // the part id in t[8].b; legacy armor uses marker 254 where t[8].b holds stale
         // GUI data, so it is forced to chest (0). Out-of-range also clamps to chest.
-        int atarget = (am.a == 253) ? t[8].b : 0;
+        // BOX-PACKING: MC submits this slot's carrier as `nboxes` cube boxes (chest 3 =
+        // body+arms, head/feet 2, legs 3). Each equipment LAYER packs one model face per
+        // box's NORTH face, so up to nboxes faces ride a single draw (was one draw/face).
+        // Per box abody: t[8+abody].r:g = model-face index, t[8+abody].b = body part.
+        // t[8].a = nboxes. Empty pack slots use face index 65535 (culled).
+        int nboxes = max(t[8].a, 1);
+        int amod = nboxes * 24;                 // 6 faces * 4 corners per box
+        int aid = gl_VertexID % amod;
+        int aface = aid / 4;
+        int abody = aface / 6;
+        int ac = aid % 4;
+        int afk = (abody < nboxes) ? (t[8 + abody].r * 256 + t[8 + abody].g) : 65535;
+        int atarget = (abody < nboxes) ? t[8 + abody].b : 0;
         if (atarget < 0 || atarget > 7) atarget = 0;
-        // MC renders left limbs (left_arm 3, left_leg 5, left_foot 7) X-mirrored
-        // (CubeListBuilder.mirror); un-mirrored below.
+        // MC renders left limbs (3/5/7) X-mirrored (CubeListBuilder.mirror); un-mirrored below.
         bool aleft = (atarget == 3 || atarget == 5 || atarget == 7);
-        // Per-part lookups indexed by atarget:
-        //   0 chest  1 head  2 r_arm  3 l_arm  4 r_leg  5 l_leg  6 r_foot  7 l_foot
-        // AMOD = vertex modulus (parts*6 faces*4 corners), ABOX = carrier abody index,
-        // AOFF = anchor offset (chest measured; others calibrated in-game, 0 until then).
-        const int  AMOD[8] = int[8]( 72, 48, 72, 72, 72, 72, 48, 48 );
-        const int  ABOX[8] = int[8](  2,  0,  0,  1,  1,  0,  1,  0 );
         const vec3 AOFF[8] = vec3[8](
             // Per-part anchor offset, calibrated in-game (Y incl. the left-limb fudge).
             vec3(0.2925, -0.785,  -0.175),   // 0 chest
@@ -444,24 +449,10 @@ if (isCustom == 0) {
             vec3(0.17,   -0.804, -0.17),    // 6 right_foot
             vec3(0.17,   0.004,  -0.17)     // 7 left_foot
         );
-        // Anchor corner per part: which carrier-quad corner the model hangs from.
-        // 2 = legacy (head/chest fine). Animated limbs must anchor near the BONE PIVOT
-        // (shoulder/hip = top of the limb) or they swing from the wrong end; candidate
-        // corner for arms/legs/feet, dialed in-game.
-        const int ACOR[8] = int[8]( 2, 2, 2, 2, 2, 2, 2, 2 );
-        int aid = gl_VertexID % AMOD[atarget];
-        int aface = aid / 4;
-        int abody = aface / 6;
-        int ac = aid % 4;
-        // Approach C: model-face index from the texture header (t[8].r:.g),
-        // NOT from gl_VertexID -- count-independent across batched wearers.
-        int afk = t[8].r * 256 + t[8].g;
-        // ---- A6 debug (Phase-0 gate probe): colour by carrier box / face index.
-        // To see ALL parts, also comment out the `Pos = vec3(9999.0)` cull below.
-        // R steps = abody, G steps = face index.
-        // OC_DBG_COLOR(vec4(float(abody)/3.0, float(aface%6)/5.0, 0.0, 1.0));
-        // render only the chosen part's NORTH (front, face 3) carrier quad
-        if (abody != ABOX[atarget] || (aface % 6) != 3) {
+        const int ACOR[8] = int[8]( 2, 2, 2, 2, 2, 2, 2, 2 );  // anchor corner per part
+        // A6 debug: OC_DBG_COLOR(vec4(float(abody)/3.0, float(aface%6)/5.0, 0.0, 1.0));
+        // Keep the NORTH (aface%6==3) face of each packed box; cull other faces + empty slots.
+        if ((aface % 6) != 3 || abody >= nboxes || afk == 65535) {
             Pos = vec3(9999.0);
         } else {
             int avid = (afk * 4 + ac) % anv;

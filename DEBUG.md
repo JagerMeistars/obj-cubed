@@ -53,12 +53,18 @@ Differences between rows are exactly the per-slot pipeline drift.
 
 ## Per-limb armor calibration (A6 + AOFF table)
 
-Per-limb armor anchors the model to a body part via three lookup tables in the
-armor block of `objmc_main.glsl` (indexed by the header byte `t[8].b`, set by the
-exporter from the chosen slot):
+**Box-packing (perf, v0.5.32):** the carrier mesh MC submits per equipment layer has
+`nboxes` cube boxes (chest 3 = body+arms, head/feet 2, legs 3). The encoder packs ONE
+model face per box's NORTH face into a single layer, so a chestplate rides body+r_arm+
+l_arm on one draw instead of three — ~2× fewer layers/submitModel calls (measured
+45→120 FPS on a moving wearer). Header per layer: `t[8].a` = nboxes; per box `abody`,
+`t[8+abody].r:g` = model-face index, `.b` = body part; face index 65535 = empty slot.
+The shader derives `amod = nboxes*24`, keeps the NORTH face (`aface%6==3`) of each box,
+and reads its face/part from `t[8+abody]` (the old per-PNG `ABOX`/`t[8].b` is gone). The
+abody→part order per slot is the old `ABOX` map: chest [r_arm,l_arm,body], legs
+[l_leg,r_leg,waist], feet [l_foot,r_foot], head [head]. (Stage 2 — packing all 6 faces
+per box with R_F orientation corrections, ~6× more — is designed but not yet built.)
 
-- `AMOD[8]` — vertex modulus (parts×6×4). 72 for chest/arms/legs, 48 for head/feet.
-- `ABOX[8]` — which `abody` is the carrier (0 chest=body=2, arms 0/1, legs 0/1, feet 0/1).
 - `AOFF[8]` — per-part anchor offset (all calibrated; see the table below).
 
 **Orientation** is reconstructed as a full 3D basis from the carrier-quad corners
