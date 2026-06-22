@@ -42,8 +42,11 @@ function tShaderHandWorld(R,S,p){
   const vP1=norm(ex);
   const vP2=norm(sub(ey, sc(vP1, dot(ey,vP1))));   // Gram-Schmidt
   const fullRot=[vP2,vP1,cross(vP2,vP1)];          // mat3(vPos2,vPos1,cross) cols
-  const wscale=(sxv+syv)*0.5;                       // current: UNIFORM avg
-  return mul(fullRot, sc(p, wscale));
+  // PER-AXIS candidate: ex=+Y edge (len=Sy), ey=+X edge (len=Sx). The matrix maps
+  // posoffset.x->vP2 (X dir) and .y->vP1 (Y dir), so scale .x by Sx=syv, .y by Sy=sxv.
+  // Z (perpendicular to the flat placeholder) is unmeasurable -> average fallback.
+  const scaleVec=[syv, sxv, Math.min(sxv,syv)];
+  return mul(fullRot, [p[0]*scaleVec[0], p[1]*scaleVec[1], p[2]*scaleVec[2]]);
 }
 // T_shader for GUI: header carries display.scale + rotation directly (per-axis).
 function tShaderGui(R,S,p){ return matVecRS(R,S,p); }   // guiRotMat*diag(guiScale)

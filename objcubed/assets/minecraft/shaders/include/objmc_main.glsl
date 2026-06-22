@@ -290,8 +290,12 @@ if (marker == ivec4(12,34,56,255)) {
             mat3 hrot = mat3(huy, hux, cross(huy, hux));
             // UNIFORM scale (see world path): the flat placeholder only exposes 2 in-plane
             // edges, so per-axis scale can't be recovered post-bake; average them.
-            float hscale = (hsx + hsy) * 0.5;
-            posoffset = hrot * (posoffset * hscale);
+            // Per-axis scale: ex=+Y edge (len hsx=Sy), ey=+X edge (len hsy=Sx). The matrix
+            // maps posoffset.x->X dir, .y->Y dir, so scale .x by Sx=hsy, .y by Sy=hsx. Z is
+            // perpendicular to the flat placeholder (unmeasurable) -> min(Sx,Sy), which is
+            // exact for uniform and single-axis (X- or Y-only) stretches; only pure depth
+            // (Z) stretch can't be recovered. Verified by tools/render-tester/diff.mjs.
+            posoffset = hrot * (posoffset * vec3(hsy, hsx, min(hsx, hsy)));
         }
         if (isHand + isGUI == 0) {
             // World path: rebuild the model's orientation from the baked carrier
@@ -325,8 +329,9 @@ if (marker == ivec4(12,34,56,255)) {
                 // physically unrecoverable, and which display axis maps to which in-plane
                 // edge depends on the bake. Average the two measured edges -> correct for
                 // uniform display.scale (the common case; matches the GUI path's slotSize).
-                float wscale = (sx + sy) * 0.5;
-                posoffset = fullRotation * (posoffset * wscale);
+                // Per-axis scale (see hand path): X,Y from the measured edges, Z (perpendicular,
+                // unmeasurable) -> min(Sx,Sy) — exact for uniform + single-axis stretch.
+                posoffset = fullRotation * (posoffset * vec3(sy, sx, min(sx, sy)));
             }
         }
     }
