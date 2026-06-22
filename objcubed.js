@@ -652,6 +652,19 @@
         return (n === 1) ? t(key + '_one') : t(key + '_other');
     }
 
+    // Surface a warning to the USER (not just the dev console). Many export
+    // problems used to only console.warn, so users saw "Done!" while geometry
+    // was silently missing. Routes through Blockbench's toast when available;
+    // falls back to console only (headless/tests). Pass a ready string.
+    function surfaceWarning(msg) {
+        console.warn('[obj³] ' + msg);
+        try {
+            if (typeof Blockbench !== 'undefined' && Blockbench.showQuickMessage) {
+                Blockbench.showQuickMessage('obj³: ' + msg, 4500);
+            }
+        } catch (e) { /* no Blockbench (tests/headless) — console is enough */ }
+    }
+
     // (BBPlugin.register lives at the very END of the IIFE so that every
     // helper and module-level let/const it touches via onload/onunload
     // — installProjectPersistence, _compileHandler, installStylesheet,
@@ -2559,6 +2572,10 @@
 
         const tw = texData.width, th = texData.height;
         if (tw < 8) throw new Error('Minimum texture size is 8px wide');
+        // The row-0 header writes the GUI transform into columns 8..15, so a
+        // texture narrower than 16px cannot encode it (icon scale/rot/pivot read
+        // as 0 -> invisible/wrong inventory icon). The model itself still decodes.
+        if (tw < 16) surfaceWarning(`texture is only ${tw}px wide — the inventory (GUI) icon transform needs a ≥16px-wide texture and will be wrong/invisible. Widen the texture if you use the GUI slot.`);
         if (tw > 65535 || th > 65535) throw new Error(`Texture too large: ${tw}x${th} (max 65535)`);
 
         // Animated textures (issue #9): a vertically-stacked strip of square
@@ -2646,6 +2663,11 @@
 
         const buf = new Uint8Array(tw * ty * 4);
         const put = (x, y, r, g, b, a=255) => {
+            // Bounds-check: an out-of-range x must NEVER wrap into the next row.
+            // The row-0 header writes columns up to x=15 (GUI block); on a narrow
+            // texture those would silently clobber row 1 (the anim clock). Skip
+            // instead — callers that need the columns guard tw upstream.
+            if (x < 0 || x >= tw || y < 0 || y >= ty) return;
             const i = (y*tw + x)*4;
             buf[i]=r&255; buf[i+1]=g&255; buf[i+2]=b&255; buf[i+3]=a&255;
         };
@@ -3336,7 +3358,9 @@
                     }
                     fs.writeFileSync(texPath, encodePNG(result.tw, result.ty, buf));
                 };
-                if (result.tw < 23) console.warn('[obj³] armor: texture width <23px — packed header may overrun into geometry');
+                // The packed armor header reaches row-0 column 22, so a <23px-wide
+                // texture corrupts equipment (W/E faces + emissive). Surface it.
+                if (result.tw < 23) surfaceWarning(`armor texture is only ${result.tw}px wide — equipment packing needs ≥23px; west/east faces and emissive will be wrong. Widen the texture and re-export.`);
 
                 if (Array.isArray(cfg.selectedPieces) && cfg.selectedPieces.length) {
                     // PER-PIECE (whole-set) export, BOX-PACKED.
@@ -3344,6 +3368,8 @@
                     const _partCounts = {};
                     faceToPart.forEach(p => { _partCounts[p] = (_partCounts[p] || 0) + 1; });
                     console.log('[obj³] armor face→part counts (-1 = untagged):', JSON.stringify(_partCounts));
+                    // Untagged faces (part -1) are silently dropped from every piece — tell the user.
+                    if (_partCounts[-1] > 0) surfaceWarning(`${_partCounts[-1]} face(s) have no body-part tag and will NOT appear in any armor piece. Right-click each group → obj³: Body part to tag them.`);
                     for (const pieceKey of cfg.selectedPieces) {
                         const piece = PIECE_MAP[pieceKey];
                         if (!piece) continue;
@@ -5344,7 +5370,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.38',
+        version: '0.5.39',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
