@@ -53,17 +53,29 @@ Differences between rows are exactly the per-slot pipeline drift.
 
 ## Per-limb armor calibration (A6 + AOFF table)
 
-**Box-packing (perf, v0.5.32):** the carrier mesh MC submits per equipment layer has
-`nboxes` cube boxes (chest 3 = body+arms, head/feet 2, legs 3). The encoder packs ONE
-model face per box's NORTH face into a single layer, so a chestplate rides body+r_arm+
-l_arm on one draw instead of three — ~2× fewer layers/submitModel calls (measured
-45→120 FPS on a moving wearer). Header per layer: `t[8].a` = nboxes; per box `abody`,
-`t[8+abody].r:g` = model-face index, `.b` = body part; face index 65535 = empty slot.
-The shader derives `amod = nboxes*24`, keeps the NORTH face (`aface%6==3`) of each box,
-and reads its face/part from `t[8+abody]` (the old per-PNG `ABOX`/`t[8].b` is gone). The
-abody→part order per slot is the old `ABOX` map: chest [r_arm,l_arm,body], legs
-[l_leg,r_leg,waist], feet [l_foot,r_foot], head [head]. (Stage 2 — packing all 6 faces
-per box with R_F orientation corrections, ~6× more — is designed but not yet built.)
+**Box-packing (perf):** the carrier mesh MC submits per equipment layer has `nboxes` cube
+boxes (chest 3 = body+arms, head/feet 2, legs 3). The encoder packs model faces onto each
+box's carrier faces and the shader reads them back per layer, so a chestplate rides
+body+r_arm+l_arm on one draw instead of three. Header per layer: `t[8].a` = nboxes; per box
+`abody`, NORTH face index in `t[8+abody].r:g`, body part in `.b`, SOUTH face index in
+`t[11+abody].r:g`; index 65535 = that face culled. The shader derives `amod = nboxes*24`,
+keeps the NORTH (`f6==3`) + SOUTH (`f6==5`) face of each box. abody→part order per slot:
+chest [r_arm,l_arm,body], legs [l_leg,r_leg,waist], feet [l_foot,r_foot], head [head].
+
+- **Stage 1 (v0.5.32):** north-only, 1 face/box/layer. 168→84 layers/chestplate, 45→120 FPS.
+- **Stage 2a (v0.5.35):** + south, 2 faces/box/layer → 84→42. The south model offset gets a
+  180°-about-up correction `C_SOUTH = diag(-1,1,-1)` (so it faces front like north) and a
+  re-anchor onto the box's north corner-2 so it overlays the north faces:
+  `anchor = a2 + (a0-a1) - depth·cross(e1,e2)`, `depth = ADW·|a0-a1| + ADH·|a0-a3|`
+  (width & height measured off the quad). ADW/ADH solved per part so depth is robust to BOTH
+  wearer scale AND armor-layer inflation (MC `CubeDeformation` grows every side, so a fixed
+  depth/width ratio is off by ~1/16 block on the body): body (8x12x4)→(2,-1), all square-
+  section boxes→(1,0). Both the matrix and the anchor are **derived from MC's `ModelPart$Cube`
+  geometry** (jar-decoded: NORTH quad `[B,A,D,C]`, SOUTH `[E,F,G,H]`, mirror reverses winding
+  for left limbs) and numerically verified to overlay north to ~1e-15 for every part, every
+  inflation (grow 0/0.5/1), incl. mirrored left.
+- **Stage 2b (designed):** the remaining 4 faces (down/up/west/east) per box, with their own
+  R_F + re-anchor by the same method, → ~6× over Stage 1. Not yet built.
 
 - `AOFF[8]` — per-part anchor offset (all calibrated; see the table below).
 

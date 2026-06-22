@@ -3294,8 +3294,8 @@
                 const nLayers = result.nfaces;
                 // Each armor PIECE -> layer type, slot, give item, the body parts it covers,
                 // and its CARRIER box layout (abody -> part, from the shader's ABOX table) for
-                // box-packing: one layer rides one model face per carrier box's north face,
-                // so a chestplate packs body+r_arm+l_arm into one draw instead of three.
+                // box-packing: one layer rides TWO model faces per carrier box (its NORTH and
+                // SOUTH face), so a chestplate packs body+r_arm+l_arm x2 faces into one draw.
                 // Parts: 0 body,1 head,2 r_arm,3 l_arm,4 r_leg,5 l_leg,6 r_foot,7 l_foot.
                 const PIECE_MAP = {
                     helmet:     { layer: 'humanoid',          slot: 'head',  give: 'helmet',     allowed: [1],       carrier: [1],       nboxes: 2 },
@@ -3303,21 +3303,27 @@
                     leggings:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   allowed: [4, 5],    carrier: [5, 4, 0], nboxes: 3 },
                     boots:      { layer: 'humanoid',          slot: 'feet',  give: 'boots',      allowed: [6, 7],    carrier: [7, 6],    nboxes: 2 },
                 };
-                // Write one packed layer PNG: t[8].a = nboxes; per box abody, t[8+abody].r:g =
-                // model-face index (16-bit), .b = body part. Empty box -> face index 65535.
+                // Write one packed layer PNG: t[8].a = nboxes; per box abody, the NORTH model
+                // face index (16-bit) is in t[8+abody].r:g, the part in .b, and the SOUTH face
+                // index in t[11+abody].r:g. Missing face -> 65535 (the shader culls it).
                 const writePackedLayer = (texPath, nboxes, slots) => {
                     const buf = result.rawBuf.slice();
                     buf[3] = 253;                               // armor marker
                     buf[8 * 4 + 3] = nboxes & 255;              // t[8].a = box count
+                    const put16 = (texel, k) => {
+                        const o = texel * 4;
+                        if (k == null) { buf[o] = 255; buf[o + 1] = 255; }
+                        else { buf[o] = Math.trunc(k / 256) % 256; buf[o + 1] = k % 256; }
+                    };
                     for (let abody = 0; abody < nboxes; abody++) {
-                        const s = slots[abody];
-                        const o = (8 + abody) * 4;
-                        if (!s || s.faceK == null) { buf[o] = 255; buf[o + 1] = 255; buf[o + 2] = 0; }
-                        else { buf[o] = Math.trunc(s.faceK / 256) % 256; buf[o + 1] = s.faceK % 256; buf[o + 2] = s.part & 255; }
+                        const s = slots[abody] || {};
+                        put16(8 + abody, s.northK);             // north face -> t[8+abody].r:g
+                        buf[(8 + abody) * 4 + 2] = (s.part || 0) & 255;   // part -> t[8+abody].b
+                        put16(11 + abody, s.southK);            // south face -> t[11+abody].r:g
                     }
                     fs.writeFileSync(texPath, encodePNG(result.tw, result.ty, buf));
                 };
-                if (result.tw < 11) console.warn('[obj³] armor: texture width <11px — packed header may overrun into geometry');
+                if (result.tw < 14) console.warn('[obj³] armor: texture width <14px — packed header may overrun into geometry');
 
                 if (Array.isArray(cfg.selectedPieces) && cfg.selectedPieces.length) {
                     // PER-PIECE (whole-set) export, BOX-PACKED.
@@ -3335,12 +3341,15 @@
                         const boxFaces = piece.carrier.map(part =>
                             piece.allowed.indexOf(part) === -1 ? []
                                 : faceToPart.reduce((a, p, k) => { if (p === part) a.push(k); return a; }, []));
-                        const layerCount = Math.max(1, ...boxFaces.map(f => f.length));
+                        // Two faces per box per layer (north @ 2L, south @ 2L+1).
+                        const layerCount = Math.max(1, ...boxFaces.map(f => Math.ceil(f.length / 2)));
                         const layers = [];
                         for (let L = 0; L < layerCount; L++) {
                             const slots = piece.carrier.map((part, abody) => {
-                                const fk = boxFaces[abody][L];
-                                return fk == null ? undefined : { faceK: fk, part };
+                                const nk = boxFaces[abody][2 * L];
+                                const sk = boxFaces[abody][2 * L + 1];
+                                if (nk == null && sk == null) return undefined;
+                                return { northK: nk == null ? null : nk, southK: sk == null ? null : sk, part };
                             });
                             if (slots.every(s => !s)) continue;           // empty layer
                             const texName = `${eqName}_${L}`;
@@ -3355,7 +3364,7 @@
                 } else {
                     // LEGACY single-part export: whole model anchored to ONE part. Uses the
                     // same box-packed format with only the target box active (others empty),
-                    // one face per layer (no packing gain, but one shader path).
+                    // two faces per layer (north + south) like the per-piece path.
                     const PART_MAP = {
                         chest:      { layer: 'humanoid',          slot: 'chest', give: 'chestplate', carrier: [2, 3, 0], nboxes: 3, id: 0 },
                         head:       { layer: 'humanoid',          slot: 'head',  give: 'helmet',     carrier: [1],       nboxes: 2, id: 1 },
@@ -3376,10 +3385,14 @@
                     const eqTexDir = path.join(root, 'assets', equipNs, 'textures', 'entity', 'equipment', layerType);
                     fs.mkdirSync(eqTexDir, { recursive: true });
                     const layers = [];
-                    for (let k = 0; k < nLayers; k++) {
+                    for (let L = 0; L < Math.ceil(nLayers / 2); L++) {
                         const slots = [];
-                        slots[abodyOfTarget] = { faceK: k, part: partInfo.id };
-                        const texName = `${eqName}_${k}`;
+                        slots[abodyOfTarget] = {
+                            northK: 2 * L,
+                            southK: (2 * L + 1 < nLayers) ? 2 * L + 1 : null,
+                            part: partInfo.id,
+                        };
+                        const texName = `${eqName}_${L}`;
                         writePackedLayer(path.join(eqTexDir, `${texName}.png`), partInfo.nboxes, slots);
                         layers.push({ texture: `${equipNs}:${texName}` });
                     }
@@ -5315,7 +5328,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.32',
+        version: '0.5.36',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
