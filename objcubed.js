@@ -21,7 +21,7 @@
         'scale', 'offsetX', 'offsetY', 'offsetZ',
         // Animation
         'animationEnabled', 'animationIndex', 'animFps', 'animStart', 'animEnd',
-        'duration', 'autoplay',
+        'autoplay',
         // Datapack
         'generateDatapack', 'datapackNamespace', 'datapackAnimId',
         'datapackTargetType', 'datapackEquipSlot', 'datapackOutputDir',
@@ -30,7 +30,6 @@
         // Equipment (armor) export — Approach C
         'exportAsEquipment', 'equipmentSlot', 'selectedPieces',
         // Display — right hand & shared
-        'showDisplay',
         'dThirdRX','dThirdRY','dThirdRZ','dThirdTX','dThirdTY','dThirdTZ','dThirdSX','dThirdSY','dThirdSZ',
         // Display — head/ground/fixed
         'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ','dHeadSX','dHeadSY','dHeadSZ',
@@ -45,7 +44,7 @@
         // Color & Tinting
         'cbR', 'cbG', 'cbB',
         // Advanced
-        'showAdvanced', 'easing', 'interpolation', 'autorotate',
+        'easing', 'interpolation', 'autorotate',
         'flipuv', 'noshadow', 'nopow', 'filterArmature',
     ];
 
@@ -3851,7 +3850,6 @@
                         animFps:       firstAnim ? (firstAnim.snapping||20) : 20,
                         animStart:     0,
                         animEnd:       firstAnim ? firstAnim.length : 0,
-                        duration:      0,
                         autoplay:      true,
                         // Datapack
                         generateDatapack: false,
@@ -3874,7 +3872,6 @@
                         equipmentSlot: 'chest',
                         selectedPieces: [],
                         // Display — Right hand (also used for left; left always mirrors right)
-                        showDisplay:   false,
                         displayTab:    'third',   // 'third' | 'head' | 'ground' | 'fixed'
                         // Thirdperson rotation default 0° — no baked-in tilt.
                         // Earlier builds shipped a 5° X default (and legacy objmc
@@ -3918,7 +3915,6 @@
                         // Color & Tinting
                         cbR: 'direct', cbG: 'direct', cbB: 'direct',
                         // Advanced
-                        showAdvanced:  false,
                         easing:        1,
                         interpolation: 1,
                         autorotate:    1,
@@ -5440,7 +5436,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.58',
+        version: '0.5.59',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
