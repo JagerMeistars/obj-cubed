@@ -30,10 +30,8 @@
         // Equipment (armor) export — Approach C
         'exportAsEquipment', 'equipmentSlot', 'selectedPieces',
         // Display — right hand & shared
-        'showDisplay', 'useSeparateLefthand',
+        'showDisplay',
         'dThirdRX','dThirdRY','dThirdRZ','dThirdTX','dThirdTY','dThirdTZ','dThirdSX','dThirdSY','dThirdSZ',
-        // Display — left hand (independent when useSeparateLefthand=true)
-        'dLeftRX','dLeftRY','dLeftRZ','dLeftTX','dLeftTY','dLeftTZ','dLeftSX','dLeftSY','dLeftSZ',
         // Display — head/ground/fixed
         'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ','dHeadSX','dHeadSY','dHeadSZ',
         'dGroundRX','dGroundRY','dGroundRZ','dGroundTX','dGroundTY','dGroundTZ','dGroundSX','dGroundSY','dGroundSZ',
@@ -316,7 +314,6 @@
             help_cmd_name: 'The string you put on the base item to show this model. The plugin writes a give command (<base item>_give.txt) with it. Default is the project name.',
             help_equipment: 'One equipment layer per model face. Renders the 3D model as worn armor via the entity shader. Reliable on the chest of a static armor stand; on moving players the anchor may tilt (work in progress).',
             help_datapackOutputDir: 'Where to save the datapack folder. Empty = next to resource pack.',
-            help_useSeparateLefthand: 'By default, left hand copies right hand settings. Enable to configure separately.',
             help_display_third: 'Rotation and offset when visible in another player\'s hand (3rd person).',
             help_display_head: 'Rotation and offset when worn on head (player_head).',
             help_display_ground: 'Rotation and offset when on the ground (dropped).',
@@ -579,7 +576,6 @@
             help_cmd_name: 'Строка, которую вы вешаете на базовый предмет, чтобы показать эту модель. Плагин пишет команду give (<базовый предмет>_give.txt) с ней. По умолчанию — имя проекта.',
             help_equipment: 'Один слой экипировки на каждую грань модели. Рендерит 3D-модель как надетую броню через шейдер сущности. Надёжно работает на нагруднике статичного armor stand; на движущихся игроках якорь может наклоняться (в разработке).',
             help_datapackOutputDir: 'Куда положить папку датапака. Пусто = рядом с ресурспаком.',
-            help_useSeparateLefthand: 'По умолчанию левая рука копирует настройки правой. Включите, если хотите настроить её отдельно.',
             help_display_third: 'Поворот и сдвиг модели когда она видна в руке другого игрока (от 3-го лица).',
             help_display_head: 'Поворот и сдвиг модели когда она надета на голову (player_head).',
             help_display_ground: 'Поворот и сдвиг модели когда она лежит на земле (выпавшая).',
@@ -3877,10 +3873,9 @@
                         exportAsEquipment: false,
                         equipmentSlot: 'chest',
                         selectedPieces: [],
-                        // Display — Right hand (also used for left if useSeparateLefthand=false)
+                        // Display — Right hand (also used for left; left always mirrors right)
                         showDisplay:   false,
                         displayTab:    'third',   // 'third' | 'head' | 'ground' | 'fixed'
-                        useSeparateLefthand: false,
                         // Thirdperson rotation default 0° — no baked-in tilt.
                         // Earlier builds shipped a 5° X default (and legacy objmc
                         // projects an 85° one); both baked an unwanted rotation
@@ -3889,10 +3884,6 @@
                         dThirdRX: 0, dThirdRY: 0, dThirdRZ: 0,
                         dThirdTX: 0, dThirdTY: 0, dThirdTZ: 0,
                         dThirdSX: 1, dThirdSY: 1, dThirdSZ: 1,
-                        // Display — Left hand (only used when useSeparateLefthand=true)
-                        dLeftRX: 0, dLeftRY: 0, dLeftRZ: 0,
-                        dLeftTX: 0,  dLeftTY: 0, dLeftTZ: 0,
-                        dLeftSX: 1,  dLeftSY: 1, dLeftSZ: 1,
                         // Display — Head/Ground/Fixed
                         dHeadRX: 0, dHeadRY: 0, dHeadRZ: 0,
                         dHeadTX: 0, dHeadTY: 0, dHeadTZ: 0,
@@ -3966,7 +3957,6 @@
                         // default is 0° (no rotation). Normalize 85 and 5 → 0
                         // silently so old projects don't keep the stale tilt.
                         if (state.dThirdRX === 85 || state.dThirdRX === 5) state.dThirdRX = 0;
-                        if (state.dLeftRX  === 85 || state.dLeftRX  === 5) state.dLeftRX  = 0;
                     }
 
                     // Sync animEnd with current animation length
@@ -4516,8 +4506,7 @@
                     // display-slot key, in BB / vanilla units (deg, 1/16 block, mult).
                     // Same d*->{rotation,translation,scale} mapping the export path
                     // (doExport.cfg.displaySlots) uses, so BB's editor shows exactly
-                    // what the dialog has set. lefthand mirrors thirdperson unless
-                    // useSeparateLefthand is on.
+                    // what the dialog has set. lefthand always mirrors thirdperson.
                     _dialogSlotTransforms() {
                         const v = (k) => +this[k] || 0;
                         const third = {
@@ -4527,11 +4516,7 @@
                         };
                         return {
                             thirdperson_righthand: third,
-                            thirdperson_lefthand: this.useSeparateLefthand ? {
-                                rotation:    [v('dLeftRX'), v('dLeftRY'), v('dLeftRZ')],
-                                translation: [v('dLeftTX'), v('dLeftTY'), v('dLeftTZ')],
-                                scale:       [+this.dLeftSX || 1, +this.dLeftSY || 1, +this.dLeftSZ || 1],
-                            } : third,
+                            thirdperson_lefthand: third,
                             firstperson_righthand: {
                                 rotation:    [v('dFprRX'), v('dFprRY'), v('dFprRZ')],
                                 translation: [v('dFprTX'), v('dFprTY'), v('dFprTZ')],
@@ -4579,7 +4564,7 @@
                     _loadFromDisplaySettings() {
                         if (typeof Project === 'undefined' || !Project || !Project.display_settings) return;
                         const PFX = {
-                            thirdperson_righthand: 'dThird', thirdperson_lefthand: 'dLeft',
+                            thirdperson_righthand: 'dThird',
                             firstperson_righthand: 'dFpr',   firstperson_lefthand: 'dFpl',
                             head: 'dHead', gui: 'dGui', ground: 'dGround', fixed: 'dFixed', on_shelf: 'dShelf',
                         };
@@ -5455,7 +5440,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.57',
+        version: '0.5.58',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
