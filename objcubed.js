@@ -3563,7 +3563,14 @@
             ? 'item'
             : (EQUIP_PATH[equipSlot] || 'equipment.mainhand');
         const playerSlot = PLAYER_SLOT[equipSlot] || 'weapon.mainhand';
-        const tmp = '@e[tag=objcubed_temp,limit=1,sort=nearest]';
+        // Per-run isolation (A5): a per-animation tag + tight distance relative to
+        // the executing player (@s) so concurrent player runs each grab only the
+        // stand at their own feet (not another player's leftover stand).
+        const tmpTag = `objcubed_temp_${id}`;
+        const tmp = `@e[tag=${tmpTag},distance=..0.01,limit=1,sort=nearest]`;
+        // Marker:1b -> no collision; spawn AT the player (execute at @s) so the
+        // distance filter resolves to a stand at the player's position.
+        const tmpSummon = `execute at @s run summon armor_stand ~ ~ ~ {Tags:["${tmpTag}"],Invisible:1b,Marker:1b}`;
 
         files.set('pack.mcmeta', JSON.stringify({
             pack: {
@@ -3656,7 +3663,7 @@
         // _apply_auto — set autoplay color (custom_color = tcolor from @s <id>)
         if (isPlayer) {
             files.set(`data/${ns}/function/${priv}/_apply_auto.mcfunction`, [
-                `summon armor_stand ~ ~ ~ {Tags:["objcubed_temp"],Invisible:1b}`,
+                tmpSummon,
                 `item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
                 `data modify entity ${tmp} ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
                 `execute store result entity ${tmp} ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get @s ${id}`,
@@ -3675,7 +3682,7 @@
             files.set(`data/${ns}/function/${priv}/_apply_manual.mcfunction`, [
                 `scoreboard players operation #temp ${id} = #base ${id}`,
                 `scoreboard players operation #temp ${id} += @s ${id}`,
-                `summon armor_stand ~ ~ ~ {Tags:["objcubed_temp"],Invisible:1b}`,
+                tmpSummon,
                 `item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
                 `data modify entity ${tmp} ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
                 `execute store result entity ${tmp} ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get #temp ${id}`,
@@ -5448,7 +5455,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.56',
+        version: '0.5.57',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

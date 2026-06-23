@@ -103,6 +103,24 @@ describe('datapack correctness (review batch 2)', () => {
     expect(files.has('README.txt')).toBe(true);
   });
 
+  it('player temp armor_stand is isolated per-run (at @s + per-id tag + tight distance) (A5)', () => {
+    const files = api.generateDatapackFiles('walk', 5, 'objcubed', 'player', 'mainhand');
+    const auto = files.get('data/objcubed/function/walk/zzz/_apply_auto.mcfunction');
+    const manual = files.get('data/objcubed/function/walk/zzz/_apply_manual.mcfunction');
+    for (const [name, body] of [['_apply_auto', auto], ['_apply_manual', manual]]) {
+      // summon at the player, not the command origin
+      expect(body, name).toMatch(/execute at @s run summon armor_stand ~ ~ ~ /);
+      // per-animation tag (objcubed_temp_walk), with Marker so it has no collision
+      expect(body, name).toMatch(/Tags:\["objcubed_temp_walk"\]/);
+      expect(body, name).toMatch(/Marker:1b/);
+      // selector is per-id tag + tight distance, relative to @s
+      expect(body, name).toMatch(/@e\[tag=objcubed_temp_walk,distance=\.\.0\.01,limit=1,sort=nearest\]/);
+      // the OLD bare shared-tag form is gone
+      expect(body, name).not.toMatch(/Tags:\["objcubed_temp"\]/);
+      expect(body, name).not.toMatch(/tag=objcubed_temp,limit=1,sort=nearest\]/);
+    }
+  });
+
   it('play_once emits a tick latch that freezes after nframes ticks', () => {
     const files = api.generateDatapackFiles('walk', 10, 'mypack', 'equipment', 'mainhand');
     // play_once stores an absolute deadline = gametime + nframes in objective <id>.end
