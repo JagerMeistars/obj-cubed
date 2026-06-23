@@ -4330,6 +4330,10 @@
                     // Snap texFrametime back to a valid >=1 integer (min= only guards the
                     // spinner; a typed 0/-5 otherwise lingers in the field while export clamps).
                     clampTexFrametime() { this.texFrametime = Math.max(1, Math.round(+this.texFrametime || 1)); },
+                    // Vue 2 can't track assignment to an array index (atlasTexChecked[i] = v),
+                    // so the index-bound v-model left dependent computeds (previewTexSize,
+                    // previewWarnings, validationErrors) stale; $set restores reactivity.
+                    setAtlasChecked(i, val) { this.$set(this.atlasTexChecked, i, val); },
                     tourEnd(persistSeen) {
                         this.tourActive = false;
                         // Restore anything a step revealed (e.g. animationEnabled).
@@ -4857,7 +4861,7 @@
       </div>
       <div v-else :class="hasErr('atlas') ? 'oc-err' : ''" style="padding:6px 8px;border-radius:4px;background:rgba(255,255,255,0.02);display:flex;flex-direction:column;gap:5px;">
         <label v-for="(tx, i) in texOptions" :key="tx.value" style="display:flex;align-items:center;gap:8px;line-height:1.4;cursor:pointer;">
-          <input type="checkbox" v-model="atlasTexChecked[i]"/>
+          <input type="checkbox" :checked="atlasTexChecked[i]" @change="setAtlasChecked(i, $event.target.checked)"/>
           <img v-if="tx.thumb" :src="tx.thumb" class="oc-tex-thumb"/>
           <span>{{tx.label}}</span>
         </label>
@@ -5439,7 +5443,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.62',
+        version: '0.5.63',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
