@@ -240,6 +240,7 @@
             status_display_unavailable: 'Display mode is not available for this model format',
             // Validation
             err_fps_min: 'FPS must be at least 1',
+            err_fps_max: 'FPS must be 60 or less',
             err_end_before_start: 'End time must be after start',
             err_need_anim_id: 'Animation ID is required',
             err_need_namespace: 'Namespace is required',
@@ -465,7 +466,7 @@
             lbl_gui_pivot: 'GUI пивот',
             help_guiPivot: 'Точка вращения иконки в инвентаре, в единицах модели (0..16; 8 = центр блока). Поставьте в центр своей модели, чтобы поворот в GUI совпал с Blockbench. Только для экспорта; другие слоты не трогает.',
             columns_xyz: 'Колонки — X, Y, Z.',
-            ground_y_tip: 'Y клампится Minecraft движком — dropped items приклеены к земле',
+            ground_y_tip: 'Y ограничивается движком Minecraft — выброшенные предметы прилипают к земле',
             preview_title: 'Превью',
             open_display_editor: 'Открыть в редакторе отображения Blockbench',
             open_display_note: 'Записывает текущие трансформы слотов в Blockbench, переключает в его родной редактор отображения на активном слоте и закрывает это окно. Источник истины для экспорта остаётся это окно.',
@@ -501,6 +502,7 @@
             status_display_mode: 'Откройте File → Экспорт obj³ когда закончите',
             status_display_unavailable: 'Режим отображения недоступен в этом формате модели',
             err_fps_min: 'FPS должен быть не меньше 1',
+            err_fps_max: 'FPS должен быть не больше 60',
             err_end_before_start: 'Время Конец должно быть больше Старт',
             err_need_anim_id: 'Нужен Animation ID',
             err_need_namespace: 'Нужен Namespace',
@@ -581,7 +583,7 @@
             help_display_fixed: 'Поворот и сдвиг модели в item frame на стене.',
             help_cb_general: 'Каждый канал цвета зелья (R/G/B) можно использовать как переключатель: тинт, время анимации, масштаб, оттенок или вспышка урона. Клик меняет значение.',
             help_easing: 'Сглаживание между кадрами анимации вершин. Линейная — обычное усреднение. Кубическая/Безье — плавнее на стыках.',
-            help_interpolation: 'Сглаживание между кадрами текстуры. Линейная даёт fade-эффект между кадрами.',
+            help_interpolation: 'Сглаживание между кадрами текстуры. Линейная даёт плавное затухание между кадрами.',
             help_autorotate: 'Шейдер определяет поворот модели по нормалям, поэтому она следует за рендер-трансформом (рамки, сущности). Yaw = только горизонтальный; Pitch = только вертикальный.',
             help_noshadow: 'Отключить затемнение граней по их направлению. Полезно для светящихся моделей.',
             help_flipuv: 'Перевернуть текстуру по вертикали. Используйте, если модель отрендерилась перевёрнутой.',
@@ -3241,7 +3243,7 @@
 
             // One-shot: pick the resource pack root once (only if not already
             // set). Everything else is written without further dialogs.
-            const root = cfg.resourcePackDir || pickDirectory('Choose resource pack root', Project.export_path || '');
+            const root = cfg.resourcePackDir || pickDirectory(t('lbl_respack_dir'), Project.export_path || '');
             if (!root) { reject(new Error('__cancelled__')); return; }
 
             const baseItem = (cfg.baseItem || 'iron_ingot').replace(/[^a-z0-9_]/gi, '_').toLowerCase() || 'iron_ingot';
@@ -3443,7 +3445,7 @@
                         if (k == null) { buf[o] = 255; buf[o + 1] = 255; }
                         else { buf[o] = Math.trunc(k / 256) % 256; buf[o + 1] = k % 256; }
                     };
-                    const emisOf = k => (k == null ? 0 : Math.max(0, Math.min(255, faceEmission[k] | 0)));
+                    const emisOf = k => (k == null ? 0 : Math.max(0, Math.min(15, faceEmission[k] | 0)));
                     for (let abody = 0; abody < nboxes; abody++) {
                         const s = slots[abody] || {};
                         put16(8 + abody, s.northK);             // north -> t[8+abody].r:g
@@ -4275,6 +4277,8 @@
                                 errs.push({ field:'animEnd', msg: t('err_end_before_start') });
                             if (+this.animFps < 1)
                                 errs.push({ field:'animFps', msg: t('err_fps_min') });
+                            else if (+this.animFps > 60)
+                                errs.push({ field:'animFps', msg: t('err_fps_max') });
                         }
                         if (this.generateDatapack && this.showDatapackOption) {
                             if (!this.datapackAnimId.trim())
@@ -4706,14 +4710,14 @@
 
                     browseDatapackDir() {
                         const dir = Blockbench.pickDirectory({
-                            title: 'Select datapack output directory',
+                            title: t('lbl_datapack_dir'),
                             startpath: this.datapackOutputDir || undefined,
                         });
                         if (dir) this.datapackOutputDir = dir;
                     },
                     browseResourcePackDir() {
                         const dir = Blockbench.pickDirectory({
-                            title: 'Choose resource pack root',
+                            title: t('lbl_respack_dir'),
                             startpath: this.resourcePackDir || undefined,
                         });
                         if (dir) this.resourcePackDir = dir;
@@ -5165,7 +5169,7 @@
         <!-- oc-tour-fps: tour anchor (issue #4) — on the FPS field -->
         <label class="oc-tour-fps" style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;">
           <span>FPS<span class="oc-help" :data-tip="help('animFps')">?</span></span>
-          <input v-model="animFps" type="number" min="1" max="60" :class="hasErr('animFps') ? 'oc-err' : ''"/>
+          <input v-model.number="animFps" type="number" min="1" max="60" :class="hasErr('animFps') ? 'oc-err' : ''"/>
           <span v-if="hasErr('animFps')" class="oc-err-msg">{{fieldErrorMap.animFps}}</span>
         </label>
       </div>
@@ -5173,11 +5177,11 @@
       <div class="oc-tour-range" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
           <span>{{t('lbl_start')}}<span class="oc-help" :data-tip="help('animRange')">?</span></span>
-          <input v-model="animStart" type="number" step="0.05"/>
+          <input v-model.number="animStart" type="number" step="0.05"/>
         </label>
         <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
           <span>{{t('lbl_end')}}</span>
-          <input v-model="animEnd" type="number" step="0.05" :class="hasErr('animEnd') ? 'oc-err' : ''"/>
+          <input v-model.number="animEnd" type="number" step="0.05" :class="hasErr('animEnd') ? 'oc-err' : ''"/>
           <span v-if="hasErr('animEnd')" class="oc-err-msg">{{fieldErrorMap.animEnd}}</span>
         </label>
       </div>
@@ -5466,7 +5470,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.68',
+        version: '0.5.69',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

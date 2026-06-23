@@ -272,6 +272,27 @@ describe('armor-ref-decode: per-face emissive', () => {
     expect(fullbright(h.boxes[2].emis.n)).toBe(true);  // body emissive
   });
 
+  it('clamps an out-of-range emissive to 15 (light_emission is 0..15)', async () => {
+    const { api, memfs } = setup();
+    const r = makeResult(3);
+    r.faceGroups = ['body', 'right_arm', 'left_arm'];
+    r.faceEmission = [200, 0, 16];                    // face0=200 (over), face1=0, face2=16 (over)
+    await api.saveSingleOutput(r, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+      exportAsEquipment: true, cmdName: 'cat', selectedPieces: ['chestplate'],
+    });
+    const h = ref.decodeArmorHeader(memfs.writes.get(`${EQ_TEX_DIR}/cat_chestplate_0.png`));
+    // r_arm(face1)=0, l_arm(face2)=16→15, body(face0)=200→15. Every byte must be ≤15.
+    expect(h.boxes[0].emis.n).toBe(0);  // r_arm north = face1 → 0
+    expect(h.boxes[1].emis.n).toBe(15); // l_arm north = face2 → clamped to 15
+    expect(h.boxes[2].emis.n).toBe(15); // body  north = face0 → clamped to 15
+    for (const box of h.boxes) {
+      for (const key of ['n', 's', 'w', 'e']) {
+        expect(box.emis[key]).toBeLessThanOrEqual(15);
+      }
+    }
+  });
+
   it('a non-emissive layer leaves all emissive bytes 0 (no false fullbright)', async () => {
     const { api, memfs } = setup();
     const r = makeResult(3);
