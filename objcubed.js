@@ -3435,7 +3435,7 @@
                 };
                 // The packed armor header reaches row-0 column 22, so a <23px-wide
                 // texture corrupts equipment (W/E faces + emissive). Surface it.
-                if (result.tw < 23) surfaceWarning(`armor texture is only ${result.tw}px wide — equipment packing needs ≥23px; west/east faces and emissive will be wrong. Widen the texture and re-export.`);
+                if (result.tw < 23) throw new Error(`armor texture is only ${result.tw}px wide — equipment packing needs ≥23px (west/east faces + emissive pack to row-0 texel 22). Widen the texture and re-export.`);
 
                 if (Array.isArray(cfg.selectedPieces) && cfg.selectedPieces.length) {
                     // PER-PIECE (whole-set) export, BOX-PACKED.
@@ -5417,7 +5417,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.52',
+        version: '0.5.53',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

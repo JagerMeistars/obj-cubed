@@ -411,4 +411,17 @@ describe('equipment (armor) export — Approach C', () => {
     expect(keys.some(p => p.startsWith('/rp/assets/minecraft/equipment/'))).toBe(false);
     expect(keys.some(p => p.startsWith('/rp/assets/minecraft/textures/entity/equipment/'))).toBe(false);
   });
+
+  it('throws (does not write a corrupt PNG) when armor texture < 23px wide', async () => {
+    const { api, memfs } = setup();
+    const narrow = makeResult(3);
+    narrow.tw = 22;
+    narrow.rawBuf = Buffer.alloc(22 * TY * 4);
+    narrow.rawBuf[0] = 12; narrow.rawBuf[1] = 34; narrow.rawBuf[2] = 56; narrow.rawBuf[3] = 255;
+    await expect(api.saveSingleOutput(narrow, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+      exportAsEquipment: true, equipmentSlot: 'chest',
+    })).rejects.toThrow(/23px/);
+    expect([...memfs.writes.keys()].some(p => /equipment.*\.png$/.test(p))).toBe(false);
+  });
 });
