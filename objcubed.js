@@ -3579,6 +3579,7 @@
         // init — scoreboards + constants
         files.set(`data/${ns}/function/${pub}/init.mcfunction`, [
             `scoreboard objectives add ${id} dummy`,
+            `scoreboard objectives add ${id}.end dummy`,
             `scoreboard players set #dur ${id} ${nframes}`,
             `scoreboard players set #base ${id} 8388608`,
             `scoreboard players set #cycle ${id} 24000`,
@@ -3635,12 +3636,17 @@
             `function ${ns}:${priv}/_apply_auto`,
         ].join('\n'));
 
-        // play_once — play one cycle then freeze at last frame (shader-driven, no tick needed)
+        // play_once — play one cycle then freeze at last frame.
+        // Records an absolute deadline (monotonic gametime, NOT day-wrapped) so the
+        // tick latch can freeze the entity permanently after nframes ticks.
         files.set(`data/${ns}/function/${pub}/play_once.mcfunction`, [
             `function ${ns}:${pub}/init`,
             `execute store result score @s ${id} run time query gametime`,
             `scoreboard players operation @s ${id} %= #cycle ${id}`,
             `scoreboard players add @s ${id} 32768`,
+            // absolute deadline = now + nframes ticks (monotonic gametime, NOT day-wrapped)
+            `execute store result score @s ${id}.end run time query gametime`,
+            `scoreboard players add @s ${id}.end ${nframes}`,
             `tag @s remove ${id}.auto`,
             `tag @s add ${id}.once`,
             `function ${ns}:${priv}/_apply_auto`,
@@ -3684,6 +3690,25 @@
             ].join('\n'));
         }
 
+        // tick latch: per-entity, freezes play_once at the last frame once its
+        // absolute deadline passes (survives the GameTime day-wrap). Latch-only —
+        // playback stays shader-driven (render-fps), this just flips once.
+        files.set(`data/${ns}/function/${pub}/tick.mcfunction`, [
+            `execute as @e[tag=${id}.once] run function ${ns}:${priv}/_check_once`,
+        ].join('\n'));
+        files.set(`data/${ns}/function/${priv}/_check_once.mcfunction`, [
+            `execute store result score #now ${id} run time query gametime`,
+            `execute if score #now ${id} >= @s ${id}.end run function ${ns}:${priv}/_latch_once`,
+        ].join('\n'));
+        files.set(`data/${ns}/function/${priv}/_latch_once.mcfunction`, [
+            `scoreboard players set @s ${id} ${nframes - 1}`,   // static last frame
+            `tag @s remove ${id}.once`,
+            `function ${ns}:${priv}/_apply_manual`,
+        ].join('\n'));
+        files.set('data/minecraft/tags/function/tick.json', JSON.stringify({
+            values: [`${ns}:${pub}/tick`],
+        }, null, 2));
+
         return files;
     }
 
@@ -3695,6 +3720,15 @@
             if (relPath === 'pack.mcmeta' && fs.existsSync(fullPath)) continue;
             const dir = path.dirname(fullPath);
             fs.mkdirSync(dir, { recursive: true });
+            if (/tags\/function\/(tick|load)\.json$/.test(relPath) && fs.existsSync(fullPath)) {
+                // merge our function into the existing tag (don't clobber other packs')
+                let existing = {};
+                try { existing = JSON.parse(fs.readFileSync(fullPath, 'utf8')); } catch (e) {}
+                const have = new Set(Array.isArray(existing.values) ? existing.values : []);
+                for (const v of JSON.parse(content).values) have.add(v);
+                fs.writeFileSync(fullPath, JSON.stringify({ values: [...have] }, null, 2), 'utf8');
+                continue;
+            }
             fs.writeFileSync(fullPath, content, 'utf8');
         }
     }
@@ -5367,7 +5401,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.54',
+        version: '0.5.55',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
