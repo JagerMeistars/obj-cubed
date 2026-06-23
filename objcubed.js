@@ -2950,6 +2950,24 @@
             const expPos = srcPos.map((v,j) => v * cfg.scale + cfg.offset[j]);
             const posDiff = Math.abs(decPos[0]-expPos[0])+Math.abs(decPos[1]-expPos[1])+Math.abs(decPos[2]-expPos[2]);
             if (posDiff > 0.01) { verifyWarns.push('pos[0] mismatch'); console.error(`[obj3-verify] pos[0] MISMATCH: exp=[${expPos.map(v=>v.toFixed(4))}] dec=[${decPos.map(v=>v.toFixed(4))}]`); }
+            // Verify first UV coordinate (uvPixels writes u24(clamp(v)*65535) at the
+            // UV-float section base; mirror the encoder's write base + the shader's
+            // /65535 read). Catches a regression in the clamp / scaling math.
+            const uvBase = headerRows + uvH + texH + vpH;
+            const uv0u = rd(0, uvBase), uv0v = rd(1, uvBase);
+            const decUv = [
+                (uv0u[0]*65536 + uv0u[1]*256 + uv0u[2]) / 65535,
+                (uv0v[0]*65536 + uv0v[1]*256 + uv0v[2]) / 65535,
+            ];
+            const srcUv = data.uvs[0];
+            if (srcUv) {
+                const expUv = srcUv.map(v => Math.max(0, Math.min(1, v)));
+                const uvEps = 2/65535;
+                if (Math.abs(decUv[0]-expUv[0]) > uvEps || Math.abs(decUv[1]-expUv[1]) > uvEps) {
+                    verifyWarns.push('uv[0] value mismatch');
+                    console.error(`[obj3-verify] uv[0] MISMATCH: exp=[${expUv.map(v=>v.toFixed(5))}] dec=[${decUv.map(v=>v.toFixed(5))}]`);
+                }
+            }
             // Verify first vertex data entry
             const vtxBase = headerRows + uvH + texH + vpH + vtH;
             const va = rd(0, vtxBase), vb = rd(1, vtxBase);
@@ -5448,7 +5466,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.65',
+        version: '0.5.66',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
