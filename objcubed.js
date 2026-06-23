@@ -1183,26 +1183,25 @@
     // Settings live on the active Project (Project.objcubed_data) and get
     // serialized into the .bbmodel via Codecs.project compile/parse hooks.
     //
-    // Data shape — a single fixed preset at index 0 holds all settings.
-    // (The presets[] array shape is retained as the storage backbone; the
-    // multi-preset management UI was removed as dead code.)
+    // Data shape — a flat settings object holds all dialog fields.
     //   {
     //     version: 1,
-    //     activePresetIndex: 0,
-    //     presets: [ { name: 'default', settings: { ...dialog fields... } } ],
+    //     settings: { ...dialog fields... },
     //   }
+    // Older projects stored a single-preset backbone
+    // ({ version, activePresetIndex, presets:[{name, settings}] }); the
+    // multi-preset management UI was long-removed dead code. ensureDataRoot
+    // migrates those blobs in place on first access.
     //
     // File key: model.objcubed   ·   Project key: Project.objcubed_data
     const PROJECT_DATA_KEY = 'objcubed_data';     // Project[key]
     const FILE_DATA_KEY    = 'objcubed';          // .bbmodel JSON field
     const DATA_VERSION     = 1;
-    const DEFAULT_PRESET_NAME = 'default';
 
     function makeEmptyDataRoot() {
         return {
             version: DATA_VERSION,
-            activePresetIndex: 0,
-            presets: [{ name: DEFAULT_PRESET_NAME, settings: {} }],
+            settings: {},
         };
     }
 
@@ -1210,31 +1209,28 @@
         if (!Project) return null;
         if (!Project[PROJECT_DATA_KEY]) Project[PROJECT_DATA_KEY] = makeEmptyDataRoot();
         const root = Project[PROJECT_DATA_KEY];
-        if (!root.presets || !root.presets.length) {
-            root.presets = [{ name: DEFAULT_PRESET_NAME, settings: {} }];
-            root.activePresetIndex = 0;
+        // Migrate the legacy single-preset backbone → flat settings.
+        if (root.presets) {
+            const active = root.presets[root.activePresetIndex || 0];
+            root.settings = (active && active.settings) || {};
+            delete root.presets;
+            delete root.activePresetIndex;
         }
-        if (root.activePresetIndex == null
-            || root.activePresetIndex < 0
-            || root.activePresetIndex >= root.presets.length) {
-            root.activePresetIndex = 0;
-        }
+        if (!root.settings || typeof root.settings !== 'object') root.settings = {};
         return root;
     }
 
-    // Returns the settings object of the currently selected preset (or null
-    // if no project is open). Mutate in place to update — saveActiveSettings
-    // is provided for replacement semantics.
+    // Returns the active settings object (or null if no project is open).
+    // Mutate in place to update — saveActiveSettings is provided for
+    // replacement semantics.
     function loadActiveSettings() {
         const root = ensureDataRoot();
-        if (!root) return null;
-        return root.presets[root.activePresetIndex].settings;
+        return root ? root.settings : null;
     }
 
     function saveActiveSettings(settings) {
         const root = ensureDataRoot();
-        if (!root) return;
-        root.presets[root.activePresetIndex].settings = settings;
+        if (root) root.settings = settings;
     }
 
     // Group body-part tags persist via OUR codec hooks, not BlockBench's property
@@ -1270,7 +1266,7 @@
             if (!data || !data.model) return;
             const tags = collectBodyPartTags();
             const existing = Project && Project[PROJECT_DATA_KEY];
-            // Write objcubed data if the user has any (presets) OR any group is tagged.
+            // Write objcubed data if the user has any (settings) OR any group is tagged.
             if (existing || Object.keys(tags).length) {
                 const root = ensureDataRoot();
                 if (!root) return;
@@ -5436,7 +5432,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.59',
+        version: '0.5.60',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
@@ -5545,6 +5541,7 @@
             generateDatapackFiles, buildItemSelector, saveSingleOutput, buildOutput,
             buildSlotModelJson,
             buildVertexData, buildDisplayTransforms, hasStaticWorldDisplay,
+            ensureDataRoot, loadActiveSettings, saveActiveSettings,
             computePartCenters, buildFaceToPart, collectBodyPartTags, applyBodyPartTags, parseFaceToken,
             calibratedElementsForSlot,
             buildItemTransformMatrix, activeSlotPrefixFor,
