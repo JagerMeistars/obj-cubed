@@ -1,6 +1,10 @@
 *.o
 probe
 compile
+render
 entity.vert.glsl
 entity.frag.glsl
 *.raw
+*.f32
+meta.txt
+out*.png

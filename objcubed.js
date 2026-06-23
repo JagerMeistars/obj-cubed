@@ -128,19 +128,6 @@
             color_datapack_note: 'controlled by datapack settings',
             no_project: 'No project is open.',
             no_textures: 'The project has no textures.',
-            // Presets
-            preset: 'Preset',
-            tip_add_preset: 'Create a new preset',
-            tip_add_preset_single: 'Create another preset',
-            tip_dup_preset: 'Duplicate current',
-            tip_rename_preset: 'Rename',
-            tip_delete_preset: 'Delete preset',
-            tip_cant_delete_last: 'Cannot delete last preset',
-            prompt_new_preset: 'New preset name:',
-            prompt_copy_name: 'Copy name:',
-            prompt_copy_suffix: ' (copy)',
-            prompt_rename: 'New preset name:',
-            confirm_delete_preset: 'Delete preset "{name}"?',
             // Texture section
             section_texture: 'Texture',
             atlas_combine: 'Combine textures into atlas',
@@ -252,14 +239,9 @@
             lbl_nopow: 'No power-of-two rounding',
             lbl_filter_armature: 'Hide armature bones',
             // Footer / status
-            btn_export_all: 'Export all',
-            status_skipping: 'Skipping "{name}" (has errors)',
-            status_preset_progress: 'Preset {i}/{total}: {name}…',
-            status_done: 'Done: exported {total} preset(s)',
             status_display_mode: 'Open File → Export obj³ when done',
             status_display_unavailable: 'Display mode is not available for this model format',
             // Validation
-            err_scale_positive: 'Scale must be positive',
             err_fps_min: 'FPS must be at least 1',
             err_end_before_start: 'End time must be after start',
             err_need_anim_id: 'Animation ID is required',
@@ -277,6 +259,24 @@
             unit_b: 'B',
             unit_kb: 'KB',
             unit_mb: 'MB',
+            // Outliner right-click menus
+            menu_toggle_emissive: 'obj³: Toggle Emissive',
+            menu_body_part: 'obj³: Body part',
+            bp_none: '— None —',
+            bp_head: 'Head',
+            bp_body: 'Body / Chest',
+            bp_arm_r: 'Right arm',
+            bp_arm_l: 'Left arm',
+            bp_leg_r: 'Right leg',
+            bp_leg_l: 'Left leg',
+            bp_foot_r: 'Right foot / boot',
+            bp_foot_l: 'Left foot / boot',
+            toast_emissive_on: 'Emissive: ON',
+            toast_emissive_off: 'Emissive: OFF',
+            toast_bodypart: 'obj³: {name} → {part}',
+            undo_emissive_on: 'Enable emissive',
+            undo_emissive_off: 'Disable emissive',
+            undo_bodypart: 'Set obj³ body part',
             // Frame count
             frames_one: 'frame',
             frames_other: 'frames',
@@ -284,6 +284,11 @@
             ticks_other: 'ticks',
             problems_one: 'problem',
             problems_other: 'problems',
+            faces_one: 'face',
+            faces_other: 'faces',
+            warnings_one: 'warning',
+            warnings_other: 'warnings',
+            warn_suffix: ' ({n} {w} — see console)',
             // Help tooltips
             help_selectedTex: 'Texture applied to the model.',
             help_useAtlas: 'Combine multiple textures into one large PNG. Useful when the model has parts with different textures.',
@@ -395,18 +400,6 @@
             color_datapack_note: 'управляется настройками датапака',
             no_project: 'Нет открытого проекта.',
             no_textures: 'В проекте нет текстур.',
-            preset: 'Пресет',
-            tip_add_preset: 'Создать новый пресет',
-            tip_add_preset_single: 'Создать ещё один пресет',
-            tip_dup_preset: 'Скопировать текущий',
-            tip_rename_preset: 'Переименовать',
-            tip_delete_preset: 'Удалить пресет',
-            tip_cant_delete_last: 'Нельзя удалить последний пресет',
-            prompt_new_preset: 'Имя нового пресета:',
-            prompt_copy_name: 'Имя копии:',
-            prompt_copy_suffix: ' (копия)',
-            prompt_rename: 'Новое имя пресета:',
-            confirm_delete_preset: 'Удалить пресет «{name}»?',
             section_texture: 'Текстура',
             atlas_combine: 'Объединить текстуры в атлас',
             section_transform: 'Трансформация',
@@ -509,13 +502,8 @@
             lbl_flipuv: 'Перевернуть UV',
             lbl_nopow: 'Без округления до степени 2',
             lbl_filter_armature: 'Скрыть кости арматуры',
-            btn_export_all: 'Экспорт всех',
-            status_skipping: 'Пропускаю «{name}» (есть ошибки)',
-            status_preset_progress: 'Пресет {i}/{total}: {name}…',
-            status_done: 'Готово: экспортировано {total} пресет(ов)',
             status_display_mode: 'Откройте File → Экспорт obj³ когда закончите',
             status_display_unavailable: 'Режим отображения недоступен в этом формате модели',
-            err_scale_positive: 'Масштаб должен быть положительным',
             err_fps_min: 'FPS должен быть не меньше 1',
             err_end_before_start: 'Время Конец должно быть больше Старт',
             err_need_anim_id: 'Нужен Animation ID',
@@ -531,12 +519,40 @@
             unit_b: 'Б',
             unit_kb: 'КБ',
             unit_mb: 'МБ',
+            // Outliner right-click menus
+            menu_toggle_emissive: 'obj³: Переключить свечение',
+            menu_body_part: 'obj³: Часть тела',
+            bp_none: '— Нет —',
+            bp_head: 'Голова',
+            bp_body: 'Тело / Грудь',
+            bp_arm_r: 'Правая рука',
+            bp_arm_l: 'Левая рука',
+            bp_leg_r: 'Правая нога',
+            bp_leg_l: 'Левая нога',
+            bp_foot_r: 'Правая ступня / ботинок',
+            bp_foot_l: 'Левая ступня / ботинок',
+            toast_emissive_on: 'Свечение: ВКЛ',
+            toast_emissive_off: 'Свечение: ВЫКЛ',
+            toast_bodypart: 'obj³: {name} → {part}',
+            undo_emissive_on: 'Включить свечение',
+            undo_emissive_off: 'Выключить свечение',
+            undo_bodypart: 'Задать часть тела obj³',
             frames_one: 'кадр',
-            frames_other: 'кадров',
+            frames_few: 'кадра',
+            frames_many: 'кадров',
             ticks_one: 'тик',
-            ticks_other: 'тиков',
+            ticks_few: 'тика',
+            ticks_many: 'тиков',
             problems_one: 'проблема',
-            problems_other: 'проблем',
+            problems_few: 'проблемы',
+            problems_many: 'проблем',
+            faces_one: 'грань',
+            faces_few: 'грани',
+            faces_many: 'граней',
+            warnings_one: 'предупреждение',
+            warnings_few: 'предупреждения',
+            warnings_many: 'предупреждений',
+            warn_suffix: ' ({n} {w} — см. консоль)',
             help_selectedTex: 'Текстура которая накладывается на модель.',
             help_useAtlas: 'Объединить несколько текстур в один большой PNG. Полезно когда модель состоит из частей с разными текстурами.',
             tex_anim_enable: 'Анимировать текстуру ({n} кадров)',
@@ -642,14 +658,33 @@
     }
 
     /**
-     * Simple plural helper: returns the "one" or "other" form for the current
-     * language.  Russian uses a more complex rule internally, but for the few
-     * places we need plurals (frames, ticks, problems) the simple one/other
-     * split per-language is good enough when the LANG values already account
-     * for it (e.g. ru uses the "many" form as the "other" catch-all).
+     * Language-aware plural helper. Picks the correct grammatical form for `n`
+     * in the active language and looks it up as `key + '_' + form`:
+     *   - EN: standard one/other  → keys X_one / X_other
+     *   - RU: standard Slavic rule → keys X_one / X_few / X_many
+     *       one  : n%10==1 && n%100!=11      (1, 21, 31 … кадр)
+     *       few  : n%10 in 2..4 && n%100 not in 12..14  (2-4, 22-24 … кадра)
+     *       many : everything else           (0, 5-20, 25-30 … кадров)
+     * Falls back gracefully so a missing form never crashes: try the chosen
+     * form, then '_other', then '_one', then the bare key.
      */
+    function pluralForm(n, lang) {
+        if (lang === 'ru') {
+            const mod10 = n % 10, mod100 = n % 100;
+            if (mod10 === 1 && mod100 !== 11) return 'one';
+            if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'few';
+            return 'many';
+        }
+        return (n === 1) ? 'one' : 'other';
+    }
     function tPlural(n, key) {
-        return (n === 1) ? t(key + '_one') : t(key + '_other');
+        const lang = (typeof settings !== 'undefined' && settings.language) ? settings.language.value : 'en';
+        const form = pluralForm(n, lang);
+        const dict = (LANG[lang] && LANG[lang][key + '_' + form] != null) ? LANG[lang] : LANG.en;
+        // Resolve against the chosen dict with graceful fallback to other shapes.
+        const pick = (suf) => dict[key + suf];
+        const val = pick('_' + form) || pick('_other') || pick('_one') || pick('') || (key + '_' + form);
+        return val;
     }
 
     // Surface a warning to the USER (not just the dev console). Many export
@@ -811,7 +846,7 @@
         }
         .oc-section-body { padding: 0 calc(12px * var(--oc-scale)) calc(10px * var(--oc-scale)) calc(12px * var(--oc-scale)); }
 
-        /* Inline buttons (preset bar etc.) — borderless, BB-native style */
+        /* Inline buttons — borderless, BB-native style */
         .oc-btn {
             padding: calc(4px * var(--oc-scale)) calc(8px * var(--oc-scale)); cursor: pointer;
             background: rgba(255,255,255,0.06); border: none;
@@ -1044,9 +1079,6 @@
             flex-shrink: 0;
         }
 
-        /* Compact preset bar (1 preset only) — just name + add button */
-        .oc-preset-compact { display: flex; align-items: center; gap: 8px; }
-
         /* Sticky footer — pinned to bottom of the nearest scroll container
            (BlockBench Dialog body). Transparent-ish background blends with
            the dialog so the footer doesn't look like a separate panel. */
@@ -1156,7 +1188,9 @@
     // Settings live on the active Project (Project.objcubed_data) and get
     // serialized into the .bbmodel via Codecs.project compile/parse hooks.
     //
-    // Data shape (forward-compatible with Stage 5 presets):
+    // Data shape — a single fixed preset at index 0 holds all settings.
+    // (The presets[] array shape is retained as the storage backbone; the
+    // multi-preset management UI was removed as dead code.)
     //   {
     //     version: 1,
     //     activePresetIndex: 0,
@@ -1208,42 +1242,6 @@
         root.presets[root.activePresetIndex].settings = settings;
     }
 
-    // Preset management helpers — operate on Project.objcubed_data directly.
-    function getPresetNames() {
-        const root = ensureDataRoot();
-        return root ? root.presets.map(p => p.name) : [];
-    }
-    function getActivePresetIndex() {
-        const root = ensureDataRoot();
-        return root ? root.activePresetIndex : 0;
-    }
-    function setActivePresetIndex(i) {
-        const root = ensureDataRoot();
-        if (!root) return;
-        if (i < 0 || i >= root.presets.length) return;
-        root.activePresetIndex = i;
-    }
-    function addPreset(name, settings) {
-        const root = ensureDataRoot();
-        if (!root) return -1;
-        root.presets.push({ name: name || `preset ${root.presets.length+1}`, settings: settings || {} });
-        return root.presets.length - 1;
-    }
-    function removePreset(i) {
-        const root = ensureDataRoot();
-        if (!root || root.presets.length <= 1) return false;
-        if (i < 0 || i >= root.presets.length) return false;
-        root.presets.splice(i, 1);
-        if (root.activePresetIndex >= root.presets.length)
-            root.activePresetIndex = root.presets.length - 1;
-        return true;
-    }
-    function renamePresetAt(i, newName) {
-        const root = ensureDataRoot();
-        if (!root || i < 0 || i >= root.presets.length) return;
-        root.presets[i].name = newName;
-    }
-
     // Group body-part tags persist via OUR codec hooks, not BlockBench's property
     // serializer: BB does not reliably save custom Group properties to .bbmodel
     // (Cube/Mesh props persist, Group props get dropped), so the objcubed_body_part
@@ -1269,6 +1267,7 @@
     // reload idempotent.
     let _compileHandler = null;
     let _parseHandler = null;
+    let _bodyPartTimer = null;   // deferred tag re-apply; cleared on uninstall
 
     function installProjectPersistence() {
         if (typeof Codecs === 'undefined' || !Codecs.project) return;
@@ -1293,7 +1292,8 @@
             // don't exist yet at the 'parse' event), so deferred to the next tick.
             if (stored.bodyPartTags && typeof setTimeout === 'function') {
                 const map = stored.bodyPartTags;
-                setTimeout(() => applyBodyPartTags(map), 0);
+                if (_bodyPartTimer) clearTimeout(_bodyPartTimer);
+                _bodyPartTimer = setTimeout(() => { _bodyPartTimer = null; applyBodyPartTags(map); }, 0);
             }
         };
         Codecs.project.on('compile', _compileHandler);
@@ -1318,6 +1318,7 @@
             }
         }
         _compileHandler = _parseHandler = null;
+        if (_bodyPartTimer) { clearTimeout(_bodyPartTimer); _bodyPartTimer = null; }
     }
 
     // =========================================================
@@ -2484,6 +2485,14 @@
             'firstperson_righthand','firstperson_lefthand',
             'head','gui','ground','fixed','on_shelf',
         ];
+        // Per-axis depth (Z) display scale can't be reproduced in the hand/world/frame
+        // slots: their transform is reconstructed from the flat 1-quad carrier, which
+        // exposes only the X/Y in-plane edges (subgroupQuadBroadcast sees 4 coplanar
+        // corners = 2 edges), so the perpendicular Z axis uses min(Sx,Sy). Exact for
+        // uniform + X-only/Y-only stretch (Sz == min(Sx,Sy)); a different Sz is lost.
+        // GUI is exact (its per-axis scale rides the header). Warn so the user isn't
+        // mystified. See memory: display-z-depth-limit.
+        const zLossySlots = [];
 
         const nativeDisplay = (typeof display !== 'undefined' && display) ||
                               (typeof Project !== 'undefined' && Project && Project.display) ||
@@ -2516,6 +2525,14 @@
             if (t.some(v => v !== 0)) entry.translation = [...t];
             if (s.some(v => v !== 1)) entry.scale       = [...s];
             if (Object.keys(entry).length) result[key] = entry;
+
+            // Z is lossy iff the intended depth scale differs from min(Sx,Sy).
+            if (Math.abs(s[2] - Math.min(s[0], s[1])) > 1e-4) zLossySlots.push(key);
+        }
+
+        // Item-only: armor is body-part mapped and doesn't use this display path.
+        if (!cfg.exportAsEquipment && zLossySlots.length) {
+            surfaceWarning(`Per-axis depth (Z) display scale on ${zLossySlots.join(', ')} can't be reproduced in hand/world/frame — the flat carrier exposes only X/Y, so Z falls back to min(Sx,Sy). GUI is exact. Use a uniform or X/Y-only display scale on these slots if depth matters.`);
         }
 
         return result;
@@ -2640,6 +2657,9 @@
         const BYTE24_MAX = 16777215; // u24() holds 0..2^24-1; larger values wrap mod 2^24
         if (!Number.isFinite(cfg.scale))
             throw new Error(`Scale is not a finite number (got ${cfg.scale}).`);
+        // No scale UI input; a legacy/corrupt non-positive scale would silently collapse
+        // the model. Coerce to 1 (the default) rather than block export with a dead-end.
+        if (cfg.scale <= 0) cfg.scale = 1;
         if (!Array.isArray(cfg.offset) || !cfg.offset.every(Number.isFinite))
             throw new Error(`Offset X/Y/Z must be finite numbers (got ${cfg.offset && cfg.offset.join(', ')}).`);
         // Position codec: byte24 = 8388608 + v_world*65536, decodable only in [-128, +128).
@@ -2798,7 +2818,13 @@
             const px = i%tw, py = Math.floor(i/tw)+headerRows;
             put(px, py, Math.trunc(px/256)%256, px%256, Math.trunc(py/256)%256, py%256);
             const elem = {
-                from: [8,0,8], to: [24,16,8],
+                // Carrier anchor = FaceBakery NORTH c2 = MIN corner = (8,8,8) px = block
+                // centre (0.5,0.5,0.5). The shader anchors the centred decoded model AT c2,
+                // so c2 must be the cube CENTRE, not the cube bottom. Was [8,0,8] (MIN_Y=0 =
+                // bottom) which dropped every model 0.5 block (8px) low — verified by
+                // tools/render-tester (IoU 0.47 -> 0.998 after this shift). +Y edge stays
+                // 16px (8..24) so display scale/rotation reconstruction is unchanged.
+                from: [8,8,8], to: [24,24,8],
                 faces: { north: {
                     uv: [(px+0.1)*16/tw,(py+0.1)*16/ty,(px+0.9)*16/tw,(py+0.9)*16/ty],
                     texture: '#0', tintindex: 0,
@@ -2950,8 +2976,10 @@
         }
 
         const pngBuffer = encodePNG(tw, ty, buf);
-        const warnStr = verifyWarns.length ? ` (${verifyWarns.length} warning(s) — see console)` : '';
-        const debugInfo = `${nfaces} faces · ${nframes} frame(s) · ${tw}×${ty}px` + warnStr;
+        const warnStr = verifyWarns.length
+            ? t('warn_suffix').replace('{n}', verifyWarns.length).replace('{w}', tPlural(verifyWarns.length, 'warnings'))
+            : '';
+        const debugInfo = `${nfaces} ${tPlural(nfaces, 'faces')} · ${nframes} ${tPlural(nframes, 'frames')} · ${tw}×${ty}px` + warnStr;
 
         return { pngBuffer, rawBuf: buf, elements, nfaces, nvertices, nframes, tw, ty, debugInfo, faceGroups, faceBlocks, faceToPart, faceEmission };
     }
@@ -3249,10 +3277,13 @@
                 'thirdperson_righthand', 'thirdperson_lefthand',
                 'firstperson_righthand', 'firstperson_lefthand', 'head',
             ];
-            // Calibrated anchor lift (BB units, 16 = 1 block). Was 8 (=0.5 block); after
-            // MC 26.1.2 bakes display into the vertices the anchor sits higher, so the model
-            // ended up ~5 too high — reduced to 3. Tune here if hand/head height drifts.
-            const ANCHOR_LIFT_Y = 3;
+            // Anchor lift (BB units, 16 = 1 block). This used to compensate the carrier
+            // anchor being at the cube BOTTOM (the -0.5 block bug): it was 8 (=exact
+            // compensation), then mis-tuned to 3 (under-compensating -> model dropped ~5px,
+            // the "sits at bottom" report). The root is now fixed in the carrier geometry
+            // (c2 = cube centre), so no compensation is needed: 0. Add a small value here
+            // ONLY if you want an intentional hand/head aesthetic offset (verify in-game).
+            const ANCHOR_LIFT_Y = 0;
             const liftY8 = (d) => {
                 const base = d || IDENTITY_DISPLAY;
                 const t = base.translation || [0, 0, 0];
@@ -3292,7 +3323,12 @@
             } else {
                 itemObj = buildItemSelector(modelName, exportedSlots, baseItem);
             }
-            fs.writeFileSync(itemPath, JSON.stringify(itemObj, null, 2), 'utf8');
+            // Atomic write: this file aggregates EVERY model's custom_model_data case on
+            // this base item, so a half-written/interrupted overwrite would destroy them
+            // all. Stage to .tmp then rename (atomic on the same filesystem).
+            { const tmp = itemPath + '.tmp';
+              fs.writeFileSync(tmp, JSON.stringify(itemObj, null, 2), 'utf8');
+              fs.renameSync(tmp, itemPath); }
 
             // give helper → assets/minecraft/items/<baseItem>_give.txt. The exact
             // command the player runs to get the base item carrying this model's
@@ -3327,8 +3363,18 @@
                     cfg.datapackNamespace, cfg.datapackTargetType,
                     cfg.datapackEquipSlot
                 );
+                // Empty output dir defaults to a sibling of the resource pack. That default
+                // is unwritable when the RP root is a Flatpak document-portal mount
+                // (/run/user/.../doc/<id>/ — the portal grants the picked folder, not its
+                // parent → mkdir EPERM). Don't let that abort the export (the RP already
+                // wrote); warn with the path + the fix (pick a datapack folder explicitly).
                 const dpBase = cfg.datapackOutputDir || path.join(root, '..', 'datapacks');
-                saveDatapackFiles(dpFiles, path.join(dpBase, 'objcubed'));
+                const dpDir = path.join(dpBase, 'objcubed');
+                try {
+                    saveDatapackFiles(dpFiles, dpDir);
+                } catch (e) {
+                    surfaceWarning(`couldn't write the datapack to "${dpDir}" (${(e && e.message) || e}). The model + resource pack exported fine; to get the datapack, set the "Datapack output folder" to a writable location (e.g. your world's datapacks/ folder) and re-export.`);
+                }
             } else if (cfg.generateDatapack && result.nframes <= 1) {
                 // Datapack drives multi-frame playback; a single frame has nothing to
                 // play. Silently skipping left the user expecting control functions.
@@ -3837,9 +3883,6 @@
                     const curAnim = Animation.all[state.animationIndex];
                     if (curAnim) state.animEnd = curAnim.length;
 
-                    // Preset bar state (mirror of Project.objcubed_data root).
-                    state.presetNames = getPresetNames();
-                    state.activePresetIdx = getActivePresetIndex();
                     suspendPersist = false;
                     return state;
                 },
@@ -3943,6 +3986,18 @@
                     // v-if, so Vue tears it down with the component. Nothing extra
                     // to remove, but guard against any stray nodes if a future
                     // refactor portals them out.
+                    // Closing mid-tour (Close/Esc) bypasses tourEnd, which is the only
+                    // place that restored fields a tour step force-revealed (animationEnabled,
+                    // generateDatapack, exportAsEquipment…). Without this they'd persist
+                    // forced-ON to the project. Mirror tourEnd's restore + persist explicitly
+                    // (the field watcher may not flush during teardown).
+                    if (this._tourSaved) {
+                        for (const k in this._tourSaved) this[k] = this._tourSaved[k];
+                        this._tourSaved = null;
+                        const snap = {};
+                        for (const k of PERSISTABLE_FIELDS) snap[k] = this[k];
+                        saveActiveSettings(snap);
+                    }
                     this.tourActive = false;
                 },
                 computed: {
@@ -4110,8 +4165,9 @@
                         const errs = [];
                         if (this.useAtlas && this.multiTex && !this.atlasTexChecked.some(v => v))
                             errs.push({ field:'atlas', msg: t('err_atlas_none') });
-                        if (+this.scale <= 0)
-                            errs.push({ field:'scale', msg: t('err_scale_positive') });
+                        // (removed: orphaned scale<=0 validation — `scale` has no UI input,
+                        // so this was an unrecoverable dead-end for legacy/corrupt persisted
+                        // values; the encoder coerces a non-positive scale to 1 instead.)
                         if (this.hasAnims && this.animationEnabled) {
                             if (+this.animEnd <= +this.animStart)
                                 errs.push({ field:'animEnd', msg: t('err_end_before_start') });
@@ -4192,6 +4248,9 @@
                             this[k] = step.reveal[k];
                         }
                     },
+                    // Snap texFrametime back to a valid >=1 integer (min= only guards the
+                    // spinner; a typed 0/-5 otherwise lingers in the field while export clamps).
+                    clampTexFrametime() { this.texFrametime = Math.max(1, Math.round(+this.texFrametime || 1)); },
                     tourEnd(persistSeen) {
                         this.tourActive = false;
                         // Restore anything a step revealed (e.g. animationEnabled).
@@ -4216,6 +4275,27 @@
                             ? this.$el.ownerDocument.getElementById('oc-tour-card') : null;
                         if (!card) return;
                         const vw = window.innerWidth, vh = window.innerHeight;
+                        // position:fixed is viewport-relative UNLESS an ancestor establishes a
+                        // containing block (transform/filter/perspective/will-change/contain) —
+                        // some custom BlockBench themes do this on the dialog, which makes the
+                        // tour spotlight + card drift sideways. Find that ancestor and convert
+                        // our viewport coords into it (cbOff = {0,0} for the default theme).
+                        const cbOff = (() => {
+                            let p = card.parentElement;
+                            while (p && p.nodeType === 1) {
+                                const s = getComputedStyle(p);
+                                if ((s.transform && s.transform !== 'none') ||
+                                    (s.filter && s.filter !== 'none') ||
+                                    (s.perspective && s.perspective !== 'none') ||
+                                    /transform|filter|perspective/.test(s.willChange || '') ||
+                                    /paint|layout|strict|content/.test(s.contain || '')) {
+                                    const r = p.getBoundingClientRect();
+                                    return { x: r.left, y: r.top };
+                                }
+                                p = p.parentElement;
+                            }
+                            return { x: 0, y: 0 };
+                        })();
                         // No spotlight: center the card.
                         const center = () => {
                             // Full dim, no spotlight cutout: a 0x0 hole at the screen
@@ -4224,14 +4304,14 @@
                             if (hole) {
                                 hole.style.display = 'block';
                                 hole.style.outline = 'none';
-                                hole.style.left   = Math.round(vw / 2) + 'px';
-                                hole.style.top    = Math.round(vh / 2) + 'px';
+                                hole.style.left   = Math.round(vw / 2 - cbOff.x) + 'px';
+                                hole.style.top    = Math.round(vh / 2 - cbOff.y) + 'px';
                                 hole.style.width  = '0px';
                                 hole.style.height = '0px';
                             }
                             const cr = card.getBoundingClientRect();
-                            card.style.left = Math.round((vw - cr.width) / 2) + 'px';
-                            card.style.top  = Math.round((vh - cr.height) / 2) + 'px';
+                            card.style.left = Math.round((vw - cr.width) / 2 - cbOff.x) + 'px';
+                            card.style.top  = Math.round((vh - cr.height) / 2 - cbOff.y) + 'px';
                         };
                         if (!step || !step.sel) { center(); return; }
                         let target = null;
@@ -4252,8 +4332,8 @@
                             if (hole) {
                                 hole.style.display = 'block';
                                 hole.style.outline = '';  // restore the CSS spotlight ring
-                                hole.style.left   = (r.left - pad) + 'px';
-                                hole.style.top    = (r.top - pad) + 'px';
+                                hole.style.left   = (r.left - pad - cbOff.x) + 'px';
+                                hole.style.top    = (r.top - pad - cbOff.y) + 'px';
                                 hole.style.width  = (r.width + pad * 2) + 'px';
                                 hole.style.height = (r.height + pad * 2) + 'px';
                             }
@@ -4271,8 +4351,8 @@
                             let left = r.left + r.width / 2 - cr.width / 2;
                             top  = Math.max(edge, Math.min(top,  vh - cr.height - edge));
                             left = Math.max(edge, Math.min(left, vw - cr.width  - edge));
-                            card.style.left = Math.round(left) + 'px';
-                            card.style.top  = Math.round(top) + 'px';
+                            card.style.left = Math.round(left - cbOff.x) + 'px';
+                            card.style.top  = Math.round(top - cbOff.y) + 'px';
                         };
                         // Smooth scroll is async AND eases in slowly, so a naive
                         // "stabilized" check trips on the slow first frames and pins
@@ -4523,92 +4603,6 @@
                         });
                     },
 
-                    // ---- Preset management ----
-                    // Reload all persisted fields from the given preset index
-                    // (writing to this.* values). Suspends auto-persist so the
-                    // load doesn't bounce back into the old preset.
-                    loadPresetIntoForm(idx) {
-                        const root = ensureDataRoot();
-                        if (!root || !root.presets[idx]) return;
-                        const settings = root.presets[idx].settings || {};
-                        suspendPersist = true;
-                        try {
-                            for (const k of PERSISTABLE_FIELDS) {
-                                if (Object.prototype.hasOwnProperty.call(settings, k)) {
-                                    this[k] = settings[k];
-                                } else if (dialogDefaults && Object.prototype.hasOwnProperty.call(dialogDefaults, k)) {
-                                    this[k] = dialogDefaults[k];
-                                }
-                            }
-                        } finally {
-                            this.$nextTick(() => { suspendPersist = false; });
-                        }
-                    },
-                    onPresetChange() {
-                        const idx = +this.activePresetIdx;
-                        setActivePresetIndex(idx);
-                        this.loadPresetIntoForm(idx);
-                    },
-                    addPreset() {
-                        const name = window.prompt(t('prompt_new_preset'), 'preset ' + (this.presetNames.length + 1));
-                        if (!name) return;
-                        // Snapshot current dialog state as the new preset (so
-                        // user doesn't lose tweaks when creating a sibling).
-                        const snap = {};
-                        for (const k of PERSISTABLE_FIELDS) snap[k] = this[k];
-                        const idx = addPreset(name.trim() || 'preset', snap);
-                        this.presetNames = getPresetNames();
-                        this.activePresetIdx = idx;
-                        setActivePresetIndex(idx);
-                    },
-                    duplicatePreset() {
-                        const cur = this.presetNames[this.activePresetIdx] || 'preset';
-                        const name = window.prompt(t('prompt_copy_name'), cur + t('prompt_copy_suffix'));
-                        if (!name) return;
-                        const snap = {};
-                        for (const k of PERSISTABLE_FIELDS) snap[k] = this[k];
-                        const idx = addPreset(name.trim() || 'preset', snap);
-                        this.presetNames = getPresetNames();
-                        this.activePresetIdx = idx;
-                        setActivePresetIndex(idx);
-                    },
-                    renameCurrentPreset() {
-                        const cur = this.presetNames[this.activePresetIdx] || 'preset';
-                        const name = window.prompt(t('prompt_rename'), cur);
-                        if (!name || name === cur) return;
-                        renamePresetAt(this.activePresetIdx, name.trim() || cur);
-                        this.presetNames = getPresetNames();
-                    },
-                    deleteCurrentPreset() {
-                        if (this.presetNames.length <= 1) return;
-                        const cur = this.presetNames[this.activePresetIdx] || 'preset';
-                        if (!window.confirm(t('confirm_delete_preset').replace('{name}', cur))) return;
-                        if (!removePreset(this.activePresetIdx)) return;
-                        this.presetNames = getPresetNames();
-                        const newIdx = getActivePresetIndex();
-                        this.activePresetIdx = newIdx;
-                        this.loadPresetIntoForm(newIdx);
-                    },
-                    async exportAll() {
-                        if (this.presetNames.length < 2) return;
-                        const total = this.presetNames.length;
-                        for (let i = 0; i < total; i++) {
-                            this.activePresetIdx = i;
-                            setActivePresetIndex(i);
-                            this.loadPresetIntoForm(i);
-                            await this.$nextTick();
-                            // Skip presets whose state has validation errors —
-                            // batch shouldn't be derailed by one bad one.
-                            if (this.validationErrors.length) {
-                                this.status = t('status_skipping').replace('{name}', this.presetNames[i]);
-                                continue;
-                            }
-                            this.status = t('status_preset_progress').replace('{i}', i+1).replace('{total}', total).replace('{name}', this.presetNames[i]);
-                            await this.doExport();
-                        }
-                        this.status = t('status_done').replace('{total}', total);
-                    },
-
                     browseDatapackDir() {
                         const dir = Blockbench.pickDirectory({
                             title: 'Select datapack output directory',
@@ -4782,11 +4776,15 @@
                                     Blockbench.showQuickMessage(t('status_cancelled'), 2500);
                                 }
                             } else {
+                                // Null-safe: a non-Error/falsy throw (e.g. `throw null`) would
+                                // make `err.message` a secondary TypeError that masks the real
+                                // failure. Coerce to a string for both the status and the toast.
+                                const m = (err && err.message) || String(err);
                                 this.statusKind = 'error';
-                                this.status = t('export_failed') + err.message;
+                                this.status = t('export_failed') + m;
                                 console.error('[obj3]', err);
                                 if (typeof Blockbench !== 'undefined' && Blockbench.showQuickMessage) {
-                                    Blockbench.showQuickMessage(t('export_failed') + err.message, 4000);
+                                    Blockbench.showQuickMessage(t('export_failed') + m, 4000);
                                 }
                             }
                         } finally {
@@ -4853,7 +4851,7 @@
       <div v-if="texAnimEnabled" style="display:flex;flex-direction:column;gap:8px;padding-left:4px;">
         <label style="display:flex;align-items:center;gap:8px;">
           <span>{{t('tex_frametime')}}</span>
-          <input v-model.number="texFrametime" type="number" min="1" step="1" style="width:70px;padding:4px 6px;"/>
+          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime" style="width:70px;padding:4px 6px;"/>
           <span class="oc-help" :data-tip="help('texFrametime')">?</span>
         </label>
         <label style="display:inline-flex;align-items:center;gap:6px;">
@@ -5395,6 +5393,10 @@
             onConfirm: function () {
                 const vm = this.content_vue;
                 if (!vm) return;
+                // Re-entrancy guard: the button stays clickable (we return false to keep the
+                // dialog open), so without this a second click during an in-flight export
+                // launches a concurrent run racing on the same files/status.
+                if (vm.running) return false;
                 if (vm.validationErrors.length) {
                     vm.scrollToFirstError();
                     return false;  // keep dialog open
@@ -5415,7 +5417,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.44',
+        version: '0.5.52',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
@@ -5436,8 +5438,9 @@
                 });
             }
             this._emissiveMenuItem = {
-                name: 'obj³: Toggle Emissive',
+                name: t('menu_toggle_emissive'),
                 icon: 'light_mode',
+                condition: () => (OutlinerElement.selected || []).length > 0,
                 click() {
                     const sel = OutlinerElement.selected || [];
                     if (!sel.length) return;
@@ -5445,8 +5448,8 @@
                     const newVal = anyOn ? 0 : 15;
                     Undo.initEdit({ elements: sel });
                     sel.forEach(el => { el.objcubed_light_emission = newVal; });
-                    Undo.finishEdit(newVal ? 'Enable emissive' : 'Disable emissive');
-                    Blockbench.showQuickMessage(newVal ? 'Emissive: ON' : 'Emissive: OFF', 1000);
+                    Undo.finishEdit(t(newVal ? 'undo_emissive_on' : 'undo_emissive_off'));
+                    Blockbench.showQuickMessage(t(newVal ? 'toast_emissive_on' : 'toast_emissive_off'), 1000);
                 },
             };
             Cube.prototype.menu.structure.unshift(this._emissiveMenuItem);
@@ -5457,24 +5460,31 @@
             // exporter reads objcubed_body_part to route each face to its part.
             if (typeof Group !== 'undefined') {
                 this._bodyPartProp = new Property(Group, 'number', 'objcubed_body_part', { default: -1 });
+                // [i18n key, body-part id]. Label text comes from t() so the menu and
+                // its toast follow the active language.
                 const OC_BODY_PARTS = [
-                    ['— None —', -1], ['Head', 1], ['Body / Chest', 0], ['Right arm', 2], ['Left arm', 3],
-                    ['Right leg', 4], ['Left leg', 5], ['Right foot / boot', 6], ['Left foot / boot', 7],
+                    ['bp_none', -1], ['bp_head', 1], ['bp_body', 0], ['bp_arm_r', 2], ['bp_arm_l', 3],
+                    ['bp_leg_r', 4], ['bp_leg_l', 5], ['bp_foot_r', 6], ['bp_foot_l', 7],
                 ];
                 this._bodyPartMenuItem = {
-                    name: 'obj³: Body part',
+                    name: t('menu_body_part'),
                     icon: 'accessibility_new',
-                    children: OC_BODY_PARTS.map(([label, id]) => ({
-                        name: label,
+                    condition: () => (Group.all || []).length > 0,
+                    children: OC_BODY_PARTS.map(([labelKey, id]) => ({
+                        name: t(labelKey),
                         click(group) {
                             // Tag ONLY the right-clicked group (avoids the "tagged
                             // everything because several groups were selected" trap).
                             const g = group || (Group.all || []).find(x => x.selected);
                             if (!g) return;
-                            Undo.initEdit({ outliner: true });
+                            // {groups:[g]} snapshots the Group's registered Properties (incl.
+                            // objcubed_body_part) so undo reverts the tag; {outliner:true} only
+                            // captured tree structure, leaving the tag stuck after undo.
+                            Undo.initEdit({ groups: [g] });
                             g.objcubed_body_part = id;
-                            Undo.finishEdit('Set obj³ body part');
-                            Blockbench.showQuickMessage(`obj³: ${g.name} → ${label}`, 1500);
+                            Undo.finishEdit(t('undo_bodypart'));
+                            Blockbench.showQuickMessage(
+                                t('toast_bodypart').replace('{name}', g.name).replace('{part}', t(labelKey)), 1500);
                         },
                     })),
                 };

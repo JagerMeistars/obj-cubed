@@ -23,6 +23,16 @@ function makeMemFs(seed) {
     writeFileSync(p, content /*, opts */) {
       writes.set(p, content);
     },
+    renameSync(from, to) {
+      // Mirror fs.renameSync for the atomic .tmp->target write path.
+      if (!writes.has(from)) {
+        const err = new Error('ENOENT: no such file, rename ' + from);
+        err.code = 'ENOENT';
+        throw err;
+      }
+      writes.set(to, writes.get(from));
+      writes.delete(from);
+    },
     mkdirSync(p /*, opts */) {
       dirs.add(p);
     },

@@ -95,7 +95,7 @@ describe('resource pack export (#7)', () => {
     }
   });
 
-  it('writes a +3 Y anchor baseline for model.json-driven slots (not ~0.5 block low; block defaults cannot leak)', async () => {
+  it('writes identity display for all slots (ANCHOR_LIFT_Y=0; centering fixed in the carrier anchor)', async () => {
     const { api, memfs } = setup();
 
     // User touched NO display settings: displayTransforms = {}.
@@ -103,21 +103,18 @@ describe('resource pack export (#7)', () => {
       resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
     });
 
-    // The carrier anchor lift: model.json-driven hand/head slots get an explicit Y
-    // baseline (ANCHOR_LIFT_Y) so they don't sit low and so MC's block-model display
-    // defaults (scale ~0.4) can't leak in. Reduced 8->3 after MC 26.1.2's vertex-bake
-    // raised the anchor (the +8 then read ~5 too high in-game).
+    // ANCHOR_LIFT_Y is now 0: the -0.5 block centering was a carrier-anchor bug (c2 at
+    // the cube bottom), now fixed in the placeholder geometry (c2 = cube centre, [8,8,8]).
+    // The lift used to compensate that bug via translation; with the root fixed it's 0, so
+    // all slots carry identity translation (verified by tools/render-tester, IoU 0.998).
     const model = JSON.parse(
       memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json')
     );
-    const LIFTED = { rotation: [0, 0, 0], translation: [0, 3, 0], scale: [1, 1, 1] };
+    const IDENT = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
     for (const s of ['firstperson_righthand', 'firstperson_lefthand',
-                     'thirdperson_righthand', 'head']) {
-      expect(model.display[s], s).toEqual(LIFTED);
+                     'thirdperson_righthand', 'head', 'fixed']) {
+      expect(model.display[s], s).toEqual(IDENT);
     }
-    // fixed is NOT lifted (item-frame rotation would orbit it) — plain identity,
-    // which still blocks block-model default leakage.
-    expect(model.display.fixed).toEqual({ rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] });
   });
 
   it('cfg.cmdName drives the model/item case key and give command (#7)', async () => {

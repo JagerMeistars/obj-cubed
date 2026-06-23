@@ -518,9 +518,41 @@ if (isCustom == 0) {
             int ah = ahh + (as.y * ant);
             ivec2 ai = getvert(ao, as.x, ah+avph+avth, avid, false);
             posoffset = getpos(ao, as.x, ah, ai.x);
-            texCoord = getuv(ao, as.x, ah+avph, ai.y);
-            texCoord = (vec2(0, ahh) + texCoord*vec2(as))/vec2(atlasSize)
-                + vec2(onepixel.x*0.0001*float(ac), onepixel.y*0.0001*float((ac+1)%4));
+            // Frame interpolation (geometry morph): blend toward the next frame with the
+            // same easing as the item path (objmc_main.glsl ~149-178). Armor used to hard-
+            // step (only the integer afr) -> no smooth animation AND no easing (easing lives
+            // inside this mix). No-op for static armor (anf==1) / easing.x==0.
+            ivec2 aeasing = ivec2(getb(t[4].a, 4, 2), getb(t[4].a, 2, 2));
+            if (anf > 1 && aeasing.x > 0) {
+                int avbase = (afk * 4 + ac) % anv;
+                float atr = fract(at * float(anf) / adur);
+                vec3 po2 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 1) % anf) * anv, false).x);
+                if (aeasing.x == 3) {
+                    vec3 po3 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 2) % anf) * anv, false).x);
+                    vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 3) % anf) * anv, false).x);
+                    posoffset = bezier(posoffset, po2, po3, po4, atr);
+                } else {
+                    if (aeasing.x == 2) atr = atr < 0.5 ? 4.0 * atr * atr * atr : 1.0 - pow(-2.0 * atr + 2.0, 3.0) * 0.5;
+                    posoffset = mix(posoffset, po2, atr);
+                }
+            }
+            vec2 auv = getuv(ao, as.x, ah+avph, ai.y);          // per-vertex uv within one frame
+            vec2 ajit = vec2(onepixel.x*0.0001*float(ac), onepixel.y*0.0001*float((ac+1)%4));
+            texCoord = (vec2(0, ahh) + auv*vec2(as))/vec2(atlasSize) + ajit;
+            // Animated TEXTURE (ant>1): step the sampled frame region + cross-fade on texFade,
+            // mirroring the item path (entity.fsh mixes texCoord/texCoord2). Armor used to
+            // sample frame 0 only -> texture animation was frozen on armor.
+            if (ant > 1) {
+                ivec4 texmeta  = ivec4(texelFetch(Sampler0, ao + ivec2(4,1), 0)*255.0+0.5);
+                ivec4 texflags = ivec4(texelFetch(Sampler0, ao + ivec2(5,1), 0)*255.0+0.5);
+                float texFrametime = max(float(texmeta.r*65536 + texmeta.g*256 + texmeta.b), 1.0);
+                float texTime = GameTime * 24000.0;
+                int texframe = int(texTime / texFrametime) % ant;
+                int texnext  = (texframe + 1) % ant;
+                texCoord  = (vec2(0, ahh + texframe*as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
+                texCoord2 = (vec2(0, ahh + texnext *as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
+                transition = bool(texflags.r) ? fract(texTime / texFrametime) : 0.0;
+            }
             // Un-mirror left limbs: flip model X about its centre (geometry is centred)
             // BEFORE the offset, so there is no lateral shift; combined with the det(-1)
             // left basis this cancels MC's X-mirror — left reads the same way as right.

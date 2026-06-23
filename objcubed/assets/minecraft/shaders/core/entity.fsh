@@ -18,6 +18,7 @@ in vec4 vertexColor;
 in vec4 lightColor;
 in vec4 overlayColor;
 in vec2 texCoord;
+in vec2 texCoord2;   // next animated-texture frame (armor/entity cross-fade)
 in vec3 Pos;
 in float transition;
 
@@ -35,7 +36,11 @@ void main() {
         return;
     }
 
-    vec4 color = texture(Sampler0, texCoord);
+    // Animated-texture cross-fade (issue: armor frames hard-stepped). transition>0 only
+    // when the armor path set texCoord2 + texFade; 0 otherwise -> plain sample (no-op).
+    vec4 color = transition > 0.0
+        ? mix(texture(Sampler0, texCoord), texture(Sampler0, texCoord2), transition)
+        : texture(Sampler0, texCoord);
 
     //custom lighting
     #define ENTITY
