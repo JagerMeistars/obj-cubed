@@ -2090,6 +2090,13 @@
         left_foot: 7, leftfoot: 7, foot_l: 7, l_foot: 7, left_boot: 7, boot_l: 7,
     };
     function normPartName(s) { return (s || '').toLowerCase().trim().replace(/[ \-]+/g, '_'); }
+    // Export helper: turn the dialog's per-texture checkbox array into the list of
+    // checked texture indices. Array-guarded so a corrupt/hand-edited project whose
+    // persisted atlasTexChecked is a non-array (null/string/object) doesn't make
+    // Export throw `TypeError: …map is not a function` (Task C1).
+    function atlasTexIndicesFrom(checked) {
+        return (Array.isArray(checked) ? checked : []).map((v, i) => (v ? i : -1)).filter(i => i >= 0);
+    }
     function nameToPart(s) { const n = normPartName(s); return (n in PART_NAME_TO_ID) ? PART_NAME_TO_ID[n] : -1; }
     // An element's part: nearest self-or-ancestor with objcubed_body_part set, else a
     // self-or-ancestor whose NAME matches a part (closer wins). -1 if none.
@@ -4734,7 +4741,7 @@
                             const cfg = {
                                 texIndex:        +this.selectedTex,
                                 useAtlas:        !!this.useAtlas,
-                                atlasTexIndices:  this.atlasTexChecked.map((v,i)=>v?i:-1).filter(i=>i>=0),
+                                atlasTexIndices:  atlasTexIndicesFrom(this.atlasTexChecked),
                                 texAnimEnabled:  !!this.texAnimEnabled,
                                 texFrametime:    Math.max(1, Math.round(+this.texFrametime || 1)),
                                 texFade:         !!this.texFade,
@@ -5432,7 +5439,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.61',
+        version: '0.5.62',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
@@ -5545,7 +5552,7 @@
             computePartCenters, buildFaceToPart, collectBodyPartTags, applyBodyPartTags, parseFaceToken,
             calibratedElementsForSlot,
             buildItemTransformMatrix, activeSlotPrefixFor,
-            parseObj, parseMtl, posPixels, uvPixels, vertPixels,
+            parseObj, parseMtl, posPixels, uvPixels, vertPixels, atlasTexIndicesFrom,
             encodePNG, estimateOutputPng, t, LANG, PERSISTABLE_FIELDS,
             UI_SCALE,
             TOUR_STEPS, TOUR_STEP_KEYS,
