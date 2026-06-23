@@ -2723,7 +2723,9 @@
         // scale 6.1e-5, trans/pivot 3.9e-3, rot 5.5e-3° — far below vanilla need.
         const guiSlot = (cfg.displaySlots && cfg.displaySlots.gui) || {};
         const fallback = (v, def) => Number.isFinite(v) ? v : def;
-        const guiS = (guiSlot.scale       || [1,1,1]).map(v => fallback(v, 1));
+        // GUI scale 0 (or NaN/blank) is never legitimate — it makes the icon invisible.
+        // Treat any non-positive or non-finite value as 1 (identity scale).
+        const guiS = (guiSlot.scale || [1,1,1]).map(v => (Number.isFinite(v) && v > 0) ? v : 1);
         const guiT = (guiSlot.translation || [0,0,0]).map(v => fallback(v, 0));
         const guiR = (guiSlot.rotation    || [0,0,0]).map(v => {
             const d = fallback(v, 0);
@@ -4701,70 +4703,18 @@
                                 exportAsEquipment:  !!this.exportAsEquipment,
                                 equipmentSlot:      this.equipmentSlot,
                                 selectedPieces:     Array.isArray(this.selectedPieces) ? this.selectedPieces.slice() : [],
-                                displaySlots: {
-                                    thirdperson_righthand: {
-                                        rotation:    [+this.dThirdRX, +this.dThirdRY, +this.dThirdRZ],
-                                        translation: [+this.dThirdTX, +this.dThirdTY, +this.dThirdTZ],
-                                        scale:       [+this.dThirdSX, +this.dThirdSY, +this.dThirdSZ],
-                                    },
-                                    thirdperson_lefthand: this.useSeparateLefthand ? {
-                                        rotation:    [+this.dLeftRX, +this.dLeftRY, +this.dLeftRZ],
-                                        translation: [+this.dLeftTX, +this.dLeftTY, +this.dLeftTZ],
-                                        scale:       [+this.dLeftSX, +this.dLeftSY, +this.dLeftSZ],
-                                    } : {
-                                        rotation:    [+this.dThirdRX, +this.dThirdRY, +this.dThirdRZ],
-                                        translation: [+this.dThirdTX, +this.dThirdTY, +this.dThirdTZ],
-                                        scale:       [+this.dThirdSX, +this.dThirdSY, +this.dThirdSZ],
-                                    },
-                                    head: {
-                                        rotation:    [+this.dHeadRX, +this.dHeadRY, +this.dHeadRZ],
-                                        translation: [+this.dHeadTX, +this.dHeadTY, +this.dHeadTZ],
-                                        scale:       [+this.dHeadSX, +this.dHeadSY, +this.dHeadSZ],
-                                    },
-                                    ground: {
-                                        rotation:    [+this.dGroundRX, +this.dGroundRY, +this.dGroundRZ],
-                                        translation: [+this.dGroundTX, +this.dGroundTY, +this.dGroundTZ],
-                                        scale:       [+this.dGroundSX, +this.dGroundSY, +this.dGroundSZ],
-                                    },
-                                    fixed: {
-                                        rotation:    [+this.dFixedRX, +this.dFixedRY, +this.dFixedRZ],
-                                        translation: [+this.dFixedTX, +this.dFixedTY, +this.dFixedTZ],
-                                        scale:       [+this.dFixedSX, +this.dFixedSY, +this.dFixedSZ],
-                                    },
-                                    gui: {
-                                        rotation:    [+this.dGuiRX, +this.dGuiRY, +this.dGuiRZ],
-                                        // GUI Y is corrected in-shader (objmc_main.glsl `m.y += 0.5`,
-                                        // the +0.5-block anchor lift), so the display carries the raw
-                                        // value here — no bake (an earlier -8 here wrongly cancelled
-                                        // that shader lift).
-                                        translation: [+this.dGuiTX, +this.dGuiTY, +this.dGuiTZ],
-                                        scale:       [+this.dGuiSX, +this.dGuiSY, +this.dGuiSZ],
-                                        // GUI rotation pivot from the dialog fields
-                                        // (BB units 0..16 -> blocks /16). Dial to match BB.
-                                        pivot: [
-                                            (+this.dGuiPX || 0) / 16,
-                                            (+this.dGuiPY || 0) / 16,
-                                            (+this.dGuiPZ || 0) / 16,
-                                        ],
-                                    },
-                                    // Hands carry raw values; the +8 Y anchor lift is applied
-                                    // centrally at model.json assembly (see saveSingleOutput).
-                                    firstperson_righthand: {
-                                        rotation:    [+this.dFprRX, +this.dFprRY, +this.dFprRZ],
-                                        translation: [+this.dFprTX, +this.dFprTY, +this.dFprTZ],
-                                        scale:       [+this.dFprSX, +this.dFprSY, +this.dFprSZ],
-                                    },
-                                    firstperson_lefthand: {
-                                        rotation:    [+this.dFplRX, +this.dFplRY, +this.dFplRZ],
-                                        translation: [+this.dFplTX, +this.dFplTY, +this.dFplTZ],
-                                        scale:       [+this.dFplSX, +this.dFplSY, +this.dFplSZ],
-                                    },
-                                    on_shelf: {
-                                        rotation:    [+this.dShelfRX, +this.dShelfRY, +this.dShelfRZ],
-                                        translation: [+this.dShelfTX, +this.dShelfTY, +this.dShelfTZ],
-                                        scale:       [+this.dShelfSX, +this.dShelfSY, +this.dShelfSZ],
-                                    },
-                                },
+                                displaySlots: (() => {
+                                    // Single source of truth: reuse the BB-editor transforms
+                                    // (scale already `|| 1`, rot/trans `|| 0`) and add the
+                                    // export-only GUI rotation pivot (BB units 0..16 → /16).
+                                    const slots = this._dialogSlotTransforms();
+                                    slots.gui.pivot = [
+                                        (+this.dGuiPX || 0) / 16,
+                                        (+this.dGuiPY || 0) / 16,
+                                        (+this.dGuiPZ || 0) / 16,
+                                    ];
+                                    return slots;
+                                })(),
                             };
                             await runExport(cfg, msg => { this.status = msg; });
                             this.statusKind = 'done';
@@ -5417,7 +5367,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.53',
+        version: '0.5.54',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

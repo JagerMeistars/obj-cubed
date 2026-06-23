@@ -177,4 +177,18 @@ describe('display-1:1 B: GUI header version + q16 round-trip', () => {
     expect(Math.abs(got.pivot[1] - (-8))).toBeLessThan(EPS_TRANS);
     expect(Math.abs(got.pivot[2] - 4)).toBeLessThan(EPS_TRANS);
   });
+
+  it('GUI scale 0 (blank dialog field) falls back to 1, not invisible icon', async () => {
+    // A blank GUI scale field produces +'' === 0 in the old export literal.
+    // The encoder must treat non-positive GUI scale as 1 so the icon stays visible.
+    const api = loadWith();
+    const res = await api.buildOutput(baseCfg({
+      displaySlots: { gui: { scale: [0, 0, 0] } },
+    }), [OBJ], '');
+    const got = decodeGui(res);
+    // Decoded scale should round-trip to 1 (q16 of 1 in [0,4] range), not 0.
+    for (let i = 0; i < 3; i++) {
+      expect(Math.abs(got.scale[i] - 1), `scale axis ${i} should be 1 not 0`).toBeLessThan(EPS_SCALE);
+    }
+  });
 });
