@@ -1250,7 +1250,8 @@
     function applyBodyPartTags(map) {
         if (!map || typeof Group === 'undefined' || !Group.all) return;
         for (const g of Group.all) {
-            if (g && g.uuid && map[g.uuid] != null) g.objcubed_body_part = map[g.uuid];
+            const v = g && g.uuid ? map[g.uuid] : undefined;
+            if (typeof v === 'number' && v >= -1 && v <= 7) g.objcubed_body_part = v;
         }
     }
 
@@ -1284,7 +1285,11 @@
             if (stored.bodyPartTags && typeof setTimeout === 'function') {
                 const map = stored.bodyPartTags;
                 if (_bodyPartTimer) clearTimeout(_bodyPartTimer);
-                _bodyPartTimer = setTimeout(() => { _bodyPartTimer = null; applyBodyPartTags(map); }, 0);
+                const _proj = (typeof Project !== 'undefined') ? Project : null;
+                _bodyPartTimer = setTimeout(() => {
+                    _bodyPartTimer = null;
+                    if (((typeof Project !== 'undefined') ? Project : null) === _proj) applyBodyPartTags(map);
+                }, 0);
             }
         };
         Codecs.project.on('compile', _compileHandler);
@@ -4198,7 +4203,7 @@
                             w.push({ level:'warn',
                                 msg: t('warn_filter_no_armature') });
                         }
-                        if (this.useAtlas && this.multiTex && !this.atlasTexChecked.some(v=>v)) {
+                        if (this.useAtlas && this.multiTex && !(Array.isArray(this.atlasTexChecked) && this.atlasTexChecked.some(v=>v))) {
                             w.push({ level:'error', msg: t('warn_atlas_empty') });
                         }
                         // Animated textures: strip must be a whole stack of square frames.
@@ -4242,7 +4247,7 @@
                     },
                     validationErrors() {
                         const errs = [];
-                        if (this.useAtlas && this.multiTex && !this.atlasTexChecked.some(v => v))
+                        if (this.useAtlas && this.multiTex && !(Array.isArray(this.atlasTexChecked) && this.atlasTexChecked.some(v => v)))
                             errs.push({ field:'atlas', msg: t('err_atlas_none') });
                         // (removed: orphaned scale<=0 validation — `scale` has no UI input,
                         // so this was an unrecoverable dead-end for legacy/corrupt persisted
@@ -5443,7 +5448,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.63',
+        version: '0.5.64',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
