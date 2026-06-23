@@ -63,8 +63,11 @@ describe('datapack correctness (review batch 2)', () => {
     const files = api.generateDatapackFiles('Walk Cycle!', 5, 'My Pack', 'equipment', 'mainhand');
     const keys = [...files.keys()];
     expect(keys).toContain('data/my_pack/function/walk_cycle_/play.mcfunction');
-    // No uppercase / space / punctuation leaks into any path…
-    for (const k of keys) expect(k, k).not.toMatch(/[^a-z0-9_./-]/);
+    // No uppercase / space / punctuation leaks into any resource-location path…
+    // (fixed root literals like README.txt aren't derived from user input).
+    for (const k of keys) {
+      if (k.startsWith('data/')) expect(k, k).not.toMatch(/[^a-z0-9_./-]/);
+    }
     // …nor into any `function <ns>:<id>/…` reference in the bodies.
     for (const body of files.values()) {
       let m; const re = /function\s+(\S+)/g;
@@ -87,6 +90,17 @@ describe('datapack correctness (review batch 2)', () => {
     expect(play).not.toMatch(/-= @s/);   // no stale-offset subtraction
     expect(play).toMatch(/%= #dur/);     // phase = gametime % dur -> frame 0 now
     expect(files.get('data/objcubed/function/walk/play_from.mcfunction')).toMatch(/-= @s/);
+  });
+
+  it('emits a summon function, load tag, and README (issue #9)', () => {
+    const files = api.generateDatapackFiles('walk', 8, 'mypack', 'item_display', null, 'stick', 'mymodel');
+    const summon = files.get('data/mypack/function/walk/summon.mcfunction');
+    expect(summon).toMatch(/summon item_display/);
+    expect(summon).toMatch(/"minecraft:custom_model_data":\{strings:\["mymodel"\]\}/);
+    expect(summon).toMatch(/Tags:\["mypack\.walk"\]/);
+    const load = JSON.parse(files.get('data/minecraft/tags/function/load.json'));
+    expect(load.values).toContain('mypack:walk/init');
+    expect(files.has('README.txt')).toBe(true);
   });
 
   it('play_once emits a tick latch that freezes after nframes ticks', () => {

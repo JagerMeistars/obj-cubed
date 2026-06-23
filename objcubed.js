@@ -3363,7 +3363,8 @@
                 const dpFiles = generateDatapackFiles(
                     cfg.datapackAnimId, result.nframes,
                     cfg.datapackNamespace, cfg.datapackTargetType,
-                    cfg.datapackEquipSlot
+                    cfg.datapackEquipSlot,
+                    baseItem, modelName
                 );
                 // Empty output dir defaults to a sibling of the resource pack. That default
                 // is unwritable when the RP root is a Flatpak document-portal mount
@@ -3536,7 +3537,7 @@
     // Section 10b: Datapack Function Generation
     // =========================================================
 
-    function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot) {
+    function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot, baseItem, modelName) {
         // Sanitize to valid resource-location chars [a-z0-9_.-]: free-text like
         // "My Pack" / "Walk!" would otherwise produce invalid namespaces and
         // `function ns:id` refs (baseItem/cmdName are already sanitized this way).
@@ -3708,6 +3709,52 @@
         files.set('data/minecraft/tags/function/tick.json', JSON.stringify({
             values: [`${ns}:${pub}/tick`],
         }, null, 2));
+
+        const base = (baseItem || 'stick').toLowerCase().replace(/[^a-z0-9_.]/g, '_') || 'stick';
+        const model = (modelName || id);
+        const entityTag = `${ns}.${pub}`;
+
+        // load tag → init scoreboards once at datapack load (no manual init call)
+        files.set('data/minecraft/tags/function/load.json', JSON.stringify({
+            values: [`${ns}:${pub}/init`],
+        }, null, 2));
+
+        // summon.mcfunction — create + tag the entity this datapack animates.
+        if (targetType === 'item_display') {
+            files.set(`data/${ns}/function/${pub}/summon.mcfunction`, [
+                `summon item_display ~ ~ ~ {Tags:["${entityTag}"],billboard:"fixed",item:{id:"minecraft:${base}",count:1,components:{"minecraft:custom_model_data":{strings:["${model}"]}}}}`,
+            ].join('\n'));
+        } else if (!isPlayer) {
+            // equipment target: an armor_stand wearing the obj³ equipment item.
+            // The equippable item + asset_id come from the armor export's give.txt
+            // (<model>_<piece>); summon the stand + tag it, then equip via that give.
+            files.set(`data/${ns}/function/${pub}/summon.mcfunction`, [
+                `summon armor_stand ~ ~ ~ {Tags:["${entityTag}"],ShowArms:1b,NoGravity:1b}`,
+                `# then equip the obj³ armor item on @e[tag=${entityTag}] — see <model>_<piece>_give.txt`,
+            ].join('\n'));
+        }
+        // player target: cannot be summoned — README documents the held-item path.
+
+        files.set('README.txt', [
+            `obj³ datapack — animation "${id}" (namespace "${ns}")`,
+            ``,
+            `INSTALL: drop this "objcubed" folder into <world>/datapacks/ and run /reload.`,
+            `  (init scoreboards run automatically via the minecraft:load tag.)`,
+            ``,
+            targetType === 'item_display'
+                ? `SPAWN:   function ${ns}:${pub}/summon   (creates a tagged item_display)`
+                : (isPlayer
+                    ? `SPAWN:   none — give yourself the item from ${base}_give.txt and run the controls as yourself.`
+                    : `SPAWN:   function ${ns}:${pub}/summon   (armor_stand) then equip ${model}_<piece> from its _give.txt`),
+            ``,
+            `CONTROL (run AS the entity, e.g. execute as @e[tag=${ns}.${pub}] run …):`,
+            `  ${ns}:${pub}/play        loop from frame 0`,
+            `  ${ns}:${pub}/play_once   play once then freeze`,
+            `  ${ns}:${pub}/play_from   loop from frame N (set score @s ${id} = N first)`,
+            `  ${ns}:${pub}/set         freeze at frame N (set score @s ${id} = N first)`,
+            `  ${ns}:${pub}/stop        freeze at the current frame`,
+            ``,
+        ].join('\n'));
 
         return files;
     }
@@ -5401,7 +5448,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.55',
+        version: '0.5.56',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
