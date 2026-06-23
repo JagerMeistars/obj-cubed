@@ -24,9 +24,10 @@ const TY = 2;
 function makeResult(nfaces) {
   // Full encoded texture bytes: tw*ty*4, with the marker [12,34,56,255] at the
   // very first pixel (bytes 0..3). The equipment block copies this buffer per face
-  // and patches the packed header (texels 8..19 = bytes 32..79 for 3 boxes), so the
-  // buffer must be wide enough that those header texels live in ROW 0 (tw>=20) and
-  // long enough to hold them. TW=24 -> row 0 is 96 bytes, holds texels 0..23.
+  // and patches the packed header (texels 8..22 = bytes 32..91 for 3 boxes: W/E ride
+  // texels 14..19 and emissive reaches texel 20+abody, abody up to 2 -> texel 22), so the
+  // buffer must be wide enough that those header texels live in ROW 0 (tw>=23, the runtime
+  // guard is tw < 23) and long enough to hold them. TW=24 -> row 0 is 96 bytes, texels 0..23.
   const rawBuf = Buffer.alloc(TW * TY * 4);
   rawBuf[0] = 12;
   rawBuf[1] = 34;
@@ -423,5 +424,38 @@ describe('equipment (armor) export — Approach C', () => {
       exportAsEquipment: true, equipmentSlot: 'chest',
     })).rejects.toThrow(/23px/);
     expect([...memfs.writes.keys()].some(p => /equipment.*\.png$/.test(p))).toBe(false);
+  });
+
+  it('succeeds at the tw=23 boundary: header texels (W/E 14..19, emissive 20..22) land in ROW 0', async () => {
+    // Complements the tw=22-throws case above: tw=23 is the minimum width that fits the
+    // packed 3-box header (which reaches texel 22) inside a single PNG scanline (row 0).
+    const { api, memfs } = setup();
+    const r = makeResult(3);
+    r.tw = 23;
+    r.rawBuf = Buffer.alloc(23 * TY * 4);
+    r.rawBuf[0] = 12; r.rawBuf[1] = 34; r.rawBuf[2] = 56; r.rawBuf[3] = 255;
+
+    await expect(api.saveSingleOutput(r, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+      exportAsEquipment: true, equipmentSlot: 'chest',
+    })).resolves.not.toThrow();
+
+    // An equipment-layer .png WAS written (the corrupt-PNG guard did not fire).
+    const pngKey = `${EQ_TEX_DIR}/cat_chest_0.png`;
+    expect([...memfs.writes.keys()]).toContain(pngKey);
+
+    // Decode it and confirm the packed header is intact and addressable in row 0:
+    // marker 253, 3 boxes, body box (abody 2) carries N@0/S@1/W@2, and the W/E header
+    // texels (14..19) plus the emissive texels (20..22) sit within row 0 (tw*4 = 92 bytes).
+    const png = PNG.sync.read(Buffer.from(memfs.writes.get(pngKey)));
+    expect(png.width).toBe(23);              // row 0 is 23*4 = 92 bytes, holding texels 0..22
+    const dec = decodePacked(memfs.writes.get(pngKey));
+    expect(dec.marker).toBe(253);
+    expect(dec.nboxes).toBe(3);
+    // body box (abody 2) — its W texel is 14+2=16, E texel 17+2=19, emissive 20+2=22:
+    // all < 23, i.e. all inside the first scanline. The decode reading them succeeds.
+    expect(dec.boxes[2]).toEqual({ northK: 0, part: 0, southK: 1, westK: 2, eastK: null });
+    // The highest header texel touched is 22; its bytes (88..91) live in row 0 (< 92).
+    expect((20 + 2) * 4 + 3).toBeLessThan(23 * 4);
   });
 });
