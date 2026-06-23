@@ -11,7 +11,6 @@ vec3 posoffset = vec3(0);
 float scale = 1;
 vec3 rotation = vec3(0);
 int headerheight = 0;
-bool compression = false;
 ivec4 t[16];
 //read uv offset
 t[0] = ivec4(texelFetch(Sampler0, uv, 0) * 255.0 + 0.5);
@@ -21,7 +20,6 @@ ivec2 topleft = uv - uvoffset;
 //if topleft marker is correct
 ivec4 marker = ivec4(texelFetch(Sampler0, topleft, 0)*255.0+0.5);
 if (marker == ivec4(12,34,56,255)) {
-    compression = false;
     isCustom = 1;
     // Row 0: t[0..15]
     for (int i = 1; i < 16; i++) {
@@ -144,13 +142,13 @@ if (marker == ivec4(12,34,56,255)) {
         headerheight = 2 + int(ceil(nvertices*0.25/size.x));
         int height = headerheight + (size.y * ntextures);
         //read data
-        ivec2 index = getvert(topleft, size.x, height+vph+vth, id, compression);
+        ivec2 index = getvert(topleft, size.x, height+vph+vth, id);
         posoffset = getpos(topleft, size.x, height, index.x);
         if (nframes > 1) {
             int nids = (nframes * nvertices);
             //next frame
             id = (id+nvertices) % nids;
-            index = getvert(topleft, size.x, height+vph+vth, id, compression);
+            index = getvert(topleft, size.x, height+vph+vth, id);
             vec3 posoffset2 = getpos(topleft, size.x, height, index.x);
             //interpolate
             transition = fract(time * nframes / duration);
@@ -165,11 +163,11 @@ if (marker == ivec4(12,34,56,255)) {
                 case 3: //4-point bezier
                     //third point
                     id = (id+nvertices) % nids;
-                    index = getvert(topleft, size.x, height+vph+vth, id, compression);
+                    index = getvert(topleft, size.x, height+vph+vth, id);
                     vec3 posoffset3 = getpos(topleft, size.x, height, index.x);
                     //fourth point
                     id = (id+nvertices) % nids;
-                    index = getvert(topleft, size.x, height+vph+vth, id, compression);
+                    index = getvert(topleft, size.x, height+vph+vth, id);
                     vec3 posoffset4 = getpos(topleft, size.x, height, index.x);
                     //bezier
                     posoffset = bezier(posoffset, posoffset2, posoffset3, posoffset4, transition);
@@ -516,7 +514,7 @@ if (isCustom == 0) {
             avid += afr * anv;
             int ahh = 2 + int(ceil(float(anv)*0.25/float(as.x)));
             int ah = ahh + (as.y * ant);
-            ivec2 ai = getvert(ao, as.x, ah+avph+avth, avid, false);
+            ivec2 ai = getvert(ao, as.x, ah+avph+avth, avid);
             posoffset = getpos(ao, as.x, ah, ai.x);
             // Frame interpolation (geometry morph): blend toward the next frame with the
             // same easing as the item path (objmc_main.glsl ~149-178). Armor used to hard-
@@ -526,10 +524,10 @@ if (isCustom == 0) {
             if (anf > 1 && aeasing.x > 0) {
                 int avbase = (afk * 4 + ac) % anv;
                 float atr = fract(at * float(anf) / adur);
-                vec3 po2 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 1) % anf) * anv, false).x);
+                vec3 po2 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 1) % anf) * anv).x);
                 if (aeasing.x == 3) {
-                    vec3 po3 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 2) % anf) * anv, false).x);
-                    vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 3) % anf) * anv, false).x);
+                    vec3 po3 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 2) % anf) * anv).x);
+                    vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 3) % anf) * anv).x);
                     posoffset = bezier(posoffset, po2, po3, po4, atr);
                 } else {
                     if (aeasing.x == 2) atr = atr < 0.5 ? 4.0 * atr * atr * atr : 1.0 - pow(-2.0 * atr + 2.0, 3.0) * 0.5;
