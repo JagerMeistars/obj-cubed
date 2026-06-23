@@ -4166,8 +4166,12 @@
                     previewTexSize() {
                         // Returns {w, h} based on current texture/atlas choice.
                         if (this.useAtlas) {
-                            const selected = this.atlasTexChecked
-                                .map((v,i)=>v?Texture.all[i]:null)
+                            // Array-guarded via atlasTexIndicesFrom so a corrupt/hand-edited
+                            // project whose persisted atlasTexChecked is a non-array doesn't
+                            // make this computed throw `TypeError: …map is not a function`
+                            // (final-review fix; same class as C1/C3).
+                            const selected = atlasTexIndicesFrom(this.atlasTexChecked)
+                                .map(i => Texture.all[i])
                                 .filter(Boolean);
                             if (!selected.length) return null;
                             let w = 0, h = 0;
@@ -5470,7 +5474,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.69',
+        version: '0.5.70',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

@@ -38,4 +38,11 @@ describe('atlasTexIndicesFrom: array-guard atlasTexChecked (C1)', () => {
     const { atlasTexIndicesFrom } = loadObjcubed();
     expect(atlasTexIndicesFrom(undefined)).toEqual([]);
   });
+
+  // previewTexSize (Vue computed) now reuses this helper, so a non-array
+  // atlasTexChecked must not throw when the result is .map()ped (final-review fix).
+  it('result is safely .map()-able for a non-array input (previewTexSize path)', () => {
+    const { atlasTexIndicesFrom } = loadObjcubed();
+    expect(atlasTexIndicesFrom(null).map(i => i)).toEqual([]);
+  });
 });
