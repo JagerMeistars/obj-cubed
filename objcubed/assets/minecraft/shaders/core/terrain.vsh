@@ -34,6 +34,10 @@ vec4 minecraft_sample_lightmap(sampler2D lightMap, ivec2 uv) {
 }
 
 void main() {
+    texCoord2 = UV0;
+    transition = 0;
+    isCustom = 0;
+    noshadow = 0;
     Pos = Position + (ChunkPosition - CameraBlockPos) + CameraOffset;
     vertexColor = Color;
     lightColor = minecraft_sample_lightmap(Sampler2, UV2);
