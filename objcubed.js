@@ -3296,8 +3296,8 @@
             // 0.5 block, the v0.5.45 fix that centred the WORLD/autorotate path). But
             // model.json-display slots (hand/head/fixed) bake their display ONTO that
             // centre-carrier and the shader re-anchors at c2, so they end up +0.5 block
-            // (8 BB units) HIGH. Compensate by lifting them -8 Y via an explicit display
-            // entry. Done here — NOT in buildDisplayTransforms (it must stay a faithful
+            // (8 BB units) HIGH. Compensate by lifting them down Y (per-slot, see below)
+            // via an explicit display entry. Done here — NOT in buildDisplayTransforms (it must stay a faithful
             // passthrough, see model-output.test) and NOT on cfg.displaySlots (that would
             // trip the autorotate gate hasStaticWorldDisplay). The explicit entry also
             // stops Minecraft leaking block-model display defaults (scale ~0.4 / rot 45)
@@ -3305,31 +3305,35 @@
             //  - gui: positioned by the in-shader ortho framing (header-encoded, no
             //    model.json display) — its +0.5 is handled in the GUI shader path.
             //  - ground/on_shelf: Minecraft clamps their display.translation Y.
-            // NOTE on fixed: lifting it makes the item-frame RMB rotation orbit the model
-            // by 0.5 block instead of spinning in place — accepted tradeoff (centred >
-            // perfect spin; the prior code left it +0.5 HIGH to keep the spin). Drop
-            // 'fixed' from the list below to restore spin-in-place at the cost of height.
-            const ANCHOR_Y_SLOTS = [
-                'thirdperson_righthand', 'thirdperson_lefthand',
-                'firstperson_righthand', 'firstperson_lefthand', 'head', 'fixed',
-            ];
-            // Anchor lift (BB units, 16 = 1 block). History: compensated the OLD cube-
-            // BOTTOM carrier (was 8, mis-tuned to 3, then 0 when the carrier moved to
-            // cube centre). But 0 was wrong — the centre-carrier OVER-lifts model.json
-            // slots by +0.5 block, so the correct compensation is -8 (verified in-game:
-            // -8 on display.Y centres head/hand/fixed). Adjust only with in-game checks.
-            const ANCHOR_LIFT_Y = -8;
-            const liftY8 = (d) => {
+            // Per-slot-group lift (BB units, 16 = 1 block). The centre-carrier over-lifts
+            // model.json-display slots by +0.5 block; the compensation is NOT uniform —
+            // verified in-game:
+            //   head / fixed (item frame): -8 (the full over-lift).
+            //   the 4 HAND slots:          -6 (the held-item hand POSE already raises the
+            //                                  item, so it needs less compensation).
+            // History: this was 8 (old cube-BOTTOM carrier), mis-tuned to 3, then wrongly
+            // set to 0 when the carrier moved to cube centre (which actually flipped the
+            // error to +0.5 HIGH). gui is handled in the GUI shader path (+0.5*slotSize);
+            // ground/on_shelf are NOT lifted (MC clamps their Y). NOTE on fixed: the lift
+            // makes the item-frame RMB rotation orbit the model by 0.5 block instead of
+            // spinning in place — accepted tradeoff (centred > spin); set its value to 0
+            // to restore spin-in-place at the cost of height. Adjust only with in-game checks.
+            const SLOT_LIFT_Y = {
+                head: -8, fixed: -8,
+                thirdperson_righthand: -6, thirdperson_lefthand: -6,
+                firstperson_righthand: -6, firstperson_lefthand: -6,
+            };
+            const liftSlot = (d, lift) => {
                 const base = d || IDENTITY_DISPLAY;
                 const t = base.translation || [0, 0, 0];
-                return { ...base, translation: [t[0] || 0, (t[1] || 0) + ANCHOR_LIFT_Y, t[2] || 0] };
+                return { ...base, translation: [t[0] || 0, (t[1] || 0) + lift, t[2] || 0] };
             };
             for (const slot of exportedSlots) {
                 const slotDisplay = { ...displayTransforms };
-                for (const s of ANCHOR_Y_SLOTS) slotDisplay[s] = liftY8(slotDisplay[s]);
-                // fixed: explicit identity (no lift) so it spins in place in an item
-                // frame and block-model defaults can't leak in.
-                if (!slotDisplay.fixed) slotDisplay.fixed = IDENTITY_DISPLAY;
+                for (const s in SLOT_LIFT_Y) slotDisplay[s] = liftSlot(slotDisplay[s], SLOT_LIFT_Y[s]);
+                // fixed is lifted above; the unset-slot fallback below stops MC block-model
+                // display defaults (scale ~0.4 / rot 45) leaking into the active slot.
+                if (!slotDisplay[slot]) slotDisplay[slot] = IDENTITY_DISPLAY;
                 if (!slotDisplay[slot]) slotDisplay[slot] = IDENTITY_DISPLAY;
                 fs.writeFileSync(
                     path.join(modelsDir, `${modelName}_${slot}.json`),
@@ -5504,7 +5508,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.75',
+        version: '0.5.76',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

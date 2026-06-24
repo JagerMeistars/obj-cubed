@@ -111,15 +111,19 @@ describe('resource pack export (#7)', () => {
     const model = JSON.parse(
       memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json')
     );
-    const LIFTED = { rotation: [0, 0, 0], translation: [0, -8, 0], scale: [1, 1, 1] };
+    // head/fixed need the full -8; the 4 hand slots need only -6 (the hand POSE already
+    // raises the held item) — both verified in-game.
+    const lift = (y) => ({ rotation: [0, 0, 0], translation: [0, y, 0], scale: [1, 1, 1] });
+    for (const s of ['head', 'fixed']) {
+      expect(model.display[s], s).toEqual(lift(-8));
+    }
     for (const s of ['firstperson_righthand', 'firstperson_lefthand',
-                     'thirdperson_righthand', 'thirdperson_lefthand', 'head', 'fixed']) {
-      expect(model.display[s], s).toEqual(LIFTED);
+                     'thirdperson_righthand', 'thirdperson_lefthand']) {
+      expect(model.display[s], s).toEqual(lift(-6));
     }
     // Scoped: ground/on_shelf stay identity (not over-lifted by the centre-carrier).
-    const IDENT = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
     for (const s of ['ground', 'on_shelf']) {
-      if (model.display[s]) expect(model.display[s], s).toEqual(IDENT);
+      if (model.display[s]) expect(model.display[s], s).toEqual(lift(0));
     }
   });
 
