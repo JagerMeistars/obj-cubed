@@ -268,7 +268,10 @@ if (marker == ivec4(12,34,56,255)) {
             // vanilla XYZ rotation compose correctly with the slot frame) AND matches
             // the fragment-shader GUI normal flip (objmc_light.glsl: isGUI -> z*=-1).
             // No y+=-64: the slot-center translate is already inside the anchor.
-            posoffset = m * vec3(slotSize, -slotSize, slotSize);
+            // GUI carrier compensation: c2 sits at the cube CENTRE (from[8,8,8]); with the
+            // -slotSize Y reflection that lands the icon +0.5 block HIGH, so add +0.5*slotSize
+            // back (mirrors the model.json -8 lift on hand/head/fixed; verified in-game).
+            posoffset = m * vec3(slotSize, -slotSize, slotSize) + vec3(0.0, 0.5 * slotSize, 0.0);
             // guiRotMat stays plain vanilla Rv (no F flip, no zx axis flip).
         }
         if (isHand == 1) {
