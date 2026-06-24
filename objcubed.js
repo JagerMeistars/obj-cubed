@@ -3981,6 +3981,14 @@
                         // default is 0° (no rotation). Normalize 85 and 5 → 0
                         // silently so old projects don't keep the stale tilt.
                         if (state.dThirdRX === 85 || state.dThirdRX === 5) state.dThirdRX = 0;
+
+                        // Persistence-boundary coercion: a corrupt/hand-edited
+                        // .bbmodel may persist array fields as non-arrays; restore
+                        // the freshly-built default so no downstream .map/.some/
+                        // index read can throw (closes the atlasTexChecked class).
+                        for (const k of ['atlasTexChecked', 'selectedPieces']) {
+                            if (!Array.isArray(state[k])) state[k] = dialogDefaults[k];
+                        }
                     }
 
                     // Sync animEnd with current animation length
@@ -5474,7 +5482,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.70',
+        version: '0.5.71',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
