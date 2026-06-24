@@ -95,7 +95,7 @@ describe('resource pack export (#7)', () => {
     }
   });
 
-  it('writes identity display for all slots (ANCHOR_LIFT_Y=0; centering fixed in the carrier anchor)', async () => {
+  it('lifts model.json-display slots -8 Y to compensate the centre-carrier over-lift (ANCHOR_LIFT_Y=-8)', async () => {
     const { api, memfs } = setup();
 
     // User touched NO display settings: displayTransforms = {}.
@@ -103,17 +103,23 @@ describe('resource pack export (#7)', () => {
       resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
     });
 
-    // ANCHOR_LIFT_Y is now 0: the -0.5 block centering was a carrier-anchor bug (c2 at
-    // the cube bottom), now fixed in the placeholder geometry (c2 = cube centre, [8,8,8]).
-    // The lift used to compensate that bug via translation; with the root fixed it's 0, so
-    // all slots carry identity translation (verified by tools/render-tester, IoU 0.998).
+    // The carrier anchor c2 is at the cube CENTRE ([8,8,8], the v0.5.45 fix that centred
+    // the WORLD path). Model.json-display slots bake their display onto that centre-carrier
+    // and the shader re-anchors at c2, ending up +0.5 block HIGH — so they get a -8 Y
+    // compensation (verified in-game: -8 on display.Y centres head/hand/fixed). ground/
+    // on_shelf are NOT lifted (MC clamps their Y); gui is header-encoded (no model.json).
     const model = JSON.parse(
       memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json')
     );
-    const IDENT = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    const LIFTED = { rotation: [0, 0, 0], translation: [0, -8, 0], scale: [1, 1, 1] };
     for (const s of ['firstperson_righthand', 'firstperson_lefthand',
-                     'thirdperson_righthand', 'head', 'fixed']) {
-      expect(model.display[s], s).toEqual(IDENT);
+                     'thirdperson_righthand', 'thirdperson_lefthand', 'head', 'fixed']) {
+      expect(model.display[s], s).toEqual(LIFTED);
+    }
+    // Scoped: ground/on_shelf stay identity (not over-lifted by the centre-carrier).
+    const IDENT = { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
+    for (const s of ['ground', 'on_shelf']) {
+      if (model.display[s]) expect(model.display[s], s).toEqual(IDENT);
     }
   });
 

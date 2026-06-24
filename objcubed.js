@@ -3292,30 +3292,33 @@
             });
 
             // Per-slot model JSONs → assets/objc_cubed/models/item/<modelName>_<slot>.json.
-            // The carrier anchor is corner 2, so a model rendered through model.json
-            // display sits ~0.5 block (8 BB units) low. Lift these slots +8 Y via an
-            // explicit display entry. Done here — NOT in buildDisplayTransforms (it must
-            // stay a faithful passthrough, see model-output.test) and NOT on
-            // cfg.displaySlots (that would trip the autorotate gate
-            // hasStaticWorldDisplay). The explicit entry also stops Minecraft leaking
-            // block-model display defaults (scale ~0.4 / rot 45) into un-set slots. The
-            // user's dialog value adds on top. Excluded from the lift:
-            //  - gui: positioned by the in-shader ortho framing, needs no display lift.
-            //  - fixed: the item-frame RMB rotation composes with display.translation,
-            //    so a Y lift orbits the model instead of spinning it; gets a plain
-            //    identity (sits ~0.5 low, but rotates correctly).
+            // The carrier anchor is corner 2, now at the CUBE CENTRE (from[8,8,8] =
+            // 0.5 block, the v0.5.45 fix that centred the WORLD/autorotate path). But
+            // model.json-display slots (hand/head/fixed) bake their display ONTO that
+            // centre-carrier and the shader re-anchors at c2, so they end up +0.5 block
+            // (8 BB units) HIGH. Compensate by lifting them -8 Y via an explicit display
+            // entry. Done here — NOT in buildDisplayTransforms (it must stay a faithful
+            // passthrough, see model-output.test) and NOT on cfg.displaySlots (that would
+            // trip the autorotate gate hasStaticWorldDisplay). The explicit entry also
+            // stops Minecraft leaking block-model display defaults (scale ~0.4 / rot 45)
+            // into un-set slots. The user's dialog value adds on top. NOT compensated:
+            //  - gui: positioned by the in-shader ortho framing (header-encoded, no
+            //    model.json display) — its +0.5 is handled in the GUI shader path.
             //  - ground/on_shelf: Minecraft clamps their display.translation Y.
+            // NOTE on fixed: lifting it makes the item-frame RMB rotation orbit the model
+            // by 0.5 block instead of spinning in place — accepted tradeoff (centred >
+            // perfect spin; the prior code left it +0.5 HIGH to keep the spin). Drop
+            // 'fixed' from the list below to restore spin-in-place at the cost of height.
             const ANCHOR_Y_SLOTS = [
                 'thirdperson_righthand', 'thirdperson_lefthand',
-                'firstperson_righthand', 'firstperson_lefthand', 'head',
+                'firstperson_righthand', 'firstperson_lefthand', 'head', 'fixed',
             ];
-            // Anchor lift (BB units, 16 = 1 block). This used to compensate the carrier
-            // anchor being at the cube BOTTOM (the -0.5 block bug): it was 8 (=exact
-            // compensation), then mis-tuned to 3 (under-compensating -> model dropped ~5px,
-            // the "sits at bottom" report). The root is now fixed in the carrier geometry
-            // (c2 = cube centre), so no compensation is needed: 0. Add a small value here
-            // ONLY if you want an intentional hand/head aesthetic offset (verify in-game).
-            const ANCHOR_LIFT_Y = 0;
+            // Anchor lift (BB units, 16 = 1 block). History: compensated the OLD cube-
+            // BOTTOM carrier (was 8, mis-tuned to 3, then 0 when the carrier moved to
+            // cube centre). But 0 was wrong — the centre-carrier OVER-lifts model.json
+            // slots by +0.5 block, so the correct compensation is -8 (verified in-game:
+            // -8 on display.Y centres head/hand/fixed). Adjust only with in-game checks.
+            const ANCHOR_LIFT_Y = -8;
             const liftY8 = (d) => {
                 const base = d || IDENTITY_DISPLAY;
                 const t = base.translation || [0, 0, 0];
@@ -5501,7 +5504,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.73',
+        version: '0.5.74',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
