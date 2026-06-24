@@ -3149,6 +3149,10 @@
     function buildItemSelector(modelBaseName, exportedSlots, baseItem) {
         const base = baseItem || 'iron_ingot';
         return {
+            // MANDATORY: default `true` makes Minecraft replay the item-swap
+            // animation every time obj³ mutates the item's components per
+            // animation frame, breaking the hand animation. Must be false.
+            hand_animation_on_swap: false,
             model: {
                 type: 'minecraft:select',
                 property: 'minecraft:custom_model_data',
@@ -3212,6 +3216,9 @@
         const cases = existing.model.cases.filter(c => c.when !== modelBaseName);
         cases.push({ when: modelBaseName, model: node });
         existing.model.cases = cases;
+        // Heal an old file that predates this field (default true breaks the
+        // hand animation); see buildItemSelector.
+        existing.hand_animation_on_swap = false;
         return existing;
     }
 
@@ -5482,7 +5489,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.71',
+        version: '0.5.72',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
@@ -5588,7 +5595,7 @@
     // functions for autonomous tests. See test/helpers/load-plugin.cjs.
     if (typeof module !== 'undefined' && module.exports) {
         module.exports.__test = {
-            generateDatapackFiles, buildItemSelector, saveSingleOutput, buildOutput,
+            generateDatapackFiles, buildItemSelector, mergeItemSelector, saveSingleOutput, buildOutput,
             buildSlotModelJson,
             buildVertexData, buildDisplayTransforms, hasStaticWorldDisplay,
             ensureDataRoot, loadActiveSettings, saveActiveSettings,

@@ -54,6 +54,40 @@ describe('buildSlotModelJson', () => {
   });
 });
 
+// Item def must carry the MANDATORY top-level `hand_animation_on_swap: false`.
+// Without it (default true) Minecraft replays the item-swap animation every
+// time obj³ mutates the item's components per animation frame -> broken hand
+// animation. Build emits it; merge heals an old file that lacks it.
+describe('buildItemSelector: hand_animation_on_swap', () => {
+  it('emits hand_animation_on_swap:false as a top-level sibling of model', () => {
+    const out = api.buildItemSelector('m', ['gui'], 'stick');
+    expect(out.hand_animation_on_swap).toBe(false);
+  });
+
+  it('still produces the custom_model_data select with the model case', () => {
+    const out = api.buildItemSelector('m', ['gui'], 'stick');
+    expect(out.model.type).toBe('minecraft:select');
+    expect(out.model.property).toBe('minecraft:custom_model_data');
+    expect(out.model.cases.some(c => c.when === 'm')).toBe(true);
+  });
+
+  it('merge heals an existing item.json lacking the field', () => {
+    const existing = {
+      model: {
+        type: 'minecraft:select',
+        property: 'minecraft:custom_model_data',
+        index: 0,
+        cases: [{ when: 'old', model: { type: 'minecraft:model', model: 'x' } }],
+        fallback: { type: 'minecraft:model', model: 'minecraft:item/stick' },
+      },
+    };
+    const merged = api.mergeItemSelector(existing, 'm', ['gui']);
+    expect(merged.hand_animation_on_swap).toBe(false);
+    expect(merged.model.cases.some(c => c.when === 'm')).toBe(true);
+    expect(merged.model.cases.some(c => c.when === 'old')).toBe(true);
+  });
+});
+
 // display-1:1 step A2: buildDisplayTransforms now KEEPS scale for firstperson
 // (vanilla owns the full hand transform; the shader no longer applies a hand
 // scale). Previously firstperson scale was force-stripped to [1,1,1].
