@@ -121,6 +121,25 @@ describe('datapack correctness (review batch 2)', () => {
     }
   });
 
+  it('equipment summon spawns the armor_stand ALREADY equipped (A4)', () => {
+    // Armor slot: leather piece carrying the equippable component pointing at
+    // the armor export asset (<model>_<piece>). An empty slot can't be animated
+    // (the _apply_auto data-modify needs an existing item), so the summon equips.
+    const armor = api.generateDatapackFiles('walk', 8, 'mypack', 'equipment', 'head', 'stick', 'mymodel');
+    const summon = armor.get('data/mypack/function/walk/summon.mcfunction');
+    expect(summon).toMatch(/summon armor_stand/);
+    expect(summon).toMatch(/equipment:\{head:\{/);
+    expect(summon).toMatch(/leather_helmet/);
+    expect(summon).toMatch(/asset_id:"minecraft:mymodel_helmet"/);
+
+    // Hand slot: the base item with custom_model_data (mirrors the item_display).
+    const hand = api.generateDatapackFiles('walk', 8, 'mypack', 'equipment', 'mainhand', 'stick', 'mymodel');
+    const handSummon = hand.get('data/mypack/function/walk/summon.mcfunction');
+    expect(handSummon).toMatch(/summon armor_stand/);
+    expect(handSummon).toMatch(/equipment:\{mainhand:\{/);
+    expect(handSummon).toMatch(/"minecraft:custom_model_data":\{strings:\["mymodel"\]\}/);
+  });
+
   it('play_once emits a tick latch that freezes after nframes ticks', () => {
     const files = api.generateDatapackFiles('walk', 10, 'mypack', 'equipment', 'mainhand');
     // play_once stores an absolute deadline = gametime + nframes in objective <id>.end

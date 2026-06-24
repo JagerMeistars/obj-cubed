@@ -3762,12 +3762,24 @@
                 `summon item_display ~ ~ ~ {Tags:["${entityTag}"],billboard:"fixed",item:{id:"minecraft:${base}",count:1,components:{"minecraft:custom_model_data":{strings:["${model}"]}}}}`,
             ].join('\n'));
         } else if (!isPlayer) {
-            // equipment target: an armor_stand wearing the obj³ equipment item.
-            // The equippable item + asset_id come from the armor export's give.txt
-            // (<model>_<piece>); summon the stand + tag it, then equip via that give.
+            // equipment target: an armor_stand summoned ALREADY wearing/holding the
+            // obj³ item, so the per-slot equipment NBT exists for _apply_auto to
+            // data-modify (an empty slot cannot be animated). The slot key is the
+            // exact equipment NBT key (head/chest/legs/feet/mainhand/offhand).
+            const ARMOR_PIECE = { head: 'helmet', chest: 'chestplate', legs: 'leggings', feet: 'boots' };
+            const slot = ARMOR_PIECE[equipSlot] ? equipSlot : (EQUIP_PATH[equipSlot] ? equipSlot : 'mainhand');
+            let equipItem;
+            if (ARMOR_PIECE[slot]) {
+                // ARMOR slot: leather piece carrying the equippable component that
+                // points at the armor export asset (eqName = <model>_<piece>).
+                const piece = ARMOR_PIECE[slot];
+                equipItem = `${slot}:{id:"minecraft:leather_${piece}",count:1,components:{"minecraft:equippable":{slot:"${slot}",asset_id:"minecraft:${model}_${piece}"}}}`;
+            } else {
+                // HAND slot: the base item with custom_model_data (mirror item_display).
+                equipItem = `${slot}:{id:"minecraft:${base}",count:1,components:{"minecraft:custom_model_data":{strings:["${model}"]}}}`;
+            }
             files.set(`data/${ns}/function/${pub}/summon.mcfunction`, [
-                `summon armor_stand ~ ~ ~ {Tags:["${entityTag}"],ShowArms:1b,NoGravity:1b}`,
-                `# then equip the obj³ armor item on @e[tag=${entityTag}] — see <model>_<piece>_give.txt`,
+                `summon armor_stand ~ ~ ~ {Tags:["${entityTag}"],ShowArms:1b,NoGravity:1b,equipment:{${equipItem}}}`,
             ].join('\n'));
         }
         // player target: cannot be summoned — README documents the held-item path.
@@ -3782,7 +3794,7 @@
                 ? `SPAWN:   function ${ns}:${pub}/summon   (creates a tagged item_display)`
                 : (isPlayer
                     ? `SPAWN:   none — give yourself the item from ${base}_give.txt and run the controls as yourself.`
-                    : `SPAWN:   function ${ns}:${pub}/summon   (armor_stand) then equip ${model}_<piece> from its _give.txt`),
+                    : `SPAWN:   function ${ns}:${pub}/summon   (spawns an armor_stand ALREADY equipped with the obj³ item). To wear it yourself instead, give from ${model}_<piece>_give.txt.`),
             ``,
             `CONTROL (run AS the entity, e.g. execute as @e[tag=${ns}.${pub}] run …):`,
             `  ${ns}:${pub}/play        loop from frame 0`,
@@ -5489,7 +5501,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.72',
+        version: '0.5.73',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
