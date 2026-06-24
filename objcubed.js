@@ -30,7 +30,10 @@
         // Equipment (armor) export — Approach C
         'exportAsEquipment', 'equipmentSlot', 'selectedPieces',
         // Display — right hand & shared
+        'useSeparateLefthand',
         'dThirdRX','dThirdRY','dThirdRZ','dThirdTX','dThirdTY','dThirdTZ','dThirdSX','dThirdSY','dThirdSZ',
+        // Display — left hand (independent third-person, when useSeparateLefthand=true)
+        'dLeftRX','dLeftRY','dLeftRZ','dLeftTX','dLeftTY','dLeftTZ','dLeftSX','dLeftSY','dLeftSZ',
         // Display — head/ground/fixed
         'dHeadRX','dHeadRY','dHeadRZ','dHeadTX','dHeadTY','dHeadTZ','dHeadSX','dHeadSY','dHeadSZ',
         'dGroundRX','dGroundRY','dGroundRZ','dGroundTX','dGroundTY','dGroundTZ','dGroundSX','dGroundSY','dGroundSZ',
@@ -314,6 +317,8 @@
             help_cmd_name: 'The string you put on the base item to show this model. The plugin writes a give command (<base item>_give.txt) with it. Default is the project name.',
             help_equipment: 'One equipment layer per model face. Renders the 3D model as worn armor via the entity shader. Reliable on the chest of a static armor stand; on moving players the anchor may tilt (work in progress).',
             help_datapackOutputDir: 'Where to save the datapack folder. Empty = next to resource pack.',
+            help_useSeparateLefthand: 'By default, left hand copies right hand settings. Enable to configure separately.',
+            lbl_separate_lefthand: 'Separate left hand',
             help_display_third: 'Rotation and offset when visible in another player\'s hand (3rd person).',
             help_display_head: 'Rotation and offset when worn on head (player_head).',
             help_display_ground: 'Rotation and offset when on the ground (dropped).',
@@ -577,6 +582,8 @@
             help_cmd_name: 'Строка, которую вы вешаете на базовый предмет, чтобы показать эту модель. Плагин пишет команду give (<базовый предмет>_give.txt) с ней. По умолчанию — имя проекта.',
             help_equipment: 'Один слой экипировки на каждую грань модели. Рендерит 3D-модель как надетую броню через шейдер сущности. Надёжно работает на нагруднике статичного armor stand; на движущихся игроках якорь может наклоняться (в разработке).',
             help_datapackOutputDir: 'Куда положить папку датапака. Пусто = рядом с ресурспаком.',
+            help_useSeparateLefthand: 'По умолчанию левая рука копирует настройки правой. Включите, если хотите настроить её отдельно.',
+            lbl_separate_lefthand: 'Отдельная левая рука',
             help_display_third: 'Поворот и сдвиг модели когда она видна в руке другого игрока (от 3-го лица).',
             help_display_head: 'Поворот и сдвиг модели когда она надета на голову (player_head).',
             help_display_ground: 'Поворот и сдвиг модели когда она лежит на земле (выпавшая).',
@@ -3929,8 +3936,9 @@
                         exportAsEquipment: false,
                         equipmentSlot: 'chest',
                         selectedPieces: [],
-                        // Display — Right hand (also used for left; left always mirrors right)
+                        // Display — Right hand (also used for left UNLESS useSeparateLefthand)
                         displayTab:    'third',   // 'third' | 'head' | 'ground' | 'fixed'
+                        useSeparateLefthand: false,
                         // Thirdperson rotation default 0° — no baked-in tilt.
                         // Earlier builds shipped a 5° X default (and legacy objmc
                         // projects an 85° one); both baked an unwanted rotation
@@ -3939,6 +3947,10 @@
                         dThirdRX: 0, dThirdRY: 0, dThirdRZ: 0,
                         dThirdTX: 0, dThirdTY: 0, dThirdTZ: 0,
                         dThirdSX: 1, dThirdSY: 1, dThirdSZ: 1,
+                        // Display — Left hand (third-person, only used when useSeparateLefthand=true)
+                        dLeftRX: 0, dLeftRY: 0, dLeftRZ: 0,
+                        dLeftTX: 0, dLeftTY: 0, dLeftTZ: 0,
+                        dLeftSX: 1, dLeftSY: 1, dLeftSZ: 1,
                         // Display — Head/Ground/Fixed
                         dHeadRX: 0, dHeadRY: 0, dHeadRZ: 0,
                         dHeadTX: 0, dHeadTY: 0, dHeadTZ: 0,
@@ -4011,6 +4023,7 @@
                         // default is 0° (no rotation). Normalize 85 and 5 → 0
                         // silently so old projects don't keep the stale tilt.
                         if (state.dThirdRX === 85 || state.dThirdRX === 5) state.dThirdRX = 0;
+                        if (state.dLeftRX  === 85 || state.dLeftRX  === 5) state.dLeftRX  = 0;
 
                         // Persistence-boundary coercion: a corrupt/hand-edited
                         // .bbmodel may persist array fields as non-arrays; restore
@@ -4588,7 +4601,11 @@
                         };
                         return {
                             thirdperson_righthand: third,
-                            thirdperson_lefthand: third,
+                            thirdperson_lefthand: this.useSeparateLefthand ? {
+                                rotation:    [v('dLeftRX'), v('dLeftRY'), v('dLeftRZ')],
+                                translation: [v('dLeftTX'), v('dLeftTY'), v('dLeftTZ')],
+                                scale:       [+this.dLeftSX || 1, +this.dLeftSY || 1, +this.dLeftSZ || 1],
+                            } : third,
                             firstperson_righthand: {
                                 rotation:    [v('dFprRX'), v('dFprRY'), v('dFprRZ')],
                                 translation: [v('dFprTX'), v('dFprTY'), v('dFprTZ')],
@@ -4636,7 +4653,7 @@
                     _loadFromDisplaySettings() {
                         if (typeof Project === 'undefined' || !Project || !Project.display_settings) return;
                         const PFX = {
-                            thirdperson_righthand: 'dThird',
+                            thirdperson_righthand: 'dThird', thirdperson_lefthand: 'dLeft',
                             firstperson_righthand: 'dFpr',   firstperson_lefthand: 'dFpl',
                             head: 'dHead', gui: 'dGui', ground: 'dGround', fixed: 'dFixed', on_shelf: 'dShelf',
                         };
@@ -5013,6 +5030,31 @@
         <div class="oc-xyz-input oc-x" @mousedown="startDrag($event,'dThirdSX',0.05)"><input v-model.number="dThirdSX" type="number" step="0.05"/></div>
         <div class="oc-xyz-input oc-y" @mousedown="startDrag($event,'dThirdSY',0.05)"><input v-model.number="dThirdSY" type="number" step="0.05"/></div>
         <div class="oc-xyz-input oc-z" @mousedown="startDrag($event,'dThirdSZ',0.05)"><input v-model.number="dThirdSZ" type="number" step="0.05"/></div>
+      </div>
+      <!-- Separate third-person LEFT hand (off = mirrors right) -->
+      <label class="oc-checkbox-row" :title="t('help_useSeparateLefthand')" style="margin-top:8px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" v-model="useSeparateLefthand"/>
+        <span>{{t('lbl_separate_lefthand')}}</span>
+      </label>
+      <div v-if="useSeparateLefthand">
+        <div class="oc-xyz-row">
+          <span>{{t('lbl_rotation')}}</span>
+          <div class="oc-xyz-input oc-x" @mousedown="startDrag($event,'dLeftRX',1)"><input v-model.number="dLeftRX" type="number" step="1"/></div>
+          <div class="oc-xyz-input oc-y" @mousedown="startDrag($event,'dLeftRY',1)"><input v-model.number="dLeftRY" type="number" step="1"/></div>
+          <div class="oc-xyz-input oc-z" @mousedown="startDrag($event,'dLeftRZ',1)"><input v-model.number="dLeftRZ" type="number" step="1"/></div>
+        </div>
+        <div class="oc-xyz-row">
+          <span>{{t('lbl_translation')}}</span>
+          <div class="oc-xyz-input oc-x" @mousedown="startDrag($event,'dLeftTX',0.5)"><input v-model.number="dLeftTX" type="number" step="0.5"/></div>
+          <div class="oc-xyz-input oc-y" @mousedown="startDrag($event,'dLeftTY',0.5)"><input v-model.number="dLeftTY" type="number" step="0.5"/></div>
+          <div class="oc-xyz-input oc-z" @mousedown="startDrag($event,'dLeftTZ',0.5)"><input v-model.number="dLeftTZ" type="number" step="0.5"/></div>
+        </div>
+        <div class="oc-xyz-row">
+          <span>{{t('lbl_display_scale')}}</span>
+          <div class="oc-xyz-input oc-x" @mousedown="startDrag($event,'dLeftSX',0.05)"><input v-model.number="dLeftSX" type="number" step="0.05"/></div>
+          <div class="oc-xyz-input oc-y" @mousedown="startDrag($event,'dLeftSY',0.05)"><input v-model.number="dLeftSY" type="number" step="0.05"/></div>
+          <div class="oc-xyz-input oc-z" @mousedown="startDrag($event,'dLeftSZ',0.05)"><input v-model.number="dLeftSZ" type="number" step="0.05"/></div>
+        </div>
       </div>
     </div>
 
@@ -5512,7 +5554,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.77',
+        version: '0.5.78',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
