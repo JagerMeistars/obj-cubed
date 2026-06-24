@@ -3318,10 +3318,14 @@
             // makes the item-frame RMB rotation orbit the model by 0.5 block instead of
             // spinning in place — accepted tradeoff (centred > spin); set its value to 0
             // to restore spin-in-place at the cost of height. Adjust only with in-game checks.
+            // Per-POSE values (in-game verified). NOTE: these centre a slot with NO custom
+            // display ROTATION. A user rotation (e.g. a gun's 45° firstperson) tilts the lift
+            // axis, so a rotated slot won't fully centre from a pure Y nudge — that case needs
+            // per-model tuning. firstperson pose needs more than thirdperson (different hold).
             const SLOT_LIFT_Y = {
                 head: -8, fixed: -8,
                 thirdperson_righthand: -6, thirdperson_lefthand: -6,
-                firstperson_righthand: -6, firstperson_lefthand: -6,
+                firstperson_righthand: -10, firstperson_lefthand: -10,
             };
             const liftSlot = (d, lift) => {
                 const base = d || IDENTITY_DISPLAY;
@@ -5508,7 +5512,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.76',
+        version: '0.5.77',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

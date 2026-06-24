@@ -111,15 +111,17 @@ describe('resource pack export (#7)', () => {
     const model = JSON.parse(
       memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json')
     );
-    // head/fixed need the full -8; the 4 hand slots need only -6 (the hand POSE already
-    // raises the held item) — both verified in-game.
+    // Per-pose, in-game verified: head/fixed -8, thirdperson hands -6, firstperson hands -10
+    // (the first-person hold raises the item more, so it needs a bigger compensation).
     const lift = (y) => ({ rotation: [0, 0, 0], translation: [0, y, 0], scale: [1, 1, 1] });
     for (const s of ['head', 'fixed']) {
       expect(model.display[s], s).toEqual(lift(-8));
     }
-    for (const s of ['firstperson_righthand', 'firstperson_lefthand',
-                     'thirdperson_righthand', 'thirdperson_lefthand']) {
+    for (const s of ['thirdperson_righthand', 'thirdperson_lefthand']) {
       expect(model.display[s], s).toEqual(lift(-6));
+    }
+    for (const s of ['firstperson_righthand', 'firstperson_lefthand']) {
+      expect(model.display[s], s).toEqual(lift(-10));
     }
     // Scoped: ground/on_shelf stay identity (not over-lifted by the centre-carrier).
     for (const s of ['ground', 'on_shelf']) {
