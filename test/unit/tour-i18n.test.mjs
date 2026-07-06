@@ -81,6 +81,8 @@ describe('tour i18n parity (#4)', () => {
       // shader never read those header bits — the working texture cross-fade
       // is the fade toggle inside the animated-texture block ('texanim').
       'color', 'easing', 'autorotate', 'flags',
+      // outliner right-click features that have no dialog control
+      'emissive',
       // export
       'export',
     ];

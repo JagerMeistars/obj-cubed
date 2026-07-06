@@ -114,6 +114,10 @@
         // to the animation group, matching their new position in the layout)
         { sel: '.oc-tour-color',          titleKey: 'tour_t_color',         bodyKey: 'tour_b_color'         },
         { sel: '.oc-tour-flags',          titleKey: 'tour_t_flags',         bodyKey: 'tour_b_flags'         },
+        // sel: null → centred card (like the welcome step). The emissive toggle
+        // lives in the OUTLINER right-click menu, not in this dialog, so there
+        // is nothing to spotlight — but it has to be discoverable somewhere.
+        { sel: null,                      titleKey: 'tour_t_emissive',      bodyKey: 'tour_b_emissive'      },
         { sel: '__export__',              titleKey: 'tour_t_export',        bodyKey: 'tour_b_export'        },
     ];
     // Flat list of every title/body key the tour references — used by the
@@ -394,6 +398,8 @@
             tour_b_autorotate: 'Autorotate makes the model follow its render transform — turning to face the right way in item frames, on entities or in world slots, instead of staying fixed. Off keeps it fixed; horizontal, vertical or both choose which axes track. Handy for framed or worn items.',
             tour_t_flags: 'Advanced flags',
             tour_b_flags: 'No shadow hides the drop shadow, flip UV mirrors texture mapping if your faces look reversed, and no power-of-two skips padding the atlas to a power-of-two size. Leave them off unless you hit a specific issue.',
+            tour_t_emissive: 'Glowing cubes',
+            tour_b_emissive: 'Any cube or mesh can glow: right-click it in the Outliner → obj³: Emissive — it renders fullbright, ignoring world lighting (eyes, runes, lamps). Works on armor too (per-face) and is saved into the project. There is no control for it in this dialog — only the right-click menu.',
             tour_t_export: 'Export',
             tour_b_export: 'When everything looks right, hit Export to write the model, texture and overrides into the pack. obj³ tells you the custom_model_data name to /give. Replay this tour any time via the ? button.',
         },
@@ -657,6 +663,8 @@
             tour_b_autorotate: 'Автоповорот заставляет модель следовать своему рендер-трансформу — поворачиваться как надо в рамках, на сущностях и в мировых слотах, а не оставаться статичной. «Выкл» оставляет её неподвижной; «По горизонтали», «По вертикали» или «Оба» задают оси. Удобно для предметов в рамке или надетых.',
             tour_t_flags: 'Доп. флаги',
             tour_b_flags: '«Без тени» убирает тень, «Перевернуть UV» зеркалит развёртку, если грани выглядят перевёрнутыми, а «Без округления до степени 2» отключает дополнение атласа до степени двойки. Оставьте выключенными, пока не столкнётесь с конкретной проблемой.',
+            tour_t_emissive: 'Светящиеся кубы',
+            tour_b_emissive: 'Любой куб или меш можно заставить светиться: ПКМ по нему в Outliner → obj³: Emissive — он рендерится fullbright, игнорируя освещение мира (глаза, руны, лампы). Работает и на броне (по-гранево), сохраняется в проект. В этом диалоге переключателя нет — только меню правой кнопки.',
             tour_t_export: 'Экспорт',
             tour_b_export: 'Когда всё готово, нажмите Экспорт — модель, текстура и override запишутся в пак. obj³ покажет имя custom_model_data для /give. Повторить тур можно кнопкой ? в любой момент.',
         }
@@ -5825,7 +5833,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.85',
+        version: '0.5.86',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
