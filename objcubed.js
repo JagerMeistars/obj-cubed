@@ -79,6 +79,9 @@
         // atlas toggle only renders for multi-texture models; positionTour()
         // centers the card harmlessly when the anchor is absent.
         { sel: '.oc-tour-atlas',          titleKey: 'tour_t_atlas',         bodyKey: 'tour_b_atlas'         },
+        // texAnim block only renders when a frame-strip texture is present;
+        // positionTour() centers the card harmlessly when the anchor is absent.
+        { sel: '.oc-tour-texanim',        titleKey: 'tour_t_texanim',       bodyKey: 'tour_b_texanim'       },
         // ── Display card ──
         { sel: '.oc-display-tabs',        titleKey: 'tour_t_display',       bodyKey: 'tour_b_display'       },
         { sel: '.oc-tour-preview',        titleKey: 'tour_t_preview',       bodyKey: 'tour_b_preview'       },
@@ -205,7 +208,7 @@
             lbl_translation: 'Translation',
             lbl_display_scale: 'Scale',
             lbl_gui_pivot: 'GUI pivot',
-            help_guiPivot: 'Rotation pivot for the inventory icon, in model units (0..16; 8 = block centre). Set it to your model\'s centre so the GUI rotation matches Blockbench. Export-only; does not affect other slots.',
+            help_guiPivot: 'Rotation pivot for the inventory icon, in 1/16-block units. 0/0/0 = the block centre — the same pivot vanilla uses, so a rotated icon matches a vanilla model. Set a custom value to spin the icon about another point (e.g. your model\'s visual centre). Export-only; does not affect other slots.',
             columns_xyz: 'Columns are X, Y, Z.',
             ground_y_tip: 'Y is clamped by Minecraft engine — dropped items stick to the ground',
             preview_title: 'Preview',
@@ -296,14 +299,14 @@
             warn_suffix: ' ({n} {w} — see console)',
             // Help tooltips
             help_selectedTex: 'Texture applied to the model.',
-            help_useAtlas: 'Combine multiple textures into one large PNG. Useful when the model has parts with different textures.',
+            help_useAtlas: 'Combine multiple textures into one large PNG. Useful when the model has parts with different textures. One animated frame-strip texture per atlas is supported — it keeps animating, the rest stay static.',
             tex_anim_enable: 'Animate texture ({n} frames)',
             tex_frametime: 'Ticks per frame',
             tex_chip_each: 'each',
             tex_fade: 'Cross-fade frames',
-            help_texAnim: 'Treat the texture as a vertical strip of square frames and play them in order. Frame count = texture height / width. UV the model onto the TOP (first) frame.',
+            help_texAnim: 'Play the texture as a stack of frames. Best with a texture marked animated in Blockbench — just UV-map your model as usual (BB\'s UV grid already shows one frame). A plain vertical strip of square frames also works: frame count = height / width, UV onto the top frame. Works inside an atlas too (one animated strip per atlas).',
             help_texFrametime: 'How many game ticks (1/20 s) each texture frame is shown. 1 = fastest (20 fps).',
-            help_texFade: 'Smoothly blend each frame into the next. Works only in the inventory/GUI and held-item views; on entities/equipment frames hard-step.',
+            help_texFade: 'Smoothly blend each frame into the next (like interpolate in vanilla .mcmeta). Works in hand, GUI and on equipment; some world views may hard-step.',
             help_scale: 'Size multiplier for the entire model. 1 = original, 2 = double. Note: final size is also multiplied by display slot scale.',
             help_offset: 'Shift all vertices in world coordinates (before encoding). Useful if the model is offset from center.',
             help_animationEnabled: 'Enable animation baking into texture. Without this, only the current pose is exported.',
@@ -350,8 +353,10 @@
             tour_b_texture: 'Pick the texture that wraps the model. The thumbnail shows what is currently selected. This is the image baked into the exported item, so choose the one your model is actually painted with.',
             tour_t_atlas: 'Combine into atlas',
             tour_b_atlas: 'Only shown when the model uses several textures. Tick it to merge them into one atlas image so the export stays a single file; leave it off to pick just one texture from the list instead.',
+            tour_t_texanim: 'Animated texture',
+            tour_b_texanim: 'Appears when a texture is a stack of frames (marked animated in Blockbench, or height a whole multiple of width). Tick it to play the frames in game; set ticks per frame and optional cross-fade. Works inside an atlas too.',
             tour_t_display: 'Display slots',
-            tour_b_display: 'These tabs are the contexts the item appears in: held in hand, on the head, in the GUI, dropped on the ground, in an item frame. Each slot keeps its own position, rotation and scale.',
+            tour_b_display: 'These tabs are the contexts the item appears in: right/left hand in third and first person, head, GUI, ground, item frame, shelf. Each slot keeps its own position, rotation and scale; the left hand mirrors the right until you untick it on its tab.',
             tour_t_preview: 'Open in Blockbench',
             tour_b_preview: 'This button pushes the dialog\'s current per-slot transforms into Blockbench and opens its native Display editor on the active slot, so you can check the item against the real reference before you export. The dialog stays the source of truth.',
             tour_t_transform: 'Position, rotation, scale',
@@ -476,7 +481,7 @@
             lbl_translation: 'Сдвиг',
             lbl_display_scale: 'Масштаб',
             lbl_gui_pivot: 'GUI пивот',
-            help_guiPivot: 'Точка вращения иконки в инвентаре, в единицах модели (0..16; 8 = центр блока). Поставьте в центр своей модели, чтобы поворот в GUI совпал с Blockbench. Только для экспорта; другие слоты не трогает.',
+            help_guiPivot: 'Точка вращения иконки в инвентаре, в 1/16 блока. 0/0/0 = центр блока — тот же pivot, что у ванили, так что повёрнутая иконка совпадает с ванильной моделью. Задайте своё значение, чтобы вращать иконку вокруг другой точки (например, визуального центра модели). Только для экспорта; другие слоты не трогает.',
             columns_xyz: 'Колонки — X, Y, Z.',
             ground_y_tip: 'Y ограничивается движком Minecraft — выброшенные предметы прилипают к земле',
             preview_title: 'Превью',
@@ -564,14 +569,14 @@
             warnings_many: 'предупреждений',
             warn_suffix: ' ({n} {w} — см. консоль)',
             help_selectedTex: 'Текстура которая накладывается на модель.',
-            help_useAtlas: 'Объединить несколько текстур в один большой PNG. Полезно когда модель состоит из частей с разными текстурами.',
+            help_useAtlas: 'Объединить несколько текстур в один большой PNG. Полезно когда модель состоит из частей с разными текстурами. Поддерживается одна анимированная текстура-полоса на атлас — она продолжает анимироваться, остальные статичны.',
             tex_anim_enable: 'Анимировать текстуру ({n} кадров)',
             tex_frametime: 'Тиков на кадр',
             tex_chip_each: 'каждый',
             tex_fade: 'Плавный переход кадров',
-            help_texAnim: 'Воспринимать текстуру как вертикальную полосу квадратных кадров и проигрывать их по порядку. Число кадров = высота / ширина. Натягивайте UV на ВЕРХНИЙ (первый) кадр.',
+            help_texAnim: 'Проигрывать текстуру как стопку кадров. Лучше всего — текстура, помеченная анимированной в самом Blockbench: просто разверните модель как обычно (UV-сетка BB уже показывает один кадр). Обычная вертикальная полоса квадратных кадров тоже работает: число кадров = высота / ширина, UV на верхний кадр. Работает и внутри атласа (одна анимированная полоса на атлас).',
             help_texFrametime: 'Сколько игровых тиков (1/20 с) показывается каждый кадр текстуры. 1 = максимально быстро (20 кадров/с).',
-            help_texFade: 'Плавно смешивать кадры между собой. Работает только в инвентаре/GUI и в руке; на сущностях/экипировке кадры переключаются резко.',
+            help_texFade: 'Плавно смешивать кадры между собой (как interpolate в ванильной .mcmeta). Работает в руке, GUI и на экипировке; в некоторых мировых видах кадры могут переключаться резко.',
             help_scale: 'Множитель размера всей модели. 1 = исходный, 2 = вдвое больше. Внимание: финальный размер ещё умножается на масштаб слота отображения.',
             help_offset: 'Сдвиг всех вершин в мировых координатах (до кодирования). Полезно если модель смещена от центра.',
             help_animationEnabled: 'Включить запись анимации в текстуру. Без этого экспортируется только одна (текущая) поза.',
@@ -618,8 +623,10 @@
             tour_b_texture: 'Выберите текстуру, которая оборачивает модель. Миниатюра показывает, что выбрано сейчас. Именно это изображение запекается в экспортируемый предмет, так что берите ту текстуру, которой реально раскрашена модель.',
             tour_t_atlas: 'Объединить в атлас',
             tour_b_atlas: 'Показывается только когда у модели несколько текстур. Включите, чтобы слить их в один атлас и оставить экспорт одним файлом; выключите, чтобы выбрать из списка только одну текстуру.',
+            tour_t_texanim: 'Анимированная текстура',
+            tour_b_texanim: 'Появляется, когда текстура — стопка кадров (помечена анимированной в Blockbench или высота кратна ширине). Включите, чтобы кадры проигрывались в игре; задайте тики на кадр и, по желанию, плавное смешивание. Работает и внутри атласа.',
             tour_t_display: 'Слоты отображения',
-            tour_b_display: 'Эти вкладки — контексты, в которых виден предмет: в руке, на голове, в инвентаре (GUI), на земле, в рамке. У каждого слота своя позиция, поворот и масштаб.',
+            tour_b_display: 'Эти вкладки — контексты, в которых виден предмет: правая/левая рука от третьего и первого лица, голова, инвентарь (GUI), земля, рамка, полка. У каждого слота своя позиция, поворот и масштаб; левая рука зеркалит правую, пока не снимете галку на её вкладке.',
             tour_t_preview: 'Открыть в Blockbench',
             tour_b_preview: 'Эта кнопка записывает текущие трансформы слотов из окна в Blockbench и открывает его родной редактор отображения на активном слоте, чтобы проверить предмет на реальном референсе до экспорта. Источник истины остаётся это окно.',
             tour_t_transform: 'Позиция, поворот, масштаб',
@@ -3434,41 +3441,21 @@
             });
 
             // Per-slot model JSONs → assets/objc_cubed/models/item/<modelName>_<slot>.json.
-            // The carrier anchor is corner 2, now at the CUBE CENTRE (from[8,8,8] =
-            // 0.5 block, the v0.5.45 fix that centred the WORLD/autorotate path). But
-            // model.json-display slots (hand/head/fixed) bake their display ONTO that
-            // centre-carrier and the shader re-anchors at c2, so they end up +0.5 block
-            // (8 BB units) HIGH. Compensate by lifting them down Y (per-slot, see below)
-            // via an explicit display entry. Done here — NOT in buildDisplayTransforms (it must stay a faithful
-            // passthrough, see model-output.test) and NOT on cfg.displaySlots (that would
-            // trip the autorotate gate hasStaticWorldDisplay). The explicit entry also
-            // stops Minecraft leaking block-model display defaults (scale ~0.4 / rot 45)
-            // into un-set slots. The user's dialog value adds on top. NOT compensated:
-            //  - gui: positioned by the in-shader ortho framing (header-encoded, no
-            //    model.json display) — its +0.5 is handled in the GUI shader path.
-            //  - ground/on_shelf: Minecraft clamps their display.translation Y.
-            // Per-slot-group lift (BB units, 16 = 1 block). The centre-carrier over-lifts
-            // model.json-display slots by +0.5 block; the compensation is NOT uniform —
-            // verified in-game:
-            //   ALL slots are 0 — in-game verified: the decoded model is already
-            //   block-centre relative, so with the shader reconstructing display
-            //   R*S from the carrier edges, lift-0 hand/world slots match the same
-            //   vanilla model exactly (rotations included). The old constants
-            //   (-8/-6) were compensating an offset that wasn't there, per pose.
-            //   The map + liftSlot stay so every slot still gets an EXPLICIT
-            //   display entry (stops MC leaking block-model defaults into un-set
-            //   slots), and as the knob for future per-pose tweaks (in-game only).
-            // History: this was 8 (old cube-BOTTOM carrier), mis-tuned to 3, then wrongly
-            // set to 0 when the carrier moved to cube centre (which actually flipped the
-            // error to +0.5 HIGH). gui is handled in the GUI shader path (+0.5*slotSize);
-            // ground/on_shelf are NOT lifted (MC clamps their Y). NOTE on fixed: the lift
-            // makes the item-frame RMB rotation orbit the model by 0.5 block instead of
-            // spinning in place — accepted tradeoff (centred > spin); set its value to 0
-            // to restore spin-in-place at the cost of height. Adjust only with in-game checks.
-            // Per-POSE values (in-game verified). NOTE: these centre a slot with NO custom
-            // display ROTATION. A user rotation (e.g. a gun's 45° firstperson) tilts the lift
-            // axis, so a rotated slot won't fully centre from a pure Y nudge — that case needs
-            // per-model tuning. firstperson pose needs more than thirdperson (different hold).
+            //
+            // VERTICAL-ORIGIN CONVENTION (in-game verified): the encoder bakes
+            // Y-0.5 into the PNG positions, the carrier anchor c2 sits at the
+            // block centre (from[8,8,8]), and the shader reconstructs display R*S
+            // from the carrier edges — so with ALL lifts at 0 every slot matches
+            // the same vanilla model exactly, rotations included. SLOT_LIFT_Y is
+            // kept as a per-pose tuning knob (change only against in-game checks)
+            // and so every slot gets an EXPLICIT display entry, which stops
+            // Minecraft leaking block-model display defaults (scale ~0.4 / rot 45)
+            // into un-set slots. The user's dialog display values add on top.
+            // Written here — NOT in buildDisplayTransforms (it must stay a faithful
+            // passthrough, see model-output.test) and NOT on cfg.displaySlots
+            // (that would trip the hasStaticWorldDisplay bit).
+            // gui has no model.json display at all: its transform is header-encoded
+            // and applied by the GUI shader path.
             const SLOT_LIFT_Y = {
                 head: 0, fixed: 0,
                 thirdperson_righthand: 0, thirdperson_lefthand: 0,
@@ -4131,9 +4118,10 @@
                         dGuiRX: 0, dGuiRY: 0, dGuiRZ: 0,
                         dGuiTX: 0, dGuiTY: 0, dGuiTZ: 0,
                         dGuiSX: 1, dGuiSY: 1, dGuiSZ: 1,
-                        // GUI rotation pivot, in BB units (0..16; 8 = block centre).
-                        // 0/0/0 = auto: rotate about the model's bbox centre (default;
-                        // any non-zero value overrides it). Encoder divides by 16 to the
+                        // GUI rotation pivot, in BB units (16 = 1 block; 0 = origin
+                        // = block centre in the decoded frame). 0/0/0 = auto: rotate
+                        // about the block centre — vanilla's display pivot (any
+                        // non-zero value overrides it). Encoder divides by 16 to the
                         // decoded block frame; the shader rotates the GUI display about it.
                         dGuiPX: 0, dGuiPY: 0, dGuiPZ: 0,
                         // Display — First-person right hand
@@ -5151,7 +5139,7 @@
     </div>
     <!-- Animated textures (issue #9): only when the strip holds >1 square frame.
          Styled to mirror the Animation section (behaviour card) below. -->
-    <div v-if="texFrameCount > 1" style="border-top:1px solid rgba(255,255,255,0.06);margin-top:8px;padding-top:8px;">
+    <div v-if="texFrameCount > 1" class="oc-tour-texanim" style="border-top:1px solid rgba(255,255,255,0.06);margin-top:8px;padding-top:8px;">
       <div style="display:flex;align-items:center;gap:8px;">
         <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
           <input type="checkbox" v-model="texAnimEnabled"/>
@@ -5764,7 +5752,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.82',
+        version: '0.5.83',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

@@ -17,10 +17,11 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 - **Body-part tagging** — right-click a group to assign it a body part; tags persist in the `.bbmodel`
 - **Emissive faces** — right-click a cube/mesh to make it fullbright
 - **Keyframe animation baking** — BB animations are baked frame-by-frame into the encoded texture
+- **Animated textures** — a frame-strip texture plays in game (hand, GUI, world, armor), with per-frame tick rate and optional cross-fade; works standalone or inside an atlas
 - **Armature & bone skinning** — weighted vertex skinning from BB Generic Model rigs
-- **Multi-texture atlas** — combine multiple textures into one atlas automatically
+- **Multi-texture atlas** — combine multiple textures into one atlas automatically (one animated strip per atlas keeps animating)
 - **Datapack generation** — animation control functions (play, stop, play_once, etc.) with GameTime sync
-- **Display transforms** — per-slot rotation/translation (thirdperson, head, ground, fixed)
+- **Vanilla-exact display** — every display slot (right/left hand in first and third person, head, GUI, ground, item frame, shelf) has its own tab with rotation/translation/scale, and a model lands exactly where the same vanilla model would — rotations included
 - **Presets** — multiple named export configurations saved per project
 - **Localized UI** — English and Russian, with an in-dialog guided tour of every control
 - **Custom PNG encoder** — bypasses browser alpha premultiplication to preserve exact RGB values
@@ -41,15 +42,26 @@ compatibility is not guaranteed.
 2. In BlockBench: File > Plugins > Load Plugin from File > select `objcubed.js`
 3. Copy the `objcubed/` resource pack folder to your Minecraft `resourcepacks/` directory
 
+## Modeling conventions
+
+- **Build on the grid floor.** The BlockBench grid floor (y=0) is the block bottom
+  in game: a model standing on the grid stands on the block, exactly like a
+  vanilla JSON model built from 0..16. A model floating above (or straddling)
+  the grid will float the same way in game — in every display slot at once.
+- **Horizontal origin = block centre.** Centre the model on the origin in X/Z.
+- Export from the **Edit** tab (the plugin guards against the Display and
+  Animate tabs baking their pose into a static export, but Edit is the
+  canonical state).
+
 ## Usage
 
 1. Open or create a model in BlockBench (Generic Model or any format with mesh/cube elements)
 2. File > Export > **Export as obj^3...**
 3. Configure settings in the export dialog:
-   - **Texture** — select texture or enable atlas for multiple textures
+   - **Texture** — select texture or enable atlas for multiple textures; a frame-strip texture reveals the animated-texture controls
    - **Transform** — scale and offset the model
    - **Animation** — select animation, set FPS and time range
-   - **Display** — rotation/translation per display slot (sliders)
+   - **Display** — rotation/translation/scale per display slot, one tab each (the third-person left hand mirrors the right until unticked)
    - **Advanced** — easing, interpolation, color behavior, autorotate
 4. Click **Export** — saves a PNG (encoded model) and JSON (Minecraft model) to your chosen location
 
@@ -69,6 +81,23 @@ compatibility is not guaranteed.
 | **Flip UV** | Flip texture UVs vertically (try if model looks wrong) |
 | **No PoT** | Don't round texture height to power of two |
 | **Filter Armature** | Exclude bone shapes from export (enable for armature rigs) |
+
+### Animated textures
+
+A texture that is a **stack of frames** can play in game independently of the
+geometry animation (its clock is separate — both can run at once):
+
+- **Best path:** mark the texture animated **in Blockbench** (texture
+  properties). BB then shows a one-frame UV grid — just UV-map your model as
+  usual, no special rules.
+- **Plain strip:** a texture whose height is a whole multiple of its width is
+  treated as vertical square frames; UV-map onto the **top** frame.
+- Set **ticks per frame** and optional **cross-fade** (like `interpolate` in a
+  vanilla `.mcmeta`).
+- Works in hand, GUI, world and **on armor**. Inside an **atlas**, one animated
+  strip is supported per atlas — it animates, the other textures stay static.
+- The GUI icon is pinned to frame 0 of both the geometry and the texture (MC
+  bakes inventory icons once, so a live clock would freeze a random frame).
 
 ### Datapack generation
 
@@ -206,11 +235,30 @@ give @s minecraft:potion[potion_contents={custom_color:16711680}]
 
 When `colorbehavior = time/time/time` (set automatically when generating a datapack), the shader uses `potion_contents.custom_color` as a 24-bit animation control value. Values below 8388608 are autoplay offsets; values above are manual frame indices.
 
+## Limitations (by design or not yet supported)
+
+- **One animated strip per atlas.** Several animated textures in one atlas are
+  not supported — the first strip animates, the rest are exported static (with
+  a warning).
+- **Per-axis depth (Z) display scale** cannot be reproduced in hand/world slots:
+  the shader reconstructs scale from the flat carrier quad, which only exposes
+  X/Y. Uniform and X-/Y-only scales are exact; a distinct Z scale falls back to
+  `min(Sx, Sy)`. The GUI slot is exact (its scale rides the header).
+- **Ground / shelf Y translation** is clamped by Minecraft itself; obj³
+  compensates the base height internally, but a custom Y translation on these
+  slots will not move the model.
+- **GUI icons don't animate** — Minecraft bakes inventory icons once per
+  resource reload; obj³ pins them to frame 0 instead of a random frame.
+- **Legacy armor PNGs (marker 254, pre-v0.5.31)** are no longer decoded —
+  re-export old armor with the current plugin.
+- **UV tiling** (coordinates outside 0..1) is clamped — keep the model UV-mapped
+  inside the texture frame. In atlas mode this clamp is per-texture.
+
 ## Notes
 
 - **Flipped UV** — BlockBench OBJ export sometimes flips UVs. Use the Flip UV option if the model looks wrong.
 - **Alpha preservation** — The plugin uses a custom PNG encoder (Node.js zlib) instead of canvas to avoid alpha premultiplication corrupting RGB data.
-- **Texture size** — Minimum 8px wide. Wider textures are recommended for high vertex counts or animations.
+- **Texture size** — Minimum 8px wide (16px+ if you use the GUI slot — the icon transform header needs the width). Wider textures are recommended for high vertex counts or animations.
 - **Frame count** — More FPS and longer animations = larger texture. The shader interpolates between frames, so fewer keyframes are often sufficient.
 
 ## Credits
