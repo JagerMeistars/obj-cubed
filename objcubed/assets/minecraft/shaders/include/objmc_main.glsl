@@ -306,14 +306,28 @@ if (marker == ivec4(12,34,56,255)) {
             // Per-axis scale: ex=+Y edge (len hsx=Sy), ey=+X edge (len hsy=Sx). The matrix
             // maps posoffset.x->X dir, .y->Y dir, so scale .x by Sx=hsy, .y by Sy=hsx. Z is
             // perpendicular to the flat placeholder (unmeasurable) -> min(Sx,Sy), which is
-            // exact for uniform and single-axis (X- or Y-only) stretches; only pure depth
-            // (Z) stretch can't be recovered. Verified by tools/render-tester/diff.mjs.
+            // exact for uniform and single-axis (X- or Y-only) stretches. A DISTINCT
+            // depth (Z) scale can't be measured from the flat carrier — it rides the
+            // v2 slot marker instead (see the world path): the carrier UV's U midpoint
+            // encodes a slot id, and dynamic ids 1..4 carry the exact q16 Z scale in
+            // row-1 pixels 0..3. Neutral/legacy falls back to min(Sx, Sy).
             //
             // NO constant re-anchor here: the decoded model is already BLOCK-CENTRE
             // relative (in-game verified: with model.json lifts at 0 and no offset,
             // firstperson matches the same vanilla model exactly, rotations included;
             // an extra -0.5 fold sat every hand slot half a block low).
-            posoffset = hrot * (posoffset * vec3(hsy, hsx, min(hsx, hsy)));
+            ivec4 hflags = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
+            float humid = (subgroupQuadBroadcast(UV0.x, 0) + subgroupQuadBroadcast(UV0.x, 2))
+                          * 0.5 * float(atlasSize.x);
+            float handsz = min(hsx, hsy);
+            if (hflags.b == 1) {
+                int hslot = clamp(int(round((fract(humid) - 0.5) / 0.04)), 0, 7);
+                if (hslot >= 1 && hslot <= 4) {
+                    ivec4 hdyn = ivec4(texelFetch(Sampler0, topleft + ivec2(hslot - 1, 1), 0) * 255.0 + 0.5);
+                    handsz = float(hdyn.r*256 + hdyn.g) / 65535.0 * 4.0;
+                }
+            }
+            posoffset = hrot * (posoffset * vec3(hsy, hsx, handsz));
         }
         if (isHand + isGUI == 0) {
             // World path: rebuild the model's orientation from the baked carrier
@@ -344,21 +358,30 @@ if (marker == ivec4(12,34,56,255)) {
             // block-centre relative — in-game verified with lifts 0: thirdperson and
             // item frames match the same vanilla model exactly.
             //
-            // Dropped/shelf items ride a FULL block higher in vanilla. Half comes
-            // from the +8 carrier-element offset in their model.json (SLOT_OFFSETS,
-            // capped by the model format); the other half is added here, gated on
-            // the SLOT MARKER: ground/on_shelf carriers bake their U range
-            // OFF-CENTRE in the face-id texel (U midpoint px+0.65 vs the normal
-            // px+0.5, see MARKED_UV_SLOTS in objcubed.js). Read the quad's U
-            // MIDPOINT — it survives MC's anti-bleed UV shrink, which contracts
-            // UVs symmetrically toward the quad centre (an absolute-margin test
-            // here previously misfired on EVERY face and lifted all world slots).
-            // MC clamps ground display translation Y, so model.json cannot carry
-            // this half.
+            // SLOT MARKER (v2): the carrier UV's U MIDPOINT encodes a slot id
+            // (px + 0.5 + id*0.04; midpoints survive MC's anti-bleed UV shrink,
+            // which contracts UVs symmetrically toward the quad centre). Ids:
+            // 0 neutral; 1..4 dynamic (row-1 pixel id-1 = q16 Z display scale +
+            // lift flag — the flat carrier only exposes X/Y edges, so a distinct
+            // Z scale must ride the header); 5/6 ground/shelf (+0.5-block lift:
+            // their pipeline rides half a block higher, and MC clamps ground
+            // display translation Y). Legacy exports (no v2 flag at x=5.b) keep
+            // the old single 0.65-midpoint lift rule.
+            ivec4 vflags = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
             float umid = (subgroupQuadBroadcast(UV0.x, 0) + subgroupQuadBroadcast(UV0.x, 2))
                          * 0.5 * float(atlasSize.x);
-            vec3 slotlift = (fract(umid) > 0.575) ? vec3(0.0, 0.5, 0.0) : vec3(0.0);
-            posoffset = fullRotation * ((posoffset + slotlift) * vec3(sy, sx, min(sx, sy)));
+            float mfrac = fract(umid);
+            int slotid = (vflags.b == 1)
+                ? clamp(int(round((mfrac - 0.5) / 0.04)), 0, 7)
+                : ((mfrac > 0.575) ? 5 : 0);
+            vec3 slotlift = (slotid == 5 || slotid == 6) ? vec3(0.0, 0.5, 0.0) : vec3(0.0);
+            float slotsz = min(sx, sy);
+            if (vflags.b == 1 && slotid >= 1 && slotid <= 4) {
+                ivec4 dyn = ivec4(texelFetch(Sampler0, topleft + ivec2(slotid - 1, 1), 0) * 255.0 + 0.5);
+                slotsz = float(dyn.r*256 + dyn.g) / 65535.0 * 4.0;
+                if ((dyn.b & 1) == 1) slotlift = vec3(0.0, 0.5, 0.0);
+            }
+            posoffset = fullRotation * ((posoffset + slotlift) * vec3(sy, sx, slotsz));
         }
     }
 #endif
@@ -386,33 +409,42 @@ if (marker == ivec4(12,34,56,255)) {
         texCoord2 = (base2 + texuvpx)/atlasSize + uvjit;
         transition = texFade ? fract(texTime / texFrametime) : 0.0;
     } else {
-        // Atlas texture animation (issue: animated strip inside a stitched atlas).
-        // Row-1 x=5.g flags it; only faces whose sampled atlas ROW falls inside the
-        // animated band [y0, y0+frameH) cycle — the rest of the atlas stays static.
+        // Atlas texture animation (animated strips inside a stitched atlas).
+        // Row-1 x=5.g holds the band COUNT (0..4); only faces whose sampled
+        // atlas ROW falls inside one of the bands [y0, y0+frameH) cycle — the
+        // rest of the atlas stays static.
         ivec4 aaf = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
-        if (aaf.g == 1) {
+        int nbands = min(aaf.g, 4);
+        if (nbands > 0) {
             ivec4 m4 = ivec4(texelFetch(Sampler0, topleft + ivec2(4,1), 0) * 255.0 + 0.5);
-            ivec4 m6 = ivec4(texelFetch(Sampler0, topleft + ivec2(6,1), 0) * 255.0 + 0.5);
-            ivec4 m7 = ivec4(texelFetch(Sampler0, topleft + ivec2(7,1), 0) * 255.0 + 0.5);
             float ft = max(float(m4.r*65536 + m4.g*256 + m4.b), 1.0);
-            int y0 = m6.r*256 + m6.g;                    // STORED frame-0 band start
-            int fH = m6.b*256 + m7.r;
-            int fc = max(m7.g, 1);
-            int tf = int(texTime / ft) % fc;
-            int tn = (tf + 1) % fc;
             // Band test on the QUAD'S V MIDPOINT (subgroup corners 0+2), not the
             // per-vertex row: a face mapped exactly onto one frame has corners ON
             // both band edges, and a per-vertex test tears the quad (some corners
             // step to the next frame, others stay) — smeared UVs on animated faces.
             float vmid = (subgroupQuadBroadcast(texCoord.y, 0) + subgroupQuadBroadcast(texCoord.y, 2))
                          * 0.5 * float(size.y);
-            bool inBand = (vmid > float(y0) && vmid < float(y0 + fH));
-            // The atlas stores each texture V-FLIPPED (whole region), so image
-            // frame 0 (the TOP frame the model is UV-mapped to) lives at the
-            // BOTTOM of the strip region and later frames sit ABOVE it: step UP
-            // (negative row offset) per frame.
-            float dy  = inBand ? float(-tf * fH) : 0.0;
-            float dy2 = inBand ? float(-tn * fH) : 0.0;
+            float dy = 0.0, dy2 = 0.0;
+            bool inBand = false;
+            for (int b = 0; b < nbands; b++) {
+                ivec4 m6 = ivec4(texelFetch(Sampler0, topleft + ivec2(6 + 2*b, 1), 0) * 255.0 + 0.5);
+                ivec4 m7 = ivec4(texelFetch(Sampler0, topleft + ivec2(7 + 2*b, 1), 0) * 255.0 + 0.5);
+                int y0 = m6.r*256 + m6.g;                // STORED frame-0 band start
+                int fH = m6.b*256 + m7.r;
+                int fc = max(m7.g, 1);
+                if (vmid > float(y0) && vmid < float(y0 + fH)) {
+                    int tf = int(texTime / ft) % fc;
+                    int tn = (tf + 1) % fc;
+                    // The atlas stores each texture V-FLIPPED (whole region), so
+                    // image frame 0 (the TOP frame the model is UV-mapped to)
+                    // lives at the BOTTOM of the strip region and later frames
+                    // sit ABOVE it: step UP (negative row offset) per frame.
+                    dy  = float(-tf * fH);
+                    dy2 = float(-tn * fH);
+                    inBand = true;
+                    break;
+                }
+            }
             texCoord  = (vec2(topleft.x, topleft.y+headerheight) + texuvpx + vec2(0.0, dy ))/atlasSize + uvjit;
             texCoord2 = (vec2(topleft.x, topleft.y+headerheight) + texuvpx + vec2(0.0, dy2))/atlasSize + uvjit;
             transition = (inBand && bool(aaf.r)) ? fract(texTime / ft) : 0.0;
@@ -620,27 +652,36 @@ if (isCustom == 0) {
                 texCoord2 = (vec2(0, ahh + texnext *as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
                 transition = bool(texflags.r) ? fract(texTime / texFrametime) : 0.0;
             } else {
-                // Atlas texture-animation band (mirror of the item path): only
-                // faces whose V midpoint falls inside the strip's stored frame-0
-                // band cycle; frames step UP (regions are stored V-flipped). The
-                // midpoint decision keeps all 4 corners of a quad together.
+                // Atlas texture-animation bands (mirror of the item path): only
+                // faces whose V midpoint falls inside an animated strip's stored
+                // frame-0 band cycle; frames step UP (regions are stored
+                // V-flipped). x=5.g holds the band COUNT (0..4); the midpoint
+                // decision keeps all 4 corners of a quad together.
                 ivec4 aaf = ivec4(texelFetch(Sampler0, ao + ivec2(5,1), 0)*255.0+0.5);
-                if (aaf.g == 1) {
+                int anb = min(aaf.g, 4);
+                if (anb > 0) {
                     ivec4 am4 = ivec4(texelFetch(Sampler0, ao + ivec2(4,1), 0)*255.0+0.5);
-                    ivec4 am6 = ivec4(texelFetch(Sampler0, ao + ivec2(6,1), 0)*255.0+0.5);
-                    ivec4 am7 = ivec4(texelFetch(Sampler0, ao + ivec2(7,1), 0)*255.0+0.5);
                     float aft = max(float(am4.r*65536 + am4.g*256 + am4.b), 1.0);
-                    int ay0 = am6.r*256 + am6.g;
-                    int afH = am6.b*256 + am7.r;
-                    int afc = max(am7.g, 1);
                     float atexTime = GameTime * 24000.0;
-                    int atf = int(atexTime / aft) % afc;
-                    int atn = (atf + 1) % afc;
                     float avmid = (subgroupQuadBroadcast(auv.y, 0) + subgroupQuadBroadcast(auv.y, 2))
                                   * 0.5 * float(as.y);
-                    bool aInBand = (avmid > float(ay0) && avmid < float(ay0 + afH));
-                    float ady  = aInBand ? float(-atf * afH) : 0.0;
-                    float ady2 = aInBand ? float(-atn * afH) : 0.0;
+                    float ady = 0.0, ady2 = 0.0;
+                    bool aInBand = false;
+                    for (int b = 0; b < anb; b++) {
+                        ivec4 am6 = ivec4(texelFetch(Sampler0, ao + ivec2(6 + 2*b, 1), 0)*255.0+0.5);
+                        ivec4 am7 = ivec4(texelFetch(Sampler0, ao + ivec2(7 + 2*b, 1), 0)*255.0+0.5);
+                        int ay0 = am6.r*256 + am6.g;
+                        int afH = am6.b*256 + am7.r;
+                        int afc = max(am7.g, 1);
+                        if (avmid > float(ay0) && avmid < float(ay0 + afH)) {
+                            int atf = int(atexTime / aft) % afc;
+                            int atn = (atf + 1) % afc;
+                            ady  = float(-atf * afH);
+                            ady2 = float(-atn * afH);
+                            aInBand = true;
+                            break;
+                        }
+                    }
                     texCoord  = (vec2(0, ahh) + auv*vec2(as) + vec2(0.0, ady ))/vec2(atlasSize) + ajit;
                     texCoord2 = (vec2(0, ahh) + auv*vec2(as) + vec2(0.0, ady2))/vec2(atlasSize) + ajit;
                     transition = (aInBand && bool(aaf.r)) ? fract(atexTime / aft) : 0.0;

@@ -131,19 +131,44 @@ describe('resource pack export (#7)', () => {
       if (model.display[s]) expect(model.display[s], s).toEqual(lift(0));
     }
 
-    // Slot marker: the ground json bakes its U range OFF-CENTRE in the face-id
-    // texel (U midpoint px+0.65; normal is px+0.5) — the shader world path reads
-    // the quad's U midpoint (shrink-invariant) to tell dropped/shelf items apart
-    // and add their extra +0.5 block.
+    // Slot marker v2: each slot json's U midpoint = px + 0.5 + id*0.04.
+    // Ground = id 5 -> 0.70; the plain/neutral json keeps 0.5 (id 0). The
+    // shader reads the quad's U midpoint (shrink-invariant) to recover the id.
     const groundModel = JSON.parse(
       memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_ground.json'));
     const mainUv = model.elements[0].faces.north.uv;
     const groundUv = groundModel.elements[0].faces.north.uv;
     const umidOf = (uv, tw) => ((uv[0] + uv[2]) / 2 * tw / 16) % 1; // uv = (px+m)*16/tw
     expect(umidOf(mainUv, 16)).toBeCloseTo(0.5, 5);
-    expect(umidOf(groundUv, 16)).toBeCloseTo(0.65, 5);
+    expect(umidOf(groundUv, 16)).toBeCloseTo(0.70, 5);
+    // The neutral default fallback json exists and carries marker id 0.
+    const defModel = JSON.parse(
+      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_default.json'));
+    expect(umidOf(defModel.elements[0].faces.north.uv, 16)).toBeCloseTo(0.5, 5);
     // and the ground carrier still sits +8 above the main one (element offset)
     expect(groundModel.elements[0].from[1]).toBe(model.elements[0].from[1] + 8);
+  });
+
+  it('a slot with a distinct Z scale gets a DYNAMIC marker id (U midpoint 0.5 + id*0.04)', async () => {
+    const { api, memfs } = setup();
+    await api.saveSingleOutput(RESULT, {
+      thirdperson_righthand: { scale: [2, 2, 0.5] },   // Sz != min(Sx,Sy) -> dynamic id 1
+    }, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+    });
+    const third = JSON.parse(
+      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json'));
+    const umidOf = (uv, tw) => ((uv[0] + uv[2]) / 2 * tw / 16) % 1;
+    expect(umidOf(third.elements[0].faces.north.uv, 16)).toBeCloseTo(0.54, 5);
+    // ...and the neutral default stays id 0.
+    const def = JSON.parse(
+      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_default.json'));
+    expect(umidOf(def.elements[0].faces.north.uv, 16)).toBeCloseTo(0.5, 5);
+    // item selector: thirdperson now has its OWN case; fallback -> _default
+    const item = JSON.parse(memfs.writes.get('/rp/assets/minecraft/items/iron_ingot.json'));
+    const catCase = item.model.cases.find(c => c.when === 'cat').model;
+    expect(catCase.cases.some(c => c.when === 'thirdperson_righthand')).toBe(true);
+    expect(catCase.fallback.model).toBe('objc_cubed:item/cat_default');
   });
 
   it('armor export does NOT shift item elements (the -0.5 is baked into the PNG for all exports)', async () => {

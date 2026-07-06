@@ -2563,15 +2563,11 @@
             'firstperson_righthand','firstperson_lefthand',
             'head','gui','ground','fixed','on_shelf',
         ];
-        // Per-axis depth (Z) display scale can't be reproduced in the hand/world/frame
-        // slots: their transform is reconstructed from the flat 1-quad carrier, which
-        // exposes only the X/Y in-plane edges (subgroupQuadBroadcast sees 4 coplanar
-        // corners = 2 edges), so the perpendicular Z axis uses min(Sx,Sy). Exact for
-        // uniform + X-only/Y-only stretch (Sz == min(Sx,Sy)); a different Sz is lost.
-        // GUI is exact (its per-axis scale rides the header). Warn so the user isn't
-        // mystified. See memory: display-z-depth-limit.
-        const zLossySlots = [];
-
+        // Per-axis depth (Z) display scale: the flat carrier exposes only the
+        // X/Y in-plane edges, so Z can't be MEASURED — but slots whose Sz
+        // differs from min(Sx,Sy) get a v2 dynamic slot marker and the exact
+        // q16 Sz rides the PNG header (assignSlotMarkers). Up to 4 such slots
+        // per export; the overflow warning lives in assignSlotMarkers.
         const nativeDisplay = (typeof display !== 'undefined' && display) ||
                               (typeof Project !== 'undefined' && Project && Project.display) ||
                               null;
@@ -2603,14 +2599,6 @@
             if (t.some(v => v !== 0)) entry.translation = [...t];
             if (s.some(v => v !== 1)) entry.scale       = [...s];
             if (Object.keys(entry).length) result[key] = entry;
-
-            // Z is lossy iff the intended depth scale differs from min(Sx,Sy).
-            if (Math.abs(s[2] - Math.min(s[0], s[1])) > 1e-4) zLossySlots.push(key);
-        }
-
-        // Item-only: armor is body-part mapped and doesn't use this display path.
-        if (!cfg.exportAsEquipment && zLossySlots.length) {
-            surfaceWarning(`Per-axis depth (Z) display scale on ${zLossySlots.join(', ')} can't be reproduced in hand/world/frame — the flat carrier exposes only X/Y, so Z falls back to min(Sx,Sy). GUI is exact. Use a uniform or X/Y-only display scale on these slots if depth matters.`);
         }
 
         return result;
@@ -2661,7 +2649,7 @@
             referencedTexIndices = new Set([...referencedTexIndices].filter(i => allowed.has(i)));
         }
 
-        let atlasAnim = null;   // { y0, frameH, frameCount } for an animated strip inside the atlas
+        const atlasBands = []; // { y0, frameH, frameCount } per animated strip inside the atlas (max 4)
         if (cfg.useAtlas && referencedTexIndices.size > 1) {
             // Multi-texture: build atlas
             const atlas = await buildAtlas([...referencedTexIndices]);
@@ -2692,18 +2680,20 @@
                 if (strips.length === 0) {
                     surfaceWarning('texture animation is on, but none of the atlas textures is a frame strip (animated in Blockbench, or height a whole multiple ≥2× of width). Nothing will animate.');
                 } else {
-                    if (strips.length > 1)
-                        surfaceWarning(`the atlas has ${strips.length} frame-strip textures; only the first will animate (one animated strip per atlas is supported).`);
-                    const o = atlas.offsets.get(strips[0]);
-                    const frameH = frameHOf(o);
-                    const frameCount = o.h / frameH;
-                    if (frameCount > 255)
-                        throw new Error(`Animated atlas texture has ${frameCount} frames; the maximum is 255.`);
-                    // The atlas stores each texture V-FLIPPED whole-region, so
-                    // image frame 0 (the TOP frame, which the model UV-maps to)
-                    // lands at the BOTTOM of the strip region. Encode THAT band;
-                    // the shader steps UPWARD (negative row offset) per frame.
-                    atlasAnim = { y0: o.y + o.h - frameH, frameH, frameCount };
+                    if (strips.length > 4)
+                        surfaceWarning(`the atlas has ${strips.length} frame-strip textures; only the first 4 will animate (the row-1 header holds 4 bands).`);
+                    for (const idx of strips.slice(0, 4)) {
+                        const o = atlas.offsets.get(idx);
+                        const frameH = frameHOf(o);
+                        const frameCount = o.h / frameH;
+                        if (frameCount > 255)
+                            throw new Error(`Animated atlas texture has ${frameCount} frames; the maximum is 255.`);
+                        // The atlas stores each texture V-FLIPPED whole-region, so
+                        // image frame 0 (the TOP frame, which the model UV-maps to)
+                        // lands at the BOTTOM of the strip region. Encode THAT band;
+                        // the shader steps UPWARD (negative row offset) per frame.
+                        atlasBands.push({ y0: o.y + o.h - frameH, frameH, frameCount });
+                    }
                 }
             }
         } else {
@@ -2917,23 +2907,38 @@
         // flag. The shader fetches these from row 1 via texelFetch(topleft+(x,1)).
         // Only written when ntextures>1 so a non-animated export stays byte-for-
         // byte identical to the pre-#9 encoder (these pixels remain zeroed).
-        if (ntextures > 1) {
+        // Row-1 layout (v2):
+        //   x=0..3       — dynamic slot-marker table: pixel i = (SzH, SzL, flags)
+        //                  for marker id i+1 (q16 Z scale over 0..4; flags bit0 =
+        //                  dropped-item lift). Zero when unused.
+        //   x=4 RGB      — texture-animation frametime (24-bit ticks/frame)
+        //   x=5          — r = fade, g = atlas band COUNT (0..4), b = v2 flag
+        //   x=6+2i,7+2i  — atlas band i: (y0H, y0L, fHH) / (fHL, frameCount, -)
+        // Old shaders read x=5.g as a boolean enable — band count 1 still works.
+        const texAnimActive = ntextures > 1 || atlasBands.length > 0;
+        if (texAnimActive) {
             put(4, 1, Math.trunc(texFrametime/65536)%256, Math.trunc(texFrametime/256)%256,
                       texFrametime%256, 255);
-            put(5, 1, texFade ? 1 : 0, 0, 0, 255);
         }
-        // Atlas texture-animation band (mutually exclusive with ntextures>1). The
-        // shader's atlas sampling path (ntextures==1) reads x=5.g as the enable
-        // flag, then the frametime + band bounds. Layout:
-        //   x=4 RGB = frametime (24-bit)          x=5.r = fade, x=5.g = enable
-        //   x=6 = (y0>>8, y0&255, frameH>>8)      x=7 = (frameH&255, frameCount, -)
-        if (atlasAnim) {
-            const { y0, frameH: aFrameH, frameCount } = atlasAnim;
-            put(4, 1, Math.trunc(texFrametime/65536)%256, Math.trunc(texFrametime/256)%256,
-                      texFrametime%256, 255);
-            put(5, 1, texFade ? 1 : 0, 1, 0, 255);
-            put(6, 1, Math.trunc(y0/256)%256, y0%256, Math.trunc(aFrameH/256)%256, 255);
-            put(7, 1, aFrameH%256, frameCount%256, 0, 255);
+        put(5, 1, (texAnimActive && texFade) ? 1 : 0, atlasBands.length, 1, 255);
+        for (const [i, b] of atlasBands.entries()) {
+            put(6 + 2*i, 1, Math.trunc(b.y0/256)%256, b.y0%256, Math.trunc(b.frameH/256)%256, 255);
+            put(7 + 2*i, 1, b.frameH%256, b.frameCount%256, 0, 255);
+        }
+        // Dynamic slot markers (see assignSlotMarkers): per-slot exact display
+        // Z scale + lift flag, addressed by the marker id baked into that
+        // slot's carrier UV midpoints.
+        {
+            const { dynamics } = assignSlotMarkers(buildDisplayTransforms(cfg));
+            const q16s = (v) => {
+                const c = Math.max(0, Math.min(4, v));
+                const u = Math.round(c / 4 * 65535);
+                return [(u >> 8) & 255, u & 255];
+            };
+            for (const [i, d] of dynamics.entries()) {
+                const [hi, lo] = q16s(d.sz);
+                put(i, 1, hi, lo, d.lift ? 1 : 0, 255);
+            }
         }
 
         // UV header + JSON elements
@@ -3255,55 +3260,93 @@
         on_shelf:              { x: 0, y: 8, z: 0 },
     };
 
-    // Slots whose carrier faces bake their U range OFF-CENTRE within the
-    // face-id texel: normal faces span (px+0.1 .. px+0.9), U midpoint px+0.5;
-    // marked faces span (px+0.35 .. px+0.95), U midpoint px+0.65. This is a
-    // SLOT MARKER the shader world path reads back via fract of the quad's U
-    // MIDPOINT — the midpoint survives MC's anti-bleed UV shrink (which
-    // contracts UVs SYMMETRICALLY toward the quad centre; the previous
-    // absolute-margin marker read fract(UV0*atlasSize) directly and the shrink
-    // pushed EVERY face past the threshold, lifting all world slots +0.5).
-    // Dropped/shelf items need that extra +0.5-block lift here because it can't
-    // ride model.json (MC clamps ground display translation Y — verified
-    // in-game) or the carrier elements (+8 is the model-format coordinate cap).
-    // The range stays inside the same face-id texel, so decoding is unaffected.
-    const MARKED_UV_SLOTS = { ground: true, on_shelf: true };
-    function calibratedElementsForSlot(baseElements, slot) {
+    // ── SLOT MARKERS v2 ─────────────────────────────────────────────────────
+    // Each per-slot model.json bakes a SLOT ID into the U MIDPOINT of its
+    // carrier face UVs: midpoint = px + 0.5 + id*0.04 (U span 0.4 texel). The
+    // midpoint survives MC's anti-bleed UV shrink (it contracts UVs
+    // SYMMETRICALLY toward the quad centre), and the shader recovers the id
+    // via fract of the subgroup quad's U midpoint. Ids:
+    //   0     — neutral (midpoint px+0.5 = the plain 0.1/0.9 margins; no
+    //           marker rewrite needed): no lift, Z display scale falls back
+    //           to min(Sx, Sy) (exact for uniform / X- or Y-only scales).
+    //   1..4  — DYNAMIC: this export's slots whose display Z scale differs
+    //           from min(Sx, Sy). Row-1 pixel x = id-1 carries (SzH, SzL,
+    //           flags): Sz at q16 over 0..4, flags bit0 = dropped-item lift.
+    //   5, 6  — ground / on_shelf defaults: +0.5-block lift (their pipeline
+    //           rides half a block higher; model.json translation Y is clamped
+    //           by MC and the +8 element offset is capped by the format).
+    // Gated by the v2 flag (row-1 x=5.b): legacy exports keep the old single
+    // 0.65-midpoint rule in the shader.
+    const SLOT_MARKER = { NEUTRAL: 0, GROUND: 5, SHELF: 6, DYN_MIN: 1, DYN_MAX: 4 };
+    const slotMarkerMid = (id) => 0.5 + id * 0.04;
+    function calibratedElementsForSlot(baseElements, slot, markerId) {
         const off = SLOT_OFFSETS[slot] || { x: 0, y: 0, z: 0 };
-        const marked = !!MARKED_UV_SLOTS[slot];
-        if (off.x === 0 && off.y === 0 && off.z === 0 && !marked) return baseElements;
-        // Shift the U range +0.25/+0.05 texel: midpoint px+0.5 -> px+0.65.
-        // (u1-u0) spans 0.8 texel, so one texel in uv units = (u1-u0)/0.8.
+        const id = markerId || 0;
+        if (off.x === 0 && off.y === 0 && off.z === 0 && id === 0) return baseElements;
+        // Rewrite the U range to span 0.4 texel about the id's midpoint
+        // (px + 0.5 + id*0.04). Stays inside the face-id texel, so decoding
+        // is unaffected. (u1-u0) spans 0.8 texel -> one texel = (u1-u0)/0.8.
         const markUv = ([u0, v0, u1, v1]) => {
             const texel = (u1 - u0) / 0.8;
-            return [u0 + 0.25 * texel, v0, u1 + 0.05 * texel, v1];
+            const base = u0 - 0.1 * texel;                 // texel left edge (px)
+            const mid = base + slotMarkerMid(id) * texel;
+            return [mid - 0.2 * texel, v0, mid + 0.2 * texel, v1];
         };
         return baseElements.map(el => ({
             ...el,
             from: [el.from[0] + off.x, el.from[1] + off.y, el.from[2] + off.z],
             to:   [el.to[0]   + off.x, el.to[1]   + off.y, el.to[2]   + off.z],
-            ...(marked ? {
+            ...(id !== 0 ? {
                 faces: Object.fromEntries(Object.entries(el.faces).map(
                     ([dir, f]) => [dir, { ...f, uv: markUv(f.uv) }])),
             } : {}),
         }));
     }
 
+    // Assign v2 marker ids for this export from its display transforms.
+    // Returns { ids: Map<slot, id>, dynamics: [{slot, sz, lift}] } — dynamics
+    // are written into the PNG row-1 table (x = id-1) by buildOutput's caller.
+    function assignSlotMarkers(displayTransforms) {
+        const ids = new Map();
+        const dynamics = [];
+        const needsDyn = (d) => {
+            if (!d || !d.scale) return false;
+            const s = d.scale;
+            return Math.abs(s[2] - Math.min(s[0], s[1])) > 1e-4;
+        };
+        for (const slot of DISPLAY_SLOTS) {
+            if (slot === 'gui') continue;                  // GUI scale is header-exact already
+            const lift = (slot === 'ground' || slot === 'on_shelf');
+            if (needsDyn(displayTransforms[slot])) {
+                if (dynamics.length < SLOT_MARKER.DYN_MAX) {
+                    dynamics.push({ slot, sz: displayTransforms[slot].scale[2], lift });
+                    ids.set(slot, SLOT_MARKER.DYN_MIN + dynamics.length - 1);
+                    continue;
+                }
+                surfaceWarning(`more than ${SLOT_MARKER.DYN_MAX} display slots use a distinct Z scale — "${slot}" falls back to min(X,Y) scale on Z.`);
+            }
+            if (lift) ids.set(slot, slot === 'ground' ? SLOT_MARKER.GROUND : SLOT_MARKER.SHELF);
+            else ids.set(slot, SLOT_MARKER.NEUTRAL);
+        }
+        return { ids, dynamics };
+    }
+
     // Build the display_context-keyed model node for one modelBaseName. This is
     // the per-model body that becomes a single custom_model_data case below.
+    // Every exported slot gets its own case; contexts without one fall back to
+    // the NEUTRAL `<name>_default` json (marker id 0) — never to a slot json,
+    // whose v2 slot marker would leak that slot's Z scale into other contexts.
     function buildDisplayContextModel(modelBaseName, exportedSlots) {
         const tints = [{ type: 'minecraft:potion', default: -1 }];
-        const fallbackSlot = 'thirdperson_righthand';
         const ref = slot => `${EXPORT_NS}:item/${modelBaseName}_${slot}`;
         const cases = (exportedSlots || DISPLAY_SLOTS)
-            .filter(s => s !== fallbackSlot)
             .map(slot => ({
                 when: slot,
                 model: { type: 'minecraft:model', model: ref(slot), tints },
             }));
         const fallbackModel = {
             type: 'minecraft:model',
-            model: ref(fallbackSlot),
+            model: ref('default'),
             tints,
         };
         if (cases.length === 0) return fallbackModel;
@@ -3502,19 +3545,28 @@
             // exports, armor included — the armor SHADER path re-adds it. No
             // element-shift compensation here: a shifted anchor rotates with the
             // display and only matched at identity.)
-            for (const slot of exportedSlots) {
+            // v2 slot markers: same deterministic assignment buildOutput used
+            // for the PNG's dynamic table (both derive from displayTransforms).
+            const slotMarkerIds = assignSlotMarkers(displayTransforms).ids;
+            const writeSlotJson = (fileSlot, displayLookupSlot, markerId) => {
                 const slotDisplay = { ...displayTransforms };
                 for (const s in SLOT_LIFT_Y) slotDisplay[s] = liftSlot(slotDisplay[s], SLOT_LIFT_Y[s]);
-                // fixed is lifted above; the unset-slot fallback below stops MC block-model
-                // display defaults (scale ~0.4 / rot 45) leaking into the active slot.
-                if (!slotDisplay[slot]) slotDisplay[slot] = IDENTITY_DISPLAY;
-                if (!slotDisplay[slot]) slotDisplay[slot] = IDENTITY_DISPLAY;
+                // The unset-slot fallback stops MC block-model display defaults
+                // (scale ~0.4 / rot 45) leaking into the active slot.
+                if (!slotDisplay[displayLookupSlot]) slotDisplay[displayLookupSlot] = IDENTITY_DISPLAY;
                 fs.writeFileSync(
-                    path.join(modelsDir, `${modelName}_${slot}.json`),
-                    buildSlotModelJson(modelName, slot, slotDisplay, calibratedElementsForSlot(result.elements, slot)),
+                    path.join(modelsDir, `${modelName}_${fileSlot}.json`),
+                    buildSlotModelJson(modelName, fileSlot, slotDisplay,
+                        calibratedElementsForSlot(result.elements, displayLookupSlot, markerId)),
                     'utf8'
                 );
+            };
+            for (const slot of exportedSlots) {
+                writeSlotJson(slot, slot, slotMarkerIds.get(slot) || 0);
             }
+            // Neutral fallback for contexts without their own case (marker id 0,
+            // no SLOT_OFFSETS calibration — those slots are all exported).
+            writeSlotJson('default', 'thirdperson_righthand', 0);
 
             // Item override → assets/minecraft/items/<baseItem>.json. Merge a new
             // custom_model_data case into an existing matching file so a second
@@ -5833,7 +5885,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.6.0',
+        version: '0.6.1',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

@@ -277,8 +277,59 @@ describe('atlas texture animation (strip inside a stitched atlas)', () => {
     expect(Math.max(...vRows)).toBeCloseTo(32, 5);
   });
 
-  it('shader has the atlas-anim sampling path (band-gated, steps UP per frame)', () => {
-    expect(GLSL).toMatch(/aaf\.g == 1/);
+  it('TWO strips in one atlas: band count 2, both bands encoded', async () => {
+    // strip 'a' 16x32 (2 frames) + strip 'b' 16x48 (3 frames), stacked in order.
+    const api = loadAtlasDims({ 'data:strip': { w: 16, h: 32 }, 'data:flat': { w: 16, h: 48 } });
+    const res = await api.buildOutput({
+      texIndex: 0, nopow: false, scale: 1, offset: [0, 0, 0],
+      colorbehavior: ['direct', 'direct', 'direct'], duration: 0,
+      autoplay: false, easing: 0, interpolation: 0, noshadow: false,
+      autorotate: 0, visibility: 7, displaySlots: {}, flipuv: false,
+      useAtlas: true, atlasTexIndices: [0, 1],
+      texAnimEnabled: true, texFrametime: 3, texFade: false,
+    }, [TWO_MTL_OBJ], '');
+    const { tw, rawBuf } = res;
+    const rd = (x, y) => { const i = (y * tw + x) * 4; return [rawBuf[i], rawBuf[i + 1], rawBuf[i + 2], rawBuf[i + 3]]; };
+    expect(rd(5, 1)[1]).toBe(2);                          // band COUNT
+    expect(rd(5, 1)[2]).toBe(1);                          // v2 flag
+    // band 0: strip A at atlas rows [0,32): frame0 stored band y0 = 0+32-16 = 16
+    expect(rd(6, 1)[0] * 256 + rd(6, 1)[1]).toBe(16);     // y0
+    expect(rd(6, 1)[2] * 256 + rd(7, 1)[0]).toBe(16);     // frameH
+    expect(rd(7, 1)[1]).toBe(2);                          // frames
+    // band 1: strip B at rows [32,80): y0 = 32+48-16 = 64, 3 frames
+    expect(rd(8, 1)[0] * 256 + rd(8, 1)[1]).toBe(64);
+    expect(rd(8, 1)[2] * 256 + rd(9, 1)[0]).toBe(16);
+    expect(rd(9, 1)[1]).toBe(3);
+  });
+
+  it('dynamic Z-scale slot: q16 Sz + flags land in the row-1 marker table', async () => {
+    const api = loadAtlasDims({ 'data:strip': { w: 16, h: 16 }, 'data:flat': { w: 16, h: 16 } });
+    const res = await api.buildOutput({
+      texIndex: 0, nopow: false, scale: 1, offset: [0, 0, 0],
+      colorbehavior: ['direct', 'direct', 'direct'], duration: 0,
+      autoplay: false, easing: 0, interpolation: 0, noshadow: false,
+      autorotate: 0, visibility: 7, flipuv: false,
+      // thirdperson Z scale 0.5 differs from min(2,2) -> dynamic marker id 1
+      displaySlots: { thirdperson_righthand: { scale: [2, 2, 0.5] } },
+      useAtlas: false, texAnimEnabled: false, texFrametime: 1, texFade: false,
+    }, [TWO_MTL_OBJ], '');
+    const { tw, rawBuf } = res;
+    const rd = (x, y) => { const i = (y * tw + x) * 4; return [rawBuf[i], rawBuf[i + 1], rawBuf[i + 2], rawBuf[i + 3]]; };
+    const [hi, lo, flags] = rd(0, 1);                     // dynamic entry for id 1
+    expect((hi * 256 + lo) / 65535 * 4).toBeCloseTo(0.5, 3); // q16 Sz over 0..4
+    expect(flags & 1).toBe(0);                            // no dropped-item lift
+    expect(rd(5, 1)[2]).toBe(1);                          // v2 flag present
+  });
+
+  it('shader has the v2 slot-marker decode (id from U midpoint, dyn Sz table)', () => {
+    expect(GLSL).toMatch(/vflags\.b == 1/);               // v2 gate
+    expect(GLSL).toMatch(/mfrac - 0\.5\) \/ 0\.04/);      // id decode
+    expect(GLSL).toMatch(/slotid - 1, 1/);                // dyn table pixel
+    expect(GLSL).toMatch(/handsz/);                       // hand path uses it too
+  });
+
+  it('shader has the atlas-anim sampling path (multi-band, steps UP per frame)', () => {
+    expect(GLSL).toMatch(/min\(aaf\.g, 4\)/);   // x=5.g = band COUNT (up to 4)
     expect(GLSL).toMatch(/inBand/);
     expect(GLSL).toMatch(/-tf \* fH/); // flip-aware: frames step upward in storage
   });

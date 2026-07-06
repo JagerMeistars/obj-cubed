@@ -167,9 +167,10 @@ describe('tex-anim #9: header + per-region frame baking', () => {
     // ntextures resolves to 1; size.y is the FULL height (no frame split).
     expect(h.ntextures).toBe(1);
     expect(h.sizeY).toBe(H);
-    // Row-1 animation pixels stay zeroed (RGB=0) as before #9.
+    // Row-1 animation pixels stay zeroed (RGB=0) as before #9 — EXCEPT x=5.b,
+    // which now always carries the v2 slot-marker/band-header version flag.
     expect(h.rd(4, 1)).toEqual([0, 0, 0, 255]);
-    expect(h.rd(5, 1)).toEqual([0, 0, 0, 255]);
+    expect(h.rd(5, 1)).toEqual([0, 0, 1, 255]);
 
     // Independently rebuild the EXACT pre-#9 buffer from the same decoded header
     // and source strip, then compare byte-for-byte against the produced buffer.
