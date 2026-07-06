@@ -146,6 +146,21 @@ describe('resource pack export (#7)', () => {
     expect(groundModel.elements[0].from[1]).toBe(model.elements[0].from[1] + 8);
   });
 
+  it('armor export does NOT shift item elements (the -0.5 is baked into the PNG for all exports)', async () => {
+    // The -0.5 vertical-origin re-anchor rides the PNG positions for armor too
+    // (the armor SHADER path re-adds it); an element-shift compensation only
+    // matched at identity display, so it must NOT come back.
+    const { api, memfs } = setup();
+    await api.saveSingleOutput(RESULT, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+      exportAsEquipment: true, equipmentSlot: 'chest',
+    });
+    const m = JSON.parse(
+      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json'));
+    expect(m.elements[0].from[1]).toBe(RESULT.elements[0].from[1]);
+    expect(m.elements[0].to[1]).toBe(RESULT.elements[0].to[1]);
+  });
+
   it('cfg.cmdName drives the model/item case key and give command (#7)', async () => {
     const { api, memfs } = setup();
 

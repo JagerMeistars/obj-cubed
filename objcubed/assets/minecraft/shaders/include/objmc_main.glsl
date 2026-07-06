@@ -142,8 +142,9 @@ if (marker == ivec4(12,34,56,255)) {
         // GUI icons are baked ONCE into MC's gui item atlas at an arbitrary
         // GameTime, so an animated model's icon froze at whatever frame was
         // current on each resource reload. Pin the icon to frame 0 (time 0
-        // also zeroes the interpolation mix below).
-        if (isGUI == 1) { frame = 0; time = 0.0; }
+        // also zeroes the interpolation mix below; texTime 0 likewise pins the
+        // TEXTURE-animation clock to its first frame).
+        if (isGUI == 1) { frame = 0; time = 0.0; texTime = 0.0; }
 #endif
         //relative vertex id from unique face uv
         int id = (((uvoffset.y-2) * size.x) + uvoffset.x) * 4 + corner;
@@ -385,7 +386,39 @@ if (marker == ivec4(12,34,56,255)) {
         texCoord2 = (base2 + texuvpx)/atlasSize + uvjit;
         transition = texFade ? fract(texTime / texFrametime) : 0.0;
     } else {
-        texCoord = (vec2(topleft.x,topleft.y+headerheight) + texuvpx)/atlasSize + uvjit;
+        // Atlas texture animation (issue: animated strip inside a stitched atlas).
+        // Row-1 x=5.g flags it; only faces whose sampled atlas ROW falls inside the
+        // animated band [y0, y0+frameH) cycle — the rest of the atlas stays static.
+        ivec4 aaf = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
+        if (aaf.g == 1) {
+            ivec4 m4 = ivec4(texelFetch(Sampler0, topleft + ivec2(4,1), 0) * 255.0 + 0.5);
+            ivec4 m6 = ivec4(texelFetch(Sampler0, topleft + ivec2(6,1), 0) * 255.0 + 0.5);
+            ivec4 m7 = ivec4(texelFetch(Sampler0, topleft + ivec2(7,1), 0) * 255.0 + 0.5);
+            float ft = max(float(m4.r*65536 + m4.g*256 + m4.b), 1.0);
+            int y0 = m6.r*256 + m6.g;                    // STORED frame-0 band start
+            int fH = m6.b*256 + m7.r;
+            int fc = max(m7.g, 1);
+            int tf = int(texTime / ft) % fc;
+            int tn = (tf + 1) % fc;
+            // Band test on the QUAD'S V MIDPOINT (subgroup corners 0+2), not the
+            // per-vertex row: a face mapped exactly onto one frame has corners ON
+            // both band edges, and a per-vertex test tears the quad (some corners
+            // step to the next frame, others stay) — smeared UVs on animated faces.
+            float vmid = (subgroupQuadBroadcast(texCoord.y, 0) + subgroupQuadBroadcast(texCoord.y, 2))
+                         * 0.5 * float(size.y);
+            bool inBand = (vmid > float(y0) && vmid < float(y0 + fH));
+            // The atlas stores each texture V-FLIPPED (whole region), so image
+            // frame 0 (the TOP frame the model is UV-mapped to) lives at the
+            // BOTTOM of the strip region and later frames sit ABOVE it: step UP
+            // (negative row offset) per frame.
+            float dy  = inBand ? float(-tf * fH) : 0.0;
+            float dy2 = inBand ? float(-tn * fH) : 0.0;
+            texCoord  = (vec2(topleft.x, topleft.y+headerheight) + texuvpx + vec2(0.0, dy ))/atlasSize + uvjit;
+            texCoord2 = (vec2(topleft.x, topleft.y+headerheight) + texuvpx + vec2(0.0, dy2))/atlasSize + uvjit;
+            transition = (inBand && bool(aaf.r)) ? fract(texTime / ft) : 0.0;
+        } else {
+            texCoord = (vec2(topleft.x,topleft.y+headerheight) + texuvpx)/atlasSize + uvjit;
+        }
     }
 
     // ===========================================================
@@ -563,6 +596,13 @@ if (isCustom == 0) {
                     posoffset = mix(posoffset, po2, atr);
                 }
             }
+            // Undo the encoder's -0.5 Y vertical-origin re-anchor IN THE DECODED
+            // MODEL FRAME (the same frame the encoder subtracted it in), BEFORE
+            // the left un-mirror / AOFF / carrier-basis rotation below. Armor
+            // positions are part-relative + the -0.5; adding it back restores the
+            // exact pre-convention part-relative bytes, so armor on entities is
+            // unchanged while the ITEM view of the same PNG sits correctly.
+            posoffset.y += 0.5;
             vec2 auv = getuv(ao, as.x, ah+avph, ai.y);          // per-vertex uv within one frame
             vec2 ajit = vec2(onepixel.x*0.0001*float(ac), onepixel.y*0.0001*float((ac+1)%4));
             texCoord = (vec2(0, ahh) + auv*vec2(as))/vec2(atlasSize) + ajit;

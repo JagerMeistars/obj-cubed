@@ -192,7 +192,8 @@
             // Display section
             section_display: 'Display',
             tip_bb_display: 'You can also use Blockbench\'s built-in display editor (it uses the same values)',
-            tab_third: '3rd person',
+            tab_third: '3rd person R',
+            tab_left: '3rd person L',
             tab_fpr: '1st person R',
             tab_fpl: '1st person L',
             tab_head: 'Head',
@@ -298,6 +299,7 @@
             help_useAtlas: 'Combine multiple textures into one large PNG. Useful when the model has parts with different textures.',
             tex_anim_enable: 'Animate texture ({n} frames)',
             tex_frametime: 'Ticks per frame',
+            tex_chip_each: 'each',
             tex_fade: 'Cross-fade frames',
             help_texAnim: 'Treat the texture as a vertical strip of square frames and play them in order. Frame count = texture height / width. UV the model onto the TOP (first) frame.',
             help_texFrametime: 'How many game ticks (1/20 s) each texture frame is shown. 1 = fastest (20 fps).',
@@ -322,6 +324,7 @@
             help_datapackOutputDir: 'Where to save the datapack folder. Empty = next to resource pack.',
             help_useSeparateLefthand: 'By default, left hand copies right hand settings. Enable to configure separately.',
             lbl_separate_lefthand: 'Separate left hand',
+            lbl_mirrors_right: 'Mirrors the third-person right hand.',
             help_display_third: 'Rotation and offset when visible in another player\'s hand (3rd person).',
             help_display_head: 'Rotation and offset when worn on head (player_head).',
             help_display_ground: 'Rotation and offset when on the ground (dropped).',
@@ -460,7 +463,8 @@
             datapack_funcs: 'Функции датапака: init, play, stop, set, play_from, play_once',
             section_display: 'Отображение',
             tip_bb_display: 'Также можно использовать встроенный редактор отображения Blockbench (он работает с теми же значениями)',
-            tab_third: '3-е лицо',
+            tab_third: '3-е лицо ⮕',
+            tab_left: '3-е лицо ⬅',
             tab_fpr: '1-е лицо ⮕',
             tab_fpl: '1-е лицо ⬅',
             tab_head: 'Голова',
@@ -563,6 +567,7 @@
             help_useAtlas: 'Объединить несколько текстур в один большой PNG. Полезно когда модель состоит из частей с разными текстурами.',
             tex_anim_enable: 'Анимировать текстуру ({n} кадров)',
             tex_frametime: 'Тиков на кадр',
+            tex_chip_each: 'каждый',
             tex_fade: 'Плавный переход кадров',
             help_texAnim: 'Воспринимать текстуру как вертикальную полосу квадратных кадров и проигрывать их по порядку. Число кадров = высота / ширина. Натягивайте UV на ВЕРХНИЙ (первый) кадр.',
             help_texFrametime: 'Сколько игровых тиков (1/20 с) показывается каждый кадр текстуры. 1 = максимально быстро (20 кадров/с).',
@@ -587,6 +592,7 @@
             help_datapackOutputDir: 'Куда положить папку датапака. Пусто = рядом с ресурспаком.',
             help_useSeparateLefthand: 'По умолчанию левая рука копирует настройки правой. Включите, если хотите настроить её отдельно.',
             lbl_separate_lefthand: 'Отдельная левая рука',
+            lbl_mirrors_right: 'Зеркалит правую руку от третьего лица.',
             help_display_third: 'Поворот и сдвиг модели когда она видна в руке другого игрока (от 3-го лица).',
             help_display_head: 'Поворот и сдвиг модели когда она надета на голову (player_head).',
             help_display_ground: 'Поворот и сдвиг модели когда она лежит на земле (выпавшая).',
@@ -1940,9 +1946,16 @@
             const u = Math.max(0, Math.min(1, uv[0]));
             const v = Math.max(0, Math.min(1, uv[1]));
             if (Math.abs(u - uv[0]) > 1e-6 || Math.abs(v - uv[1]) > 1e-6) uvClamped = true;
+            // V remap, uv_height-aware. BB uv space covers the FIRST (top) frame
+            // for BB-animated textures (uvh = frame height) and the whole image
+            // otherwise (uvh = h, reduces to the classic v*h + off.y). The atlas
+            // stores each region V-FLIPPED, so the image-top uv area lands at the
+            // BOTTOM of the region: off.y + off.h - uvh + v*uvh. This is exactly
+            // the frame-0 band the shader cycles from.
+            const uvh = off.uvh || off.h;
             return [
                 u * off.w / atlasInfo.width,
-                (v * off.h + off.y) / atlasInfo.height
+                (v * uvh + off.y + off.h - uvh) / atlasInfo.height
             ];
         }
 
@@ -2034,9 +2047,15 @@
         }
         const atlasW = Math.max(...texDatas.map(t => t.rgba.width));
         let atlasH = 0;
-        const offsets = new Map(); // texIdx → { x, y, w, h }
+        const offsets = new Map(); // texIdx → { x, y, w, h, uvh }
         for (const t of texDatas) {
-            offsets.set(t.idx, { x: 0, y: atlasH, w: t.rgba.width, h: t.rgba.height });
+            // uvh = the texture's BLOCKBENCH UV-space height. For a texture marked
+            // animated IN BLOCKBENCH, BB sets its UV size to ONE FRAME and the OBJ
+            // codec emits vt normalized to that frame — so remapUV must scale V by
+            // uvh, not the full image height. Plain textures: uvh == image height.
+            const bbTex = Texture.all[t.idx];
+            const uvh = (bbTex && +bbTex.uv_height > 0) ? +bbTex.uv_height : t.rgba.height;
+            offsets.set(t.idx, { x: 0, y: atlasH, w: t.rgba.width, h: t.rgba.height, uvh });
             atlasH += t.rgba.height;
         }
         const data = new Uint8Array(atlasW * atlasH * 4);
@@ -2610,6 +2629,7 @@
             referencedTexIndices = new Set([...referencedTexIndices].filter(i => allowed.has(i)));
         }
 
+        let atlasAnim = null;   // { y0, frameH, frameCount } for an animated strip inside the atlas
         if (cfg.useAtlas && referencedTexIndices.size > 1) {
             // Multi-texture: build atlas
             const atlas = await buildAtlas([...referencedTexIndices]);
@@ -2620,6 +2640,40 @@
                 width: atlas.width,
                 height: atlas.height,
             };
+            // Atlas texture animation: one of the atlas textures may itself be a
+            // vertical frame strip (h = N*w). Animate just that region; the rest
+            // stay static. The strip is stored whole; faces on it UV-map to frame 0
+            // (see remapUV) and the shader cycles the sampled row within its band.
+            if (cfg.texAnimEnabled) {
+                // Frame height: the texture's BB uv_height when it slices the
+                // image evenly (BB-animated texture), else square frames (h=N*w).
+                const frameHOf = (o) => {
+                    if (o.uvh && o.uvh < o.h && o.h % o.uvh === 0) return o.uvh;
+                    return o.w;
+                };
+                const strips = [...referencedTexIndices].filter(i => {
+                    const o = atlas.offsets.get(i);
+                    if (!o) return false;
+                    const fh = frameHOf(o);
+                    return fh < o.h && o.h % fh === 0;
+                });
+                if (strips.length === 0) {
+                    surfaceWarning('texture animation is on, but none of the atlas textures is a frame strip (animated in Blockbench, or height a whole multiple ≥2× of width). Nothing will animate.');
+                } else {
+                    if (strips.length > 1)
+                        surfaceWarning(`the atlas has ${strips.length} frame-strip textures; only the first will animate (one animated strip per atlas is supported).`);
+                    const o = atlas.offsets.get(strips[0]);
+                    const frameH = frameHOf(o);
+                    const frameCount = o.h / frameH;
+                    if (frameCount > 255)
+                        throw new Error(`Animated atlas texture has ${frameCount} frames; the maximum is 255.`);
+                    // The atlas stores each texture V-FLIPPED whole-region, so
+                    // image frame 0 (the TOP frame, which the model UV-maps to)
+                    // lands at the BOTTOM of the strip region. Encode THAT band;
+                    // the shader steps UPWARD (negative row offset) per frame.
+                    atlasAnim = { y0: o.y + o.h - frameH, frameH, frameCount };
+                }
+            }
         } else {
             // Single texture (original path)
             const bbTex = Texture.all[cfg.texIndex];
@@ -2640,13 +2694,11 @@
         // size.y encodes ONE frame's height (frameH); the shader reserves
         // size.y*ntextures rows and steps the sampled row by texframe*size.y.
         // frameCount is derived from the strip aspect (square frames: th/tw).
+        // Whole-texture animation (single-texture path): ntextures stacked frame
+        // regions. Atlas animation is handled separately above (atlasAnim), so
+        // ntextures stays 1 for the atlas — its animated band is a sub-region.
         let ntextures = 1, frameH = th;
-        if (cfg.texAnimEnabled && atlasInfo) {
-            // A stitched multi-texture atlas is NOT an animation strip: deriving
-            // frameCount from the ATLAS dims would either mis-slice the atlas into
-            // "frames" or abort with a misleading strip-shape error.
-            surfaceWarning('texture animation is ignored while "combine into atlas" is on — the stacked atlas is not an animation strip. Disable the atlas to export the animated texture.');
-        } else if (cfg.texAnimEnabled) {
+        if (cfg.texAnimEnabled && !atlasInfo) {
             const frameCount = Math.round(th / tw);
             if (th % tw !== 0 || frameCount < 1)
                 throw new Error(`Animated texture strip must be a vertical stack of square frames: height ${th} is not a whole multiple of width ${tw}.`);
@@ -2699,7 +2751,7 @@
         for (let pi = 0; pi < data.positions.length; pi++) {
             const p = data.positions[pi];
             for (let a = 0; a < 3; a++) {
-                const w = p[a] * cfg.scale + cfg.offset[a] - ((a === 1 && !cfg.exportAsEquipment) ? 0.5 : 0);
+                const w = p[a] * cfg.scale + cfg.offset[a] - (a === 1 ? 0.5 : 0);
                 if (!Number.isFinite(w))
                     throw new Error(`Vertex coordinate became NaN/Infinity — check Scale/Offset.`);
                 if (w < -128 || w >= 128)
@@ -2838,6 +2890,19 @@
                       texFrametime%256, 255);
             put(5, 1, texFade ? 1 : 0, 0, 0, 255);
         }
+        // Atlas texture-animation band (mutually exclusive with ntextures>1). The
+        // shader's atlas sampling path (ntextures==1) reads x=5.g as the enable
+        // flag, then the frametime + band bounds. Layout:
+        //   x=4 RGB = frametime (24-bit)          x=5.r = fade, x=5.g = enable
+        //   x=6 = (y0>>8, y0&255, frameH>>8)      x=7 = (frameH&255, frameCount, -)
+        if (atlasAnim) {
+            const { y0, frameH: aFrameH, frameCount } = atlasAnim;
+            put(4, 1, Math.trunc(texFrametime/65536)%256, Math.trunc(texFrametime/256)%256,
+                      texFrametime%256, 255);
+            put(5, 1, texFade ? 1 : 0, 1, 0, 255);
+            put(6, 1, Math.trunc(y0/256)%256, y0%256, Math.trunc(aFrameH/256)%256, 255);
+            put(7, 1, aFrameH%256, frameCount%256, 0, 255);
+        }
 
         // UV header + JSON elements
         const elements = [];
@@ -2915,11 +2980,13 @@
         // frames, ground) at once. Without this, a floor-built model rides half
         // a block high everywhere (a centre-built model used to hide it, which
         // is how the old per-slot lifts got mis-calibrated per model).
-        // Armor is exempt: its positions are re-centred per part (partRef) and
-        // the AOFF anchors were calibrated without this shift.
-        const bakeOffset = cfg.exportAsEquipment
-            ? cfg.offset
-            : [cfg.offset[0], cfg.offset[1] - 0.5, cfg.offset[2]];
+        // Applied to ALL exports, equipment included, so the ITEM view of an
+        // armor export is correct in EVERY display slot (an element-shift
+        // compensation only worked at identity display — the shifted anchor
+        // rotates with the display). The armor shader path adds the +0.5 back in
+        // the SAME decoded model frame (before its part re-anchoring/rotation),
+        // so armor on entities is byte-equivalent to the pre-convention state.
+        const bakeOffset = [cfg.offset[0], cfg.offset[1] - 0.5, cfg.offset[2]];
         for (let i = 0; i < data.positions.length; i++) {
             for (const [j, pxArr] of posPixels(data.positions[i], cfg.scale, bakeOffset).entries()) {
                 const p = i*3+j;
@@ -3419,6 +3486,10 @@
                 const t = base.translation || [0, 0, 0];
                 return { ...base, translation: [t[0] || 0, (t[1] || 0) + lift, t[2] || 0] };
             };
+            // (The -0.5 vertical-origin re-anchor is baked into the PNG for ALL
+            // exports, armor included — the armor SHADER path re-adds it. No
+            // element-shift compensation here: a shifted anchor rotates with the
+            // display and only matched at identity.)
             for (const slot of exportedSlots) {
                 const slotDisplay = { ...displayTransforms };
                 for (const s in SLOT_LIFT_Y) slotDisplay[s] = liftSlot(slotDisplay[s], SLOT_LIFT_Y[s]);
@@ -4279,13 +4350,23 @@
                     },
                     // Animated textures (issue #9): how many square frames the
                     // selected texture's vertical strip holds (height / width).
+                    // Frames the anim UI reveals on. Single texture: the selected
+                    // texture's strip count. Atlas: the LARGEST strip among the
+                    // checked atlas textures (one animated strip per atlas), so the
+                    // control appears in atlas mode too (where selectedTex is hidden).
                     texFrameCount() {
-                        const tex = Texture.all[this.selectedTex];
-                        if (!tex) return 1;
-                        const w = (tex.img && tex.img.naturalWidth)  || tex.width  || 16;
-                        const h = (tex.img && tex.img.naturalHeight) || tex.height || 16;
-                        if (w < 1) return 1;
-                        return Math.floor(h / w);
+                        const framesOf = (tex) => {
+                            if (!tex) return 1;
+                            const w = (tex.img && tex.img.naturalWidth)  || tex.width  || 16;
+                            const h = (tex.img && tex.img.naturalHeight) || tex.height || 16;
+                            return w < 1 ? 1 : Math.floor(h / w);
+                        };
+                        if (this.useAtlas) {
+                            const counts = atlasTexIndicesFrom(this.atlasTexChecked)
+                                .map(i => framesOf(Texture.all[i]));
+                            return counts.length ? Math.max(1, ...counts) : 1;
+                        }
+                        return framesOf(Texture.all[this.selectedTex]);
                     },
                     frameCountPreview() {
                         if (!this.hasAnims || !this.animationEnabled) return '';
@@ -5068,20 +5149,26 @@
         </label>
       </div>
     </div>
-    <!-- Animated textures (issue #9): only when the strip holds >1 square frame -->
-    <div v-if="texFrameCount > 1" style="padding:8px 4px 0;border-top:1px solid rgba(255,255,255,0.06);margin-top:8px;">
-      <label style="display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <input type="checkbox" v-model="texAnimEnabled"/>
-        <span>{{t('tex_anim_enable').replace('{n}', texFrameCount)}}</span>
-        <span class="oc-help" :data-tip="help('texAnim')">?</span>
-      </label>
-      <div v-if="texAnimEnabled" style="display:flex;flex-direction:column;gap:8px;padding-left:4px;">
-        <label style="display:flex;align-items:center;gap:8px;">
-          <span>{{t('tex_frametime')}}</span>
-          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime" style="width:70px;padding:4px 6px;"/>
-          <span class="oc-help" :data-tip="help('texFrametime')">?</span>
+    <!-- Animated textures (issue #9): only when the strip holds >1 square frame.
+         Styled to mirror the Animation section (behaviour card) below. -->
+    <div v-if="texFrameCount > 1" style="border-top:1px solid rgba(255,255,255,0.06);margin-top:8px;padding-top:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
+          <input type="checkbox" v-model="texAnimEnabled"/>
+          <span>{{t('tex_anim_enable').replace('{n}', texFrameCount)}}</span>
+          <span class="oc-help" :data-tip="help('texAnim')">?</span>
         </label>
-        <label style="display:inline-flex;align-items:center;gap:6px;">
+      </div>
+      <div v-if="texAnimEnabled" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;max-width:140px;">
+          <span>{{t('tex_frametime')}}<span class="oc-help" :data-tip="help('texFrametime')">?</span></span>
+          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime"/>
+        </label>
+        <div class="oc-frame-chip">
+          <i class="material-icons">movie</i>
+          <span>{{texFrameCount}} {{tPlural(texFrameCount,'frames')}} · {{texFrametime}} {{tPlural(texFrametime,'ticks')}} {{t('tex_chip_each')}}</span>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--oc-scale));">
           <input type="checkbox" v-model="texFade"/>
           <span>{{t('tex_fade')}}</span>
           <span class="oc-help" :data-tip="help('texFade')">?</span>
@@ -5099,6 +5186,7 @@
 
     <div class="oc-display-tabs">
       <button :class="['oc-display-tab', {active: displayTab==='third'}]"  @click="displayTab='third'" :title="t('tab_third')"><i class="material-icons">person</i></button>
+      <button :class="['oc-display-tab', {active: displayTab==='left'}]"   @click="displayTab='left'" :title="t('tab_left')"><i class="material-icons">pan_tool</i></button>
       <button :class="['oc-display-tab', {active: displayTab==='fpr'}]"    @click="displayTab='fpr'" :title="t('tab_fpr')"><i class="material-icons">front_hand</i></button>
       <button :class="['oc-display-tab', {active: displayTab==='fpl'}]"    @click="displayTab='fpl'" :title="t('tab_fpl')"><i class="material-icons">back_hand</i></button>
       <button :class="['oc-display-tab', {active: displayTab==='head'}]"   @click="displayTab='head'" :title="t('tab_head')"><i class="material-icons">face</i></button>
@@ -5146,12 +5234,19 @@
         <div class="oc-xyz-input oc-y" @mousedown="startDrag($event,'dThirdSY',0.05)"><input v-model.number="dThirdSY" type="number" step="0.05"/></div>
         <div class="oc-xyz-input oc-z" @mousedown="startDrag($event,'dThirdSZ',0.05)"><input v-model.number="dThirdSZ" type="number" step="0.05"/></div>
       </div>
-      <!-- Separate third-person LEFT hand (off = mirrors right) -->
-      <label class="oc-checkbox-row" :title="t('help_useSeparateLefthand')" style="margin-top:8px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+    </div>
+
+    <!-- 3-е лицо ЛЕВАЯ рука (thirdperson_lefthand) — own tab. The "mirror right
+         hand" toggle stays here: off = mirrors thirdperson right (default). -->
+    <div v-show="displayTab==='left'">
+      <label class="oc-checkbox-row" :title="t('help_useSeparateLefthand')" style="margin-bottom:8px;display:flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" v-model="useSeparateLefthand"/>
         <span>{{t('lbl_separate_lefthand')}}</span>
       </label>
-      <div v-if="useSeparateLefthand">
+      <div v-if="!useSeparateLefthand" style="color:#888;font-size:calc(12px * var(--oc-scale));padding:4px 2px;">
+        {{t('lbl_mirrors_right')}}
+      </div>
+      <div v-else>
         <div class="oc-xyz-row">
           <span>{{t('lbl_rotation')}}</span>
           <div class="oc-xyz-input oc-x" @mousedown="startDrag($event,'dLeftRX',1)"><input v-model.number="dLeftRX" type="number" step="1"/></div>
@@ -5669,7 +5764,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.79',
+        version: '0.5.81',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
