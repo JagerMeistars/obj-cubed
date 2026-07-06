@@ -619,6 +619,32 @@ if (isCustom == 0) {
                 texCoord  = (vec2(0, ahh + texframe*as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
                 texCoord2 = (vec2(0, ahh + texnext *as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
                 transition = bool(texflags.r) ? fract(texTime / texFrametime) : 0.0;
+            } else {
+                // Atlas texture-animation band (mirror of the item path): only
+                // faces whose V midpoint falls inside the strip's stored frame-0
+                // band cycle; frames step UP (regions are stored V-flipped). The
+                // midpoint decision keeps all 4 corners of a quad together.
+                ivec4 aaf = ivec4(texelFetch(Sampler0, ao + ivec2(5,1), 0)*255.0+0.5);
+                if (aaf.g == 1) {
+                    ivec4 am4 = ivec4(texelFetch(Sampler0, ao + ivec2(4,1), 0)*255.0+0.5);
+                    ivec4 am6 = ivec4(texelFetch(Sampler0, ao + ivec2(6,1), 0)*255.0+0.5);
+                    ivec4 am7 = ivec4(texelFetch(Sampler0, ao + ivec2(7,1), 0)*255.0+0.5);
+                    float aft = max(float(am4.r*65536 + am4.g*256 + am4.b), 1.0);
+                    int ay0 = am6.r*256 + am6.g;
+                    int afH = am6.b*256 + am7.r;
+                    int afc = max(am7.g, 1);
+                    float atexTime = GameTime * 24000.0;
+                    int atf = int(atexTime / aft) % afc;
+                    int atn = (atf + 1) % afc;
+                    float avmid = (subgroupQuadBroadcast(auv.y, 0) + subgroupQuadBroadcast(auv.y, 2))
+                                  * 0.5 * float(as.y);
+                    bool aInBand = (avmid > float(ay0) && avmid < float(ay0 + afH));
+                    float ady  = aInBand ? float(-atf * afH) : 0.0;
+                    float ady2 = aInBand ? float(-atn * afH) : 0.0;
+                    texCoord  = (vec2(0, ahh) + auv*vec2(as) + vec2(0.0, ady ))/vec2(atlasSize) + ajit;
+                    texCoord2 = (vec2(0, ahh) + auv*vec2(as) + vec2(0.0, ady2))/vec2(atlasSize) + ajit;
+                    transition = (aInBand && bool(aaf.r)) ? fract(atexTime / aft) : 0.0;
+                }
             }
             // Un-mirror left limbs: flip model X about its centre (geometry is centred)
             // BEFORE the offset, so there is no lateral shift; combined with the det(-1)

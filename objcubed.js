@@ -5764,7 +5764,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.81',
+        version: '0.5.82',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
