@@ -62,6 +62,10 @@
     // var to UI_SCALE on .oc-root and the tooltip portal, so a future bump is a
     // one-line change. No per-user toggle — the smaller sizes weren't needed.
     const UI_SCALE = 1.25;
+    // Version branch of the mcasset mirror (github.com/InventivetalentDev/
+    // minecraft-assets) the base-item picker pulls the item registry + icons
+    // from. Keep in step with the MC version the shaders target.
+    const MC_ASSETS_VERSION = '26.1.2';
 
     // Guided tour (issue #4) — canonical step list (single source of truth).
     // The dialog closure derives its `tourSteps` from this; sel is the DOM
@@ -79,9 +83,6 @@
         // atlas toggle only renders for multi-texture models; positionTour()
         // centers the card harmlessly when the anchor is absent.
         { sel: '.oc-tour-atlas',          titleKey: 'tour_t_atlas',         bodyKey: 'tour_b_atlas'         },
-        // texAnim block only renders when a frame-strip texture is present;
-        // positionTour() centers the card harmlessly when the anchor is absent.
-        { sel: '.oc-tour-texanim',        titleKey: 'tour_t_texanim',       bodyKey: 'tour_b_texanim'       },
         // ── Display card ──
         { sel: '.oc-display-tabs',        titleKey: 'tour_t_display',       bodyKey: 'tour_b_display'       },
         { sel: '.oc-tour-preview',        titleKey: 'tour_t_preview',       bodyKey: 'tour_b_preview'       },
@@ -97,6 +98,9 @@
         // datapack fields live inside v-if="generateDatapack"; reveal both flags.
         { sel: '.oc-tour-datapackid',     titleKey: 'tour_t_datapackid',    bodyKey: 'tour_b_datapackid',    requiresAnims: true, reveal: { animationEnabled: true, generateDatapack: true } },
         { sel: '.oc-tour-datapacktarget', titleKey: 'tour_t_datapacktarget',bodyKey: 'tour_b_datapacktarget',requiresAnims: true, reveal: { animationEnabled: true, generateDatapack: true } },
+        // texAnim block only renders when a frame-strip texture is present;
+        // positionTour() centers the card harmlessly when the anchor is absent.
+        { sel: '.oc-tour-texanim',        titleKey: 'tour_t_texanim',       bodyKey: 'tour_b_texanim'       },
         // ── Behavior: output sub-section ──
         { sel: '.oc-tour-respack',        titleKey: 'tour_t_respack',       bodyKey: 'tour_b_respack'       },
         { sel: '.oc-tour-baseitem',       titleKey: 'tour_t_baseitem',      bodyKey: 'tour_b_baseitem'      },
@@ -107,7 +111,6 @@
         // ── Behavior: color & advanced ──
         { sel: '.oc-tour-color',          titleKey: 'tour_t_color',         bodyKey: 'tour_b_color'         },
         { sel: '.oc-tour-easing',         titleKey: 'tour_t_easing',        bodyKey: 'tour_b_easing'        },
-        { sel: '.oc-tour-interpolation',  titleKey: 'tour_t_interpolation', bodyKey: 'tour_b_interpolation' },
         { sel: '.oc-tour-autorotate',     titleKey: 'tour_t_autorotate',    bodyKey: 'tour_b_autorotate'    },
         { sel: '.oc-tour-flags',          titleKey: 'tour_t_flags',         bodyKey: 'tour_b_flags'         },
         { sel: '__export__',              titleKey: 'tour_t_export',        bodyKey: 'tour_b_export'        },
@@ -163,7 +166,7 @@
             lbl_slot: 'Slot',
             lbl_respack_dir: 'Resource pack root',
             lbl_base_item: 'Base item',
-            lbl_cmd_name: 'Custom model data name',
+            lbl_cmd_name: 'CustomModelData',
             lbl_export_equipment: 'Export as Equipment (armor)',
             lbl_equip_slot: 'Slot',
             lbl_equip_pieces: 'Armor pieces (whole set)',
@@ -231,7 +234,6 @@
             // Advanced
             section_advanced: 'Advanced',
             lbl_easing: 'Easing',
-            lbl_interpolation: 'Texture interpolation',
             lbl_autorotate: 'Autorotate',
             opt_none: 'None',
             opt_linear: 'Linear',
@@ -300,7 +302,7 @@
             // Help tooltips
             help_selectedTex: 'Texture applied to the model.',
             help_useAtlas: 'Combine multiple textures into one large PNG. Useful when the model has parts with different textures. One animated frame-strip texture per atlas is supported — it keeps animating, the rest stay static.',
-            tex_anim_enable: 'Animate texture ({n} frames)',
+            tex_anim_enable: 'Animate texture',
             tex_frametime: 'Ticks per frame',
             tex_chip_each: 'each',
             tex_fade: 'Cross-fade frames',
@@ -325,16 +327,12 @@
             help_cmd_name: 'The string you put on the base item to show this model. The plugin writes a give command (<base item>_give.txt) with it. Default is the project name.',
             help_equipment: 'One equipment layer per model face. Renders the 3D model as worn armor via the entity shader. Reliable on the chest of a static armor stand; on moving players the anchor may tilt (work in progress).',
             help_datapackOutputDir: 'Where to save the datapack folder. Empty = next to resource pack.',
-            help_useSeparateLefthand: 'By default, left hand copies right hand settings. Enable to configure separately.',
-            lbl_separate_lefthand: 'Separate left hand',
-            lbl_mirrors_right: 'Mirrors the third-person right hand.',
             help_display_third: 'Rotation and offset when visible in another player\'s hand (3rd person).',
             help_display_head: 'Rotation and offset when worn on head (player_head).',
             help_display_ground: 'Rotation and offset when on the ground (dropped).',
             help_display_fixed: 'Rotation and offset in item frame on wall.',
             help_cb_general: 'Each potion color channel (R/G/B) can be used as a switch: tint, animation time, scale, overlay, or hurt flash. Click to cycle.',
             help_easing: 'Smoothing between vertex animation frames. Linear = simple average. Cubic/Bezier = smoother at joints.',
-            help_interpolation: 'Smoothing between texture frames. Linear gives a fade effect between frames.',
             help_autorotate: 'The shader derives the model rotation from quad normals, so it follows the render transform (item frames, entities). Yaw = horizontal only; Pitch = vertical only.',
             help_noshadow: 'Disable face darkening based on direction. Useful for glowing models.',
             help_flipuv: 'Flip texture vertically. Use if the model rendered upside down.',
@@ -380,9 +378,9 @@
             tour_t_datapacktarget: 'Datapack target & slot',
             tour_b_datapacktarget: 'Target picks what the animation applies to: an equipped item, an item_display entity, or the player. For equipment and player you also choose the slot (mainhand, head, chest and so on).',
             tour_t_equipment: 'Equipment / armor',
-            tour_b_equipment: 'Tick this to export as wearable armor instead of a held item. The model renders on the player or an armor stand. The slot selector appears below once this is enabled.',
-            tour_t_equipslot: 'Equipment slot',
-            tour_b_equipslot: 'Choose which armor slot the model occupies: head, chest, legs or feet. This only matters for equipment export and decides where the model shows up when worn.',
+            tour_b_equipment: 'Tick this to export as wearable armor instead of a held item. The model renders on the player or an armor stand. The armor-piece checkboxes appear below once this is enabled.',
+            tour_t_equipslot: 'Armor pieces',
+            tour_b_equipslot: 'Tick the pieces of the set to export: helmet, chestplate, leggings, boots. Each piece spans its body parts (a chestplate = torso + both arms) and follows the wearer\'s bones. Tag your groups via right-click → obj³: Body part first.',
             tour_t_respack: 'Resource-pack folder',
             tour_b_respack: 'Choose one resource-pack root folder; obj³ writes everything under the objc_cubed namespace inside it. Use the folder button to browse. This is where the finished pack lands.',
             tour_t_baseitem: 'Base item',
@@ -391,8 +389,6 @@
             tour_b_cmdname: 'A short identifier for this model used as its custom_model_data name. obj³ shows it after export so you can /give the base item with this name and spawn your model in-game.',
             tour_t_easing: 'Easing',
             tour_b_easing: 'Easing shapes how motion accelerates between frames so the animation looks less mechanical. None keeps frames raw; linear, cubic and bezier add progressively smoother transitions. Leave at default if unsure.',
-            tour_t_interpolation: 'Texture interpolation',
-            tour_b_interpolation: 'Blends between the frames of an animated TEXTURE (a frame strip), not the geometry. Off shows each texture frame sharply; linear cross-fades between them. Only matters when the texture itself is animated.',
             tour_t_autorotate: 'Autorotate',
             tour_b_autorotate: 'Autorotate makes the model follow its render transform — turning to face the right way in item frames, on entities or in world slots, instead of staying fixed. Off keeps it fixed; horizontal, vertical or both choose which axes track. Handy for framed or worn items.',
             tour_t_flags: 'Advanced flags',
@@ -437,7 +433,7 @@
             lbl_slot: 'Слот',
             lbl_respack_dir: 'Корень ресурспака',
             lbl_base_item: 'Базовый предмет',
-            lbl_cmd_name: 'Имя custom_model_data',
+            lbl_cmd_name: 'CustomModelData',
             lbl_export_equipment: 'Экспорт как экипировка (броня)',
             lbl_equip_slot: 'Слот',
             lbl_equip_pieces: 'Части брони (набор)',
@@ -502,7 +498,6 @@
             color_all_hurt: 'Весь цвет управляет красной вспышкой «получил урон»',
             section_advanced: 'Дополнительно',
             lbl_easing: 'Плавность',
-            lbl_interpolation: 'Интерполяция текстур',
             lbl_autorotate: 'Автоповорот',
             opt_none: 'Нет',
             opt_linear: 'Линейная',
@@ -570,7 +565,7 @@
             warn_suffix: ' ({n} {w} — см. консоль)',
             help_selectedTex: 'Текстура которая накладывается на модель.',
             help_useAtlas: 'Объединить несколько текстур в один большой PNG. Полезно когда модель состоит из частей с разными текстурами. Поддерживается одна анимированная текстура-полоса на атлас — она продолжает анимироваться, остальные статичны.',
-            tex_anim_enable: 'Анимировать текстуру ({n} кадров)',
+            tex_anim_enable: 'Анимировать текстуру',
             tex_frametime: 'Тиков на кадр',
             tex_chip_each: 'каждый',
             tex_fade: 'Плавный переход кадров',
@@ -595,16 +590,12 @@
             help_cmd_name: 'Строка, которую вы вешаете на базовый предмет, чтобы показать эту модель. Плагин пишет команду give (<базовый предмет>_give.txt) с ней. По умолчанию — имя проекта.',
             help_equipment: 'Один слой экипировки на каждую грань модели. Рендерит 3D-модель как надетую броню через шейдер сущности. Надёжно работает на нагруднике статичного armor stand; на движущихся игроках якорь может наклоняться (в разработке).',
             help_datapackOutputDir: 'Куда положить папку датапака. Пусто = рядом с ресурспаком.',
-            help_useSeparateLefthand: 'По умолчанию левая рука копирует настройки правой. Включите, если хотите настроить её отдельно.',
-            lbl_separate_lefthand: 'Отдельная левая рука',
-            lbl_mirrors_right: 'Зеркалит правую руку от третьего лица.',
             help_display_third: 'Поворот и сдвиг модели когда она видна в руке другого игрока (от 3-го лица).',
             help_display_head: 'Поворот и сдвиг модели когда она надета на голову (player_head).',
             help_display_ground: 'Поворот и сдвиг модели когда она лежит на земле (выпавшая).',
             help_display_fixed: 'Поворот и сдвиг модели в item frame на стене.',
             help_cb_general: 'Каждый канал цвета зелья (R/G/B) можно использовать как переключатель: тинт, время анимации, масштаб, оттенок или вспышка урона. Клик меняет значение.',
             help_easing: 'Сглаживание между кадрами анимации вершин. Линейная — обычное усреднение. Кубическая/Безье — плавнее на стыках.',
-            help_interpolation: 'Сглаживание между кадрами текстуры. Линейная даёт плавное затухание между кадрами.',
             help_autorotate: 'Шейдер определяет поворот модели по нормалям, поэтому она следует за рендер-трансформом (рамки, сущности). Yaw = только горизонтальный; Pitch = только вертикальный.',
             help_noshadow: 'Отключить затемнение граней по их направлению. Полезно для светящихся моделей.',
             help_flipuv: 'Перевернуть текстуру по вертикали. Используйте, если модель отрендерилась перевёрнутой.',
@@ -650,9 +641,9 @@
             tour_t_datapacktarget: 'Цель и слот датапака',
             tour_b_datapacktarget: 'Цель определяет, к чему применяется анимация: к надетому предмету, к сущности item_display или к игроку. Для экипировки и игрока также выбирается слот («Главная рука», «Шлем», «Нагрудник» и т.д.).',
             tour_t_equipment: 'Экипировка / броня',
-            tour_b_equipment: 'Включите, чтобы экспортировать как носимую броню, а не предмет в руке. Модель рендерится на игроке или на стойке для брони. Выбор слота появляется ниже после включения.',
-            tour_t_equipslot: 'Слот экипировки',
-            tour_b_equipslot: 'Выберите, какой слот брони занимает модель: голова, грудь, ноги или ступни. Это важно только для экспорта экипировки и решает, где модель появится при надевании.',
+            tour_b_equipment: 'Включите, чтобы экспортировать как носимую броню, а не предмет в руке. Модель рендерится на игроке или на стойке для брони. Галочки частей комплекта появляются ниже после включения.',
+            tour_t_equipslot: 'Части брони',
+            tour_b_equipslot: 'Отметьте части комплекта для экспорта: шлем, нагрудник, поножи, ботинки. Каждая часть охватывает свои части тела (нагрудник = торс + обе руки) и следует за костями носителя. Сначала пометьте группы через ПКМ → obj³: Часть тела.',
             tour_t_respack: 'Папка ресурспака',
             tour_b_respack: 'Выберите одну корневую папку ресурспака; obj³ пишет всё в namespace objc_cubed внутри неё. Кнопка папки открывает обзор. Именно сюда ляжет готовый пак.',
             tour_t_baseitem: 'Базовый предмет',
@@ -661,8 +652,6 @@
             tour_b_cmdname: 'Короткий идентификатор модели, используемый как имя custom_model_data. obj³ показывает его после экспорта, чтобы вы выдали базовый предмет через /give с этим именем и заспавнили модель в игре.',
             tour_t_easing: 'Плавность',
             tour_b_easing: 'Плавность задаёт, как движение ускоряется между кадрами, чтобы анимация выглядела менее механически. «Нет» оставляет кадры как есть; «Линейная», «Кубическая» и «Безье» добавляют всё более плавные переходы. Если не уверены — оставьте по умолчанию.',
-            tour_t_interpolation: 'Интерполяция текстур',
-            tour_b_interpolation: 'Смешивает кадры анимированной ТЕКСТУРЫ (полоски кадров), а не геометрию. «Выкл» переключает кадры текстуры резко; «Линейная» плавно смешивает их между собой. Важно только когда анимирована сама текстура.',
             tour_t_autorotate: 'Автоповорот',
             tour_b_autorotate: 'Автоповорот заставляет модель следовать своему рендер-трансформу — поворачиваться как надо в рамках, на сущностях и в мировых слотах, а не оставаться статичной. «Выкл» оставляет её неподвижной; «По горизонтали», «По вертикали» или «Оба» задают оси. Удобно для предметов в рамке или надетых.',
             tour_t_flags: 'Доп. флаги',
@@ -1096,6 +1085,33 @@
             border-radius: 3px;
             object-fit: contain;
             background: rgba(255,255,255,0.04);
+            flex-shrink: 0;
+        }
+
+        /* Base-item picker: filtered dropdown with item icons */
+        .oc-item-list {
+            position: absolute;
+            top: 100%; left: 0; right: 0;
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 40;
+            background: #17191d;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 4px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+        }
+        .oc-item-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 8px;
+            cursor: pointer;
+            color: #ccc;
+            font-size: calc(12px * var(--oc-scale));
+        }
+        .oc-item-row:hover { background: rgba(255,255,255,0.08); }
+        .oc-item-icon {
+            width: 18px; height: 18px;
+            image-rendering: pixelated;
+            object-fit: contain;
             flex-shrink: 0;
         }
 
@@ -4089,8 +4105,12 @@
                         exportAsEquipment: false,
                         equipmentSlot: 'chest',
                         selectedPieces: [],
-                        // Display — Right hand (also used for left UNLESS useSeparateLefthand)
-                        displayTab:    'third',   // 'third' | 'head' | 'ground' | 'fixed'
+                        // Base-item picker (ephemeral): registry list + dropdown state
+                        itemList: [],
+                        itemPickerOpen: false,
+                        displayTab:    'third',   // display slot tab key
+                        // Migration flag: true once the left hand was made separate
+                        // (data() copies right->left for old mirroring projects).
                         useSeparateLefthand: false,
                         // Thirdperson rotation default 0° — no baked-in tilt.
                         // Earlier builds shipped a 5° X default (and legacy objmc
@@ -4188,6 +4208,16 @@
                         }
                     }
 
+                    // Migration: the third-person left hand used to MIRROR the right
+                    // unless useSeparateLefthand was ticked. The toggle is gone (the
+                    // left tab is always separate) — for projects that mirrored, copy
+                    // the right-hand values over once; the flag marks migration done.
+                    if (state.useSeparateLefthand !== true) {
+                        for (const ax of ['RX','RY','RZ','TX','TY','TZ','SX','SY','SZ'])
+                            state['dLeft' + ax] = state['dThird' + ax];
+                        state.useSeparateLefthand = true;
+                    }
+
                     // Sync animEnd with the current animation length only when the
                     // persisted trim is unset/invalid or exceeds the clip — a saved
                     // end-trim must survive a dialog reopen (animStart already does).
@@ -4213,6 +4243,8 @@
                     }
                 },
                 mounted() {
+                    // Base-item registry for the picker (cached; silent offline fallback).
+                    this.loadItemList();
                     // If the user just came back from BB's Display editor, pull their
                     // edits (Project.display_settings) into the dialog so they reach the
                     // export. One-shot flag set by openInDisplayEditor; cleared here.
@@ -4338,6 +4370,16 @@
                     },
                     // Animated textures (issue #9): how many square frames the
                     // selected texture's vertical strip holds (height / width).
+                    // ── Base-item picker ──
+                    filteredItems() {
+                        if (!this.itemList.length) return [];
+                        const q = String(this.baseItem || '').toLowerCase().trim();
+                        const hits = q ? this.itemList.filter(i => i.includes(q)) : this.itemList;
+                        return hits.slice(0, 60); // keep the dropdown light
+                    },
+                    baseItemKnown() {
+                        return this.itemList.includes(String(this.baseItem || '').toLowerCase().trim());
+                    },
                     // Frames the anim UI reveals on. Single texture: the selected
                     // texture's strip count. Atlas: the LARGEST strip among the
                     // checked atlas textures (one animated strip per atlas), so the
@@ -4583,6 +4625,33 @@
                     // Snap texFrametime back to a valid >=1 integer (min= only guards the
                     // spinner; a typed 0/-5 otherwise lingers in the field while export clamps).
                     clampTexFrametime() { this.texFrametime = Math.max(1, Math.round(+this.texFrametime || 1)); },
+                    // ── Base-item picker (registry from the mcasset mirror) ──
+                    itemIconUrl(id) {
+                        return `https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/${MC_ASSETS_VERSION}/assets/minecraft/textures/item/${id}.png`;
+                    },
+                    pickBaseItem(id) { this.baseItem = id; this.itemPickerOpen = false; },
+                    // mousedown on a row is .prevent-ed so blur fires AFTER the pick;
+                    // small delay covers scrollbar drags inside the list.
+                    closeItemPicker() { setTimeout(() => { this.itemPickerOpen = false; }, 150); },
+                    async loadItemList() {
+                        const KEY = 'objcubed_item_list_' + MC_ASSETS_VERSION;
+                        try {
+                            const cached = localStorage.getItem(KEY);
+                            if (cached) { this.itemList = JSON.parse(cached); return; }
+                        } catch (e) {}
+                        try {
+                            const r = await fetch(`https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/${MC_ASSETS_VERSION}/assets/minecraft/items/_list.json`);
+                            if (!r.ok) return; // offline / mirror down -> plain text input
+                            const j = await r.json();
+                            const list = (j.files || [])
+                                .filter(f => f.endsWith('.json'))
+                                .map(f => f.slice(0, -5));
+                            if (list.length) {
+                                this.itemList = list;
+                                try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {}
+                            }
+                        } catch (e) { /* offline -> plain text input */ }
+                    },
                     // Vue 2 can't track assignment to an array index (atlasTexChecked[i] = v),
                     // so the index-bound v-model left dependent computeds (previewTexSize,
                     // previewWarnings, validationErrors) stale; $set restores reactivity.
@@ -4781,11 +4850,13 @@
                         };
                         return {
                             thirdperson_righthand: third,
-                            thirdperson_lefthand: this.useSeparateLefthand ? {
+                            // Always separate (the mirror-right toggle is gone);
+                            // old mirroring projects are migrated in data().
+                            thirdperson_lefthand: {
                                 rotation:    [v('dLeftRX'), v('dLeftRY'), v('dLeftRZ')],
                                 translation: [v('dLeftTX'), v('dLeftTY'), v('dLeftTZ')],
                                 scale:       [sv('dLeftSX'), sv('dLeftSY'), sv('dLeftSZ')],
-                            } : third,
+                            },
                             firstperson_righthand: {
                                 rotation:    [v('dFprRX'), v('dFprRY'), v('dFprRZ')],
                                 translation: [v('dFprTX'), v('dFprTY'), v('dFprTZ')],
@@ -5137,32 +5208,6 @@
         </label>
       </div>
     </div>
-    <!-- Animated textures (issue #9): only when the strip holds >1 square frame.
-         Styled to mirror the Animation section (behaviour card) below. -->
-    <div v-if="texFrameCount > 1" class="oc-tour-texanim" style="border-top:1px solid rgba(255,255,255,0.06);margin-top:8px;padding-top:8px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
-          <input type="checkbox" v-model="texAnimEnabled"/>
-          <span>{{t('tex_anim_enable').replace('{n}', texFrameCount)}}</span>
-          <span class="oc-help" :data-tip="help('texAnim')">?</span>
-        </label>
-      </div>
-      <div v-if="texAnimEnabled" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
-        <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;max-width:140px;">
-          <span>{{t('tex_frametime')}}<span class="oc-help" :data-tip="help('texFrametime')">?</span></span>
-          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime"/>
-        </label>
-        <div class="oc-frame-chip">
-          <i class="material-icons">movie</i>
-          <span>{{texFrameCount}} {{tPlural(texFrameCount,'frames')}} · {{texFrametime}} {{tPlural(texFrametime,'ticks')}} {{t('tex_chip_each')}}</span>
-        </div>
-        <label style="display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--oc-scale));">
-          <input type="checkbox" v-model="texFade"/>
-          <span>{{t('tex_fade')}}</span>
-          <span class="oc-help" :data-tip="help('texFade')">?</span>
-        </label>
-      </div>
-    </div>
   </div>
 
   <!-- ======== DISPLAY (per-slot tabs with rotation / translation / scale) ======== -->
@@ -5173,10 +5218,12 @@
     </div>
 
     <div class="oc-display-tabs">
-      <button :class="['oc-display-tab', {active: displayTab==='third'}]"  @click="displayTab='third'" :title="t('tab_third')"><i class="material-icons">person</i></button>
-      <button :class="['oc-display-tab', {active: displayTab==='left'}]"   @click="displayTab='left'" :title="t('tab_left')"><i class="material-icons">pan_tool</i></button>
+      <!-- R/L pairs share an icon; the LEFT one is CSS-mirrored (scaleX(-1)),
+           the same visual language Blockbench's Display editor uses for sides. -->
+      <button :class="['oc-display-tab', {active: displayTab==='third'}]"  @click="displayTab='third'" :title="t('tab_third')"><i class="material-icons">back_hand</i></button>
+      <button :class="['oc-display-tab', {active: displayTab==='left'}]"   @click="displayTab='left'" :title="t('tab_left')"><i class="material-icons" style="transform:scaleX(-1);">back_hand</i></button>
       <button :class="['oc-display-tab', {active: displayTab==='fpr'}]"    @click="displayTab='fpr'" :title="t('tab_fpr')"><i class="material-icons">front_hand</i></button>
-      <button :class="['oc-display-tab', {active: displayTab==='fpl'}]"    @click="displayTab='fpl'" :title="t('tab_fpl')"><i class="material-icons">back_hand</i></button>
+      <button :class="['oc-display-tab', {active: displayTab==='fpl'}]"    @click="displayTab='fpl'" :title="t('tab_fpl')"><i class="material-icons" style="transform:scaleX(-1);">front_hand</i></button>
       <button :class="['oc-display-tab', {active: displayTab==='head'}]"   @click="displayTab='head'" :title="t('tab_head')"><i class="material-icons">face</i></button>
       <button :class="['oc-display-tab', {active: displayTab==='gui'}]"    @click="displayTab='gui'" :title="t('tab_gui')"><i class="material-icons">grid_view</i></button>
       <button :class="['oc-display-tab', {active: displayTab==='ground'}]" @click="displayTab='ground'" :title="t('tab_ground')"><i class="material-icons">download</i></button>
@@ -5224,17 +5271,11 @@
       </div>
     </div>
 
-    <!-- 3-е лицо ЛЕВАЯ рука (thirdperson_lefthand) — own tab. The "mirror right
-         hand" toggle stays here: off = mirrors thirdperson right (default). -->
+    <!-- 3-е лицо ЛЕВАЯ рука (thirdperson_lefthand) — own tab, always separate.
+         Old projects that mirrored the right hand are migrated in data(): the
+         right-hand values are copied over once (useSeparateLefthand flag). -->
     <div v-show="displayTab==='left'">
-      <label class="oc-checkbox-row" :title="t('help_useSeparateLefthand')" style="margin-bottom:8px;display:flex;align-items:center;gap:6px;cursor:pointer;">
-        <input type="checkbox" v-model="useSeparateLefthand"/>
-        <span>{{t('lbl_separate_lefthand')}}</span>
-      </label>
-      <div v-if="!useSeparateLefthand" style="color:#888;font-size:calc(12px * var(--oc-scale));padding:4px 2px;">
-        {{t('lbl_mirrors_right')}}
-      </div>
-      <div v-else>
+      <div>
         <div class="oc-xyz-row">
           <span>{{t('lbl_rotation')}}</span>
           <div class="oc-xyz-input oc-x" @mousedown="startDrag($event,'dLeftRX',1)"><input v-model.number="dLeftRX" type="number" step="1"/></div>
@@ -5548,6 +5589,33 @@
       </div>
     </div>
 
+    <!-- Animated textures (issue #9): only when a frame-strip texture is present.
+         Lives next to the geometry Animation block — both are playback controls. -->
+    <div v-if="texFrameCount > 1" class="oc-tour-texanim" style="margin-top:10px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
+          <input type="checkbox" v-model="texAnimEnabled"/>
+          <span>{{t('tex_anim_enable')}}</span>
+          <span class="oc-help" :data-tip="help('texAnim')">?</span>
+        </label>
+      </div>
+      <div v-if="texAnimEnabled" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;max-width:140px;">
+          <span>{{t('tex_frametime')}}<span class="oc-help" :data-tip="help('texFrametime')">?</span></span>
+          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime"/>
+        </label>
+        <div class="oc-frame-chip">
+          <i class="material-icons">movie</i>
+          <span>{{texFrameCount}} {{tPlural(texFrameCount,'frames')}} · {{texFrametime}} {{tPlural(texFrametime,'ticks')}} {{t('tex_chip_each')}}</span>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--oc-scale));">
+          <input type="checkbox" v-model="texFade"/>
+          <span>{{t('tex_fade')}}</span>
+          <span class="oc-help" :data-tip="help('texFade')">?</span>
+        </label>
+      </div>
+    </div>
+
     <!-- Separator -->
     <div style="border-top:1px solid rgba(255,255,255,0.06);margin:12px 0;"></div>
 
@@ -5562,10 +5630,26 @@
             <button class="oc-btn oc-icon-btn" style="width:24px;height:24px;min-width:24px;min-height:24px;max-width:24px;max-height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;" @click="browseResourcePackDir" :data-tip="t('tip_browse_folder')"><i class="material-icons">folder_open</i></button>
           </div>
         </label>
-        <!-- oc-tour-baseitem: tour anchor (issue #4) — on the base item field -->
-        <label class="oc-tour-baseitem" style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+        <!-- oc-tour-baseitem: tour anchor (issue #4) — on the base item field.
+             Combobox: free typing always works; when the item registry loaded
+             (fetched once from the mcasset mirror, cached in localStorage) a
+             filtered dropdown with item icons appears. Offline = plain input. -->
+        <label class="oc-tour-baseitem" style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;position:relative;">
           <span>{{t('lbl_base_item')}}<span class="oc-help" :data-tip="help('base_item')">?</span></span>
-          <input v-model="baseItem" placeholder="iron_ingot"/>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <img v-if="baseItemKnown" :src="itemIconUrl(baseItem)" class="oc-item-icon"
+                 @error="$event.target.style.visibility='hidden'"/>
+            <input v-model="baseItem" placeholder="iron_ingot" style="flex:1;min-width:0;"
+                   @focus="itemPickerOpen = true" @input="itemPickerOpen = true"
+                   @blur="closeItemPicker" @keydown.esc="itemPickerOpen = false"/>
+          </div>
+          <div v-if="itemPickerOpen && filteredItems.length" class="oc-item-list">
+            <div v-for="id in filteredItems" :key="id" class="oc-item-row" @mousedown.prevent="pickBaseItem(id)">
+              <img :src="itemIconUrl(id)" class="oc-item-icon" loading="lazy"
+                   @error="$event.target.style.visibility='hidden'"/>
+              <span>{{id}}</span>
+            </div>
+          </div>
         </label>
         <!-- oc-tour-cmdname: tour anchor (issue #4) — on the custom_model_data name field -->
         <label class="oc-tour-cmdname" style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;">
@@ -5580,7 +5664,11 @@
           <span>{{t('lbl_export_equipment')}}</span>
           <span class="oc-help" :data-tip="help('equipment')">?</span>
         </label>
-        <label v-if="exportAsEquipment" style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+        <!-- oc-tour-equipslot: tour anchor — the WHOLE-SET piece checkboxes.
+             (The legacy per-body-part slot selector is UI-retired: the piece
+             path supersedes it. The legacy export code stays for old projects
+             whose persisted selectedPieces is empty.) -->
+        <label v-if="exportAsEquipment" class="oc-tour-equipslot" style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;">
           <span>{{t('lbl_equip_pieces')}}<span class="oc-help" :data-tip="help('equip_pieces')">?</span></span>
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
             <label style="display:flex;gap:4px;align-items:center;color:#ccc;"><input type="checkbox" v-model="selectedPieces" value="helmet"/>{{t('opt_piece_helmet')}}</label>
@@ -5588,22 +5676,6 @@
             <label style="display:flex;gap:4px;align-items:center;color:#ccc;"><input type="checkbox" v-model="selectedPieces" value="leggings"/>{{t('opt_piece_leggings')}}</label>
             <label style="display:flex;gap:4px;align-items:center;color:#ccc;"><input type="checkbox" v-model="selectedPieces" value="boots"/>{{t('opt_piece_boots')}}</label>
           </div>
-        </label>
-        <!-- oc-tour-equipslot: legacy single-part slot — shown only when NO pieces are checked -->
-        <label v-if="exportAsEquipment && !selectedPieces.length" class="oc-tour-equipslot" style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;">
-          <span>{{t('lbl_equip_slot')}}</span>
-          <select v-model="equipmentSlot" style="padding:4px 6px;">
-            <option value="head">{{t('opt_head')}}</option>
-            <option value="chest">{{t('opt_chest')}}</option>
-            <option value="right_arm">{{t('opt_right_arm')}}</option>
-            <option value="left_arm">{{t('opt_left_arm')}}</option>
-            <option value="legs">{{t('opt_legs')}}</option>
-            <option value="right_leg">{{t('opt_right_leg')}}</option>
-            <option value="left_leg">{{t('opt_left_leg')}}</option>
-            <option value="feet">{{t('opt_feet')}}</option>
-            <option value="right_foot">{{t('opt_right_foot')}}</option>
-            <option value="left_foot">{{t('opt_left_foot')}}</option>
-          </select>
         </label>
       </div>
     </div>
@@ -5653,14 +5725,10 @@
             <option :value="3">{{t('opt_bezier')}}</option>
           </select>
         </label>
-        <!-- oc-tour-interpolation: tour anchor (issue #4) — on the interpolation select -->
-        <label class="oc-tour-interpolation" style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
-          <span>{{t('lbl_interpolation')}}<span class="oc-help" :data-tip="help('interpolation')">?</span></span>
-          <select v-model="interpolation" style="padding:4px 6px;">
-            <option :value="0">{{t('opt_none')}}</option>
-            <option :value="1">{{t('opt_linear')}}</option>
-          </select>
-        </label>
+        <!-- (The old "Texture interpolation" select is gone: the shader never
+             read those header bits — the WORKING texture cross-fade is the
+             "fade" toggle in the Animated-texture block. cfg.interpolation is
+             still encoded for byte-compat but has no effect.) -->
         <!-- oc-tour-autorotate: tour anchor (issue #4) — on the autorotate select -->
         <label class="oc-tour-autorotate" style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
           <span>{{t('lbl_autorotate')}}<span class="oc-help" :data-tip="help('autorotate')">?</span></span>
@@ -5752,7 +5820,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.83',
+        version: '0.5.84',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

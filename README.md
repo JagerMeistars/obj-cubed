@@ -74,7 +74,7 @@ compatibility is not guaranteed.
 | **FPS** | Frames per second for animation baking |
 | **Autoplay** | Animation loops automatically using GameTime |
 | **Easing** | Interpolation between vertex frames: none, linear, cubic ease-in-out, bezier |
-| **Interpolation** | Interpolation between texture frames: none, linear fade |
+| **Fade** (animated texture) | Cross-fade between texture frames, like `interpolate` in a vanilla `.mcmeta` |
 | **Color behavior** | What each RGB byte of overlay color controls (direct/time/scale/overlay/hurt) |
 | **Auto Rotate** | Shader estimates rotation from normals (yaw, pitch, or both) |
 | **No Shadow** | Disable face-normal shading |
@@ -160,8 +160,9 @@ Minecraft mirrors the left arm/leg.
    all output assets, so several models coexist without overwriting each other.)
 
 Faces that belong to no tagged part are skipped, so untagged geometry will not
-appear. Leave every armor piece unchecked to fall back to the legacy single-slot
-export (the whole model anchored to one slot).
+appear. (The old single-slot export — the whole model anchored to one body
+part — still runs when no pieces are checked, for old projects; its UI is
+retired in favour of the piece checkboxes.)
 
 ## Right-click tools
 

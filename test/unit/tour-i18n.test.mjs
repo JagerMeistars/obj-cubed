@@ -73,10 +73,14 @@ describe('tour i18n parity (#4)', () => {
       'animation', 'animselect', 'fps', 'range', 'autoplay',
       // datapack (per-parameter)
       'datapack', 'datapackid', 'datapacktarget',
+      // animated texture (lives next to the animation block)
+      'texanim',
       // output sub-section (per-parameter)
       'respack', 'baseitem', 'cmdname', 'equipment', 'equipslot',
-      // color & advanced (per-parameter)
-      'color', 'easing', 'interpolation', 'autorotate', 'flags',
+      // color & advanced (per-parameter). 'interpolation' was retired: the
+      // shader never read those header bits — the working texture cross-fade
+      // is the fade toggle inside the animated-texture block ('texanim').
+      'color', 'easing', 'autorotate', 'flags',
       // export
       'export',
     ];
