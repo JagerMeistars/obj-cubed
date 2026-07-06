@@ -94,13 +94,15 @@
         { sel: '.oc-tour-fps',            titleKey: 'tour_t_fps',           bodyKey: 'tour_b_fps',           requiresAnims: true, reveal: { animationEnabled: true } },
         { sel: '.oc-tour-range',          titleKey: 'tour_t_range',         bodyKey: 'tour_b_range',         requiresAnims: true, reveal: { animationEnabled: true } },
         { sel: '.oc-tour-autoplay',       titleKey: 'tour_t_autoplay',      bodyKey: 'tour_b_autoplay',      requiresAnims: true, reveal: { animationEnabled: true } },
+        // texAnim block only renders when a frame-strip texture is present;
+        // positionTour() centers the card harmlessly when the anchor is absent.
+        { sel: '.oc-tour-texanim',        titleKey: 'tour_t_texanim',       bodyKey: 'tour_b_texanim'       },
+        { sel: '.oc-tour-easing',         titleKey: 'tour_t_easing',        bodyKey: 'tour_b_easing'        },
+        { sel: '.oc-tour-autorotate',     titleKey: 'tour_t_autorotate',    bodyKey: 'tour_b_autorotate'    },
         { sel: '.oc-tour-datapack',       titleKey: 'tour_t_datapack',      bodyKey: 'tour_b_datapack',      requiresAnims: true, reveal: { animationEnabled: true } },
         // datapack fields live inside v-if="generateDatapack"; reveal both flags.
         { sel: '.oc-tour-datapackid',     titleKey: 'tour_t_datapackid',    bodyKey: 'tour_b_datapackid',    requiresAnims: true, reveal: { animationEnabled: true, generateDatapack: true } },
         { sel: '.oc-tour-datapacktarget', titleKey: 'tour_t_datapacktarget',bodyKey: 'tour_b_datapacktarget',requiresAnims: true, reveal: { animationEnabled: true, generateDatapack: true } },
-        // texAnim block only renders when a frame-strip texture is present;
-        // positionTour() centers the card harmlessly when the anchor is absent.
-        { sel: '.oc-tour-texanim',        titleKey: 'tour_t_texanim',       bodyKey: 'tour_b_texanim'       },
         // ── Behavior: output sub-section ──
         { sel: '.oc-tour-respack',        titleKey: 'tour_t_respack',       bodyKey: 'tour_b_respack'       },
         { sel: '.oc-tour-baseitem',       titleKey: 'tour_t_baseitem',      bodyKey: 'tour_b_baseitem'      },
@@ -108,10 +110,9 @@
         { sel: '.oc-tour-equipment',      titleKey: 'tour_t_equipment',     bodyKey: 'tour_b_equipment'     },
         // equip slot select is v-if="exportAsEquipment"; reveal opens it.
         { sel: '.oc-tour-equipslot',      titleKey: 'tour_t_equipslot',     bodyKey: 'tour_b_equipslot',     reveal: { exportAsEquipment: true } },
-        // ── Behavior: color & advanced ──
+        // ── Behavior: color & advanced ── (easing/autorotate steps moved up
+        // to the animation group, matching their new position in the layout)
         { sel: '.oc-tour-color',          titleKey: 'tour_t_color',         bodyKey: 'tour_b_color'         },
-        { sel: '.oc-tour-easing',         titleKey: 'tour_t_easing',        bodyKey: 'tour_b_easing'        },
-        { sel: '.oc-tour-autorotate',     titleKey: 'tour_t_autorotate',    bodyKey: 'tour_b_autorotate'    },
         { sel: '.oc-tour-flags',          titleKey: 'tour_t_flags',         bodyKey: 'tour_b_flags'         },
         { sel: '__export__',              titleKey: 'tour_t_export',        bodyKey: 'tour_b_export'        },
     ];
@@ -5383,12 +5384,10 @@
         <div class="oc-xyz-input oc-y" @mousedown="startDrag($event,'dGuiSY',0.05)"><input v-model.number="dGuiSY" type="number" step="0.05"/></div>
         <div class="oc-xyz-input oc-z" @mousedown="startDrag($event,'dGuiSZ',0.05)"><input v-model.number="dGuiSZ" type="number" step="0.05"/></div>
       </div>
-      <div class="oc-xyz-row" :title="help('guiPivot')">
-        <span>{{t('lbl_gui_pivot')}}</span>
-        <div class="oc-xyz-input oc-x" @mousedown="startDrag($event,'dGuiPX',0.5)"><input v-model.number="dGuiPX" type="number" step="0.5"/></div>
-        <div class="oc-xyz-input oc-y" @mousedown="startDrag($event,'dGuiPY',0.5)"><input v-model.number="dGuiPY" type="number" step="0.5"/></div>
-        <div class="oc-xyz-input oc-z" @mousedown="startDrag($event,'dGuiPZ',0.5)"><input v-model.number="dGuiPZ" type="number" step="0.5"/></div>
-      </div>
+      <!-- (GUI pivot inputs UI-retired: the default — the block centre, vanilla's
+           display pivot — is correct for everyone now; a stray value here only
+           desynced the icon from vanilla. dGuiP* stay persisted/encoded so an
+           old project's custom pivot keeps working.) -->
     </div>
 
     <!-- Земля -->
@@ -5518,9 +5517,64 @@
         <span>{{t('lbl_autoplay')}}</span><span class="oc-help" :data-tip="help('autoplay')">?</span>
       </label>
 
-      <!-- Datapack sub-block -->
+    </div>
+
+    <!-- Animated textures (issue #9): only when a frame-strip texture is present.
+         Sits between the geometry animation and the datapack block — all three
+         are playback controls, and texAnim is independent of the geometry anim. -->
+    <div v-if="texFrameCount > 1" class="oc-tour-texanim" style="margin-top:10px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
+          <input type="checkbox" v-model="texAnimEnabled"/>
+          <span>{{t('tex_anim_enable')}}</span>
+          <span class="oc-help" :data-tip="help('texAnim')">?</span>
+        </label>
+      </div>
+      <div v-if="texAnimEnabled" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;max-width:140px;">
+          <span>{{t('tex_frametime')}}<span class="oc-help" :data-tip="help('texFrametime')">?</span></span>
+          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime"/>
+        </label>
+        <div class="oc-frame-chip">
+          <i class="material-icons">movie</i>
+          <span>{{texFrameCount}} {{tPlural(texFrameCount,'frames')}} · {{texFrametime}} {{tPlural(texFrametime,'ticks')}} {{t('tex_chip_each')}}</span>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--oc-scale));">
+          <input type="checkbox" v-model="texFade"/>
+          <span>{{t('tex_fade')}}</span>
+          <span class="oc-help" :data-tip="help('texFade')">?</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Playback shaping: easing (geometry frame blending) + autorotate.
+         Ungated: autorotate matters for STATIC exports too (item frames). -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+      <!-- oc-tour-easing: tour anchor (issue #4) — on the easing select only -->
+      <label class="oc-tour-easing" style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+        <span>{{t('lbl_easing')}}<span class="oc-help" :data-tip="help('easing')">?</span></span>
+        <select v-model="easing" style="padding:4px 6px;">
+          <option :value="0">{{t('opt_none')}}</option>
+          <option :value="1">{{t('opt_linear')}}</option>
+          <option :value="2">{{t('opt_cubic')}}</option>
+          <option :value="3">{{t('opt_bezier')}}</option>
+        </select>
+      </label>
+      <!-- oc-tour-autorotate: tour anchor (issue #4) — on the autorotate select -->
+      <label class="oc-tour-autorotate" style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
+        <span>{{t('lbl_autorotate')}}<span class="oc-help" :data-tip="help('autorotate')">?</span></span>
+        <select v-model="autorotate" style="padding:4px 6px;">
+          <option :value="0">{{t('opt_off')}}</option>
+          <option :value="1">{{t('opt_horizontal')}}</option>
+          <option :value="2">{{t('opt_vertical')}}</option>
+          <option :value="3">{{t('opt_both')}}</option>
+        </select>
+      </label>
+    </div>
+
+      <!-- Datapack sub-block (self-gated: showDatapackOption = hasAnims && animationEnabled) -->
       <!-- oc-tour-datapack: tour anchor (issue #4) — keep on the datapack block -->
-      <div v-if="showDatapackOption" class="oc-tour-datapack" style="margin-top:2px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.1);">
+      <div v-if="showDatapackOption" class="oc-tour-datapack" style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.1);">
         <label style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#ddd;">
           <input v-model="generateDatapack" type="checkbox"/>
           <i class="material-icons" style="font-size:calc(16px * var(--oc-scale));color:#5a8cc0;">terminal</i>
@@ -5587,34 +5641,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Animated textures (issue #9): only when a frame-strip texture is present.
-         Lives next to the geometry Animation block — both are playback controls. -->
-    <div v-if="texFrameCount > 1" class="oc-tour-texanim" style="margin-top:10px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
-          <input type="checkbox" v-model="texAnimEnabled"/>
-          <span>{{t('tex_anim_enable')}}</span>
-          <span class="oc-help" :data-tip="help('texAnim')">?</span>
-        </label>
-      </div>
-      <div v-if="texAnimEnabled" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
-        <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;max-width:140px;">
-          <span>{{t('tex_frametime')}}<span class="oc-help" :data-tip="help('texFrametime')">?</span></span>
-          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime"/>
-        </label>
-        <div class="oc-frame-chip">
-          <i class="material-icons">movie</i>
-          <span>{{texFrameCount}} {{tPlural(texFrameCount,'frames')}} · {{texFrametime}} {{tPlural(texFrametime,'ticks')}} {{t('tex_chip_each')}}</span>
-        </div>
-        <label style="display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--oc-scale));">
-          <input type="checkbox" v-model="texFade"/>
-          <span>{{t('tex_fade')}}</span>
-          <span class="oc-help" :data-tip="help('texFade')">?</span>
-        </label>
-      </div>
-    </div>
 
     <!-- Separator -->
     <div style="border-top:1px solid rgba(255,255,255,0.06);margin:12px 0;"></div>
@@ -5714,32 +5740,11 @@
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-weight:600;color:#ddd;font-size:calc(12px * var(--oc-scale));">
         <span>{{t('section_advanced')}}</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
-        <!-- oc-tour-easing: tour anchor (issue #4) — on the easing select only -->
-        <label class="oc-tour-easing" style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
-          <span>{{t('lbl_easing')}}<span class="oc-help" :data-tip="help('easing')">?</span></span>
-          <select v-model="easing" style="padding:4px 6px;">
-            <option :value="0">{{t('opt_none')}}</option>
-            <option :value="1">{{t('opt_linear')}}</option>
-            <option :value="2">{{t('opt_cubic')}}</option>
-            <option :value="3">{{t('opt_bezier')}}</option>
-          </select>
-        </label>
-        <!-- (The old "Texture interpolation" select is gone: the shader never
-             read those header bits — the WORKING texture cross-fade is the
-             "fade" toggle in the Animated-texture block. cfg.interpolation is
-             still encoded for byte-compat but has no effect.) -->
-        <!-- oc-tour-autorotate: tour anchor (issue #4) — on the autorotate select -->
-        <label class="oc-tour-autorotate" style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
-          <span>{{t('lbl_autorotate')}}<span class="oc-help" :data-tip="help('autorotate')">?</span></span>
-          <select v-model="autorotate" style="padding:4px 6px;">
-            <option :value="0">{{t('opt_off')}}</option>
-            <option :value="1">{{t('opt_horizontal')}}</option>
-            <option :value="2">{{t('opt_vertical')}}</option>
-            <option :value="3">{{t('opt_both')}}</option>
-          </select>
-        </label>
-      </div>
+      <!-- (easing + autorotate moved up to the Animation sub-section; the old
+           dead "Texture interpolation" select is gone entirely — the shader
+           never read its header bits; the working texture cross-fade is the
+           fade toggle in the Animated-texture block. cfg.interpolation is
+           still encoded for byte-compat but has no effect.) -->
       <!-- oc-tour-flags: tour anchor (issue #4) — on the no-shadow / flip-uv / no-pow flags row -->
       <div class="oc-tour-flags" style="display:flex;flex-wrap:wrap;gap:10px 18px;">
         <label style="display:inline-flex;align-items:center;gap:6px;"><input v-model="noshadow" type="checkbox"/> <span>{{t('lbl_noshadow')}}</span><span class="oc-help" :data-tip="help('noshadow')">?</span></label>
@@ -5820,7 +5825,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.84',
+        version: '0.5.85',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
