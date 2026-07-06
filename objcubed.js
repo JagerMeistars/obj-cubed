@@ -13,6 +13,9 @@
     // Fields that are user-configurable and should persist between sessions.
     // Anything not in this list (texOptions, hasAnims, status, etc.) stays
     // ephemeral.
+    // One-shot Display-editor pull handoff: uuid of the project whose export
+    // dialog should read back Project.display_settings on next open.
+    let pullDisplayForProject = null;
     const PERSISTABLE_FIELDS = [
         // Texture
         'selectedTex', 'useAtlas', 'atlasTexChecked',
@@ -1385,7 +1388,10 @@
         const fps        = opts.fps        || anim.snapping || 20;
         const frameStart = opts.frameStart != null ? opts.frameStart : 0;
         const frameEnd   = opts.frameEnd   != null ? opts.frameEnd   : anim.length;
-        const nframes    = Math.max(1, Math.floor((frameEnd - frameStart) * fps) + 1);
+        // +1e-6 epsilon: (end-start)*fps lands just below the integer for many
+        // user-typed decimals (1.16*25 = 28.999…) and a bare floor would drop
+        // the final keyframe. previewFrameCount/frameCountPreview mirror this.
+        const nframes    = Math.max(1, Math.floor((frameEnd - frameStart) * fps + 1e-6) + 1);
         const filterGroups = collectBoneUUIDs();
         const filterArm  = filterGroups.size > 0;
 
@@ -1920,14 +1926,23 @@
         const mem   = { pos: Object.create(null), uv: Object.create(null) };
         const data  = { positions: [], uvs: [], vertices: [] };
 
+        let uvClamped = false;
         function remapUV(uv, material) {
             if (!atlasInfo) return uv;
             const texIdx = atlasInfo.materialToTexIdx.get(material);
             const off = texIdx !== undefined ? atlasInfo.offsets.get(texIdx) : null;
             if (!off) return uv;
+            // Clamp BEFORE remapping: an out-of-range (tiling/negative) UV scaled
+            // into the atlas lands inside a NEIGHBORING texture's region while
+            // still passing the post-remap [0,1] checks — silently sampling the
+            // wrong texture. Clamp per-texture and flag it so buildOutput warns
+            // (same behavior the single-texture path gets via uvPixels).
+            const u = Math.max(0, Math.min(1, uv[0]));
+            const v = Math.max(0, Math.min(1, uv[1]));
+            if (Math.abs(u - uv[0]) > 1e-6 || Math.abs(v - uv[1]) > 1e-6) uvClamped = true;
             return [
-                uv[0] * off.w / atlasInfo.width,
-                (uv[1] * off.h + off.y) / atlasInfo.height
+                u * off.w / atlasInfo.width,
+                (v * off.h + off.y) / atlasInfo.height
             ];
         }
 
@@ -1967,7 +1982,7 @@
         for (let f = 1; f < objContents.length; f++)
             indexObj(parseObj(objContents[f], nfaces));
 
-        return { data, nfaces, faceGroups: firstObj.faceGroups, faceBlocks: firstObj.faceBlocks };
+        return { data, nfaces, faceGroups: firstObj.faceGroups, faceBlocks: firstObj.faceBlocks, uvClamped };
     }
 
     // =========================================================
@@ -2626,7 +2641,12 @@
         // size.y*ntextures rows and steps the sampled row by texframe*size.y.
         // frameCount is derived from the strip aspect (square frames: th/tw).
         let ntextures = 1, frameH = th;
-        if (cfg.texAnimEnabled) {
+        if (cfg.texAnimEnabled && atlasInfo) {
+            // A stitched multi-texture atlas is NOT an animation strip: deriving
+            // frameCount from the ATLAS dims would either mis-slice the atlas into
+            // "frames" or abort with a misleading strip-shape error.
+            surfaceWarning('texture animation is ignored while "combine into atlas" is on — the stacked atlas is not an animation strip. Disable the atlas to export the animated texture.');
+        } else if (cfg.texAnimEnabled) {
             const frameCount = Math.round(th / tw);
             if (th % tw !== 0 || frameCount < 1)
                 throw new Error(`Animated texture strip must be a vertical stack of square frames: height ${th} is not a whole multiple of width ${tw}.`);
@@ -2650,7 +2670,7 @@
                 : f0.faces.map(() => 0);                        // legacy single-part: whole model as one unit
             partRef = computePartCenters(f0, faceToPart);
         }
-        const { data, nfaces, faceGroups, faceBlocks } = buildVertexData(objContents, atlasInfo, partRef, faceToPart);
+        const { data, nfaces, faceGroups, faceBlocks, uvClamped } = buildVertexData(objContents, atlasInfo, partRef, faceToPart);
         const emissiveMap = collectEmissiveMap();
         const faceEmission = faceGroups.map(g => {
             const tk = parseFaceToken(g);                 // armor: emissive baked into the token
@@ -2675,10 +2695,11 @@
         if (!Array.isArray(cfg.offset) || !cfg.offset.every(Number.isFinite))
             throw new Error(`Offset X/Y/Z must be finite numbers (got ${cfg.offset && cfg.offset.join(', ')}).`);
         // Position codec: byte24 = 8388608 + v_world*65536, decodable only in [-128, +128).
+        // (Y check includes the -0.5 block-centre re-anchor baked at write time.)
         for (let pi = 0; pi < data.positions.length; pi++) {
             const p = data.positions[pi];
             for (let a = 0; a < 3; a++) {
-                const w = p[a] * cfg.scale + cfg.offset[a];
+                const w = p[a] * cfg.scale + cfg.offset[a] - ((a === 1 && !cfg.exportAsEquipment) ? 0.5 : 0);
                 if (!Number.isFinite(w))
                     throw new Error(`Vertex coordinate became NaN/Infinity — check Scale/Offset.`);
                 if (w < -128 || w >= 128)
@@ -2743,27 +2764,19 @@
             const d = fallback(v, 0);
             return ((d % 360) + 360) % 360;
         });
-        // GUI rotation pivot defaults to the model's BOUNDING-BOX CENTER, so the
-        // icon rotates about its visual centre (the q16 shader pivots about this
-        // guiPivot). A user-set pivot still overrides. Expressed in the decoded
-        // BLOCK frame (posoffset = pos*scale+offset), matching the shader's
-        // (posoffset - guiPivot).
+        // GUI rotation pivot defaults to the BLOCK CENTRE — which in the decoded
+        // frame is the ORIGIN [0,0,0] (the decoded model is block-centre relative;
+        // in-game verified via the lift-0 hand/world slots matching vanilla). That
+        // is the pivot vanilla display uses, so a rotated GUI icon lands where the
+        // same vanilla model's icon does. (The old default was the model's bbox
+        // centre — "visually centred" but off vanilla under rotation/scale.)
+        // A user-set pivot still overrides, e.g. to rotate about the model centre.
         const offArr = Array.isArray(cfg.offset) ? cfg.offset : [0,0,0];
         const userPivot = guiSlot.pivot || [0,0,0];
         const hasUserPivot = userPivot.some(v => v !== 0);
-        let guiP;
-        if (hasUserPivot) {
-            guiP = userPivot.map((v, i) => v * (+cfg.scale || 1) + (+offArr[i] || 0));
-        } else if (data.positions.length) {
-            const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
-            for (const p of data.positions) for (let a = 0; a < 3; a++) {
-                if (p[a] < mn[a]) mn[a] = p[a];
-                if (p[a] > mx[a]) mx[a] = p[a];
-            }
-            guiP = mn.map((v, a) => ((v + mx[a]) / 2) * (+cfg.scale || 1) + (+offArr[a] || 0));
-        } else {
-            guiP = [0, 0, 0];
-        }
+        const guiP = hasUserPivot
+            ? userPivot.map((v, i) => v * (+cfg.scale || 1) + (+offArr[i] || 0))
+            : [0, 0, 0];
         const staticDisplay = hasStaticWorldDisplay(cfg);
         const [sxH, sxL] = q16(guiS[0], 0, 4),    [syH, syL] = q16(guiS[1], 0, 4),    [szH, szL] = q16(guiS[2], 0, 4);
         const [txH, txL] = q16(guiT[0], -128, 128), [tyH, tyL] = q16(guiT[1], -128, 128), [tzH, tzL] = q16(guiT[2], -128, 128);
@@ -2893,8 +2906,22 @@
 
         // Position data
         let ybase = headerRows+uvH+texH;
+        // VERTICAL ORIGIN CONVENTION: the decoded frame is BLOCK-CENTRE relative
+        // (the carrier anchor c2 sits at the block centre and every display path
+        // adds decoded positions to it as-is). Blockbench models are naturally
+        // built ON the grid floor (y=0 = block bottom, like a vanilla JSON model
+        // 0..16), so bake Y - 0.5 here — then the model lands in game exactly
+        // where it stands relative to the BB grid, in EVERY context (GUI, hands,
+        // frames, ground) at once. Without this, a floor-built model rides half
+        // a block high everywhere (a centre-built model used to hide it, which
+        // is how the old per-slot lifts got mis-calibrated per model).
+        // Armor is exempt: its positions are re-centred per part (partRef) and
+        // the AOFF anchors were calibrated without this shift.
+        const bakeOffset = cfg.exportAsEquipment
+            ? cfg.offset
+            : [cfg.offset[0], cfg.offset[1] - 0.5, cfg.offset[2]];
         for (let i = 0; i < data.positions.length; i++) {
-            for (const [j, pxArr] of posPixels(data.positions[i], cfg.scale, cfg.offset).entries()) {
+            for (const [j, pxArr] of posPixels(data.positions[i], cfg.scale, bakeOffset).entries()) {
                 const p = i*3+j;
                 put(p%tw, ybase+Math.floor(p/tw), ...pxArr);
             }
@@ -2902,7 +2929,7 @@
 
         // UV data
         ybase += vpH;
-        if (data.uvs.some(uv => uv.some(v => v < -1e-6 || v > 1 + 1e-6)))
+        if (uvClamped || data.uvs.some(uv => uv.some(v => v < -1e-6 || v > 1 + 1e-6)))
             surfaceWarning('some UVs fall outside the 0..1 frame (tiling/negative) and were clamped — those faces may look wrong. Keep the model UV-mapped inside the texture frame.');
         for (let i = 0; i < data.uvs.length; i++) {
             for (const [j, pxArr] of uvPixels(data.uvs[i]).entries()) {
@@ -2956,7 +2983,9 @@
                 (px2[0]/255*256 + px2[1]/255 + px2[2]/255/256) * (255/256) - 128,
             ];
             const srcPos = data.positions[0];
-            const expPos = srcPos.map((v,j) => v * cfg.scale + cfg.offset[j]);
+            // Expected = what the encoder actually baked (incl. the -0.5 Y
+            // block-centre re-anchor for non-armor exports).
+            const expPos = srcPos.map((v,j) => v * cfg.scale + bakeOffset[j]);
             const posDiff = Math.abs(decPos[0]-expPos[0])+Math.abs(decPos[1]-expPos[1])+Math.abs(decPos[2]-expPos[2]);
             if (posDiff > 0.01) { verifyWarns.push('pos[0] mismatch'); console.error(`[obj3-verify] pos[0] MISMATCH: exp=[${expPos.map(v=>v.toFixed(4))}] dec=[${decPos.map(v=>v.toFixed(4))}]`); }
             // Verify first UV coordinate (uvPixels writes u24(clamp(v)*65535) at the
@@ -3022,12 +3051,19 @@
 
     // Get OBJ contents (static or animated).
     // If the user has the BB Display tab open, Codecs.obj.compile() would apply
-    // that slot's transforms (scale/rotation) to the exported geometry.
+    // that slot's transforms (scale/rotation) to the exported geometry. The same
+    // trap exists for the ANIMATE tab: with an animation selected and the
+    // Timeline scrubbed, the scene is POSED and a static export bakes that pose
+    // (group keyframe transforms ride BB's OBJ compiler) — the whole model
+    // exported shifted until the user happened to leave Animate mode.
     // Switch to Edit mode first to ensure unaffected rest-pose geometry.
+    // (The ANIMATED branch is exempt: it drives Timeline/Animator.preview()
+    // itself per frame and restores the scene in its own finally.)
     async function getObjContents(cfg, onProgress) {
         const prevMode  = typeof Mode !== 'undefined' && Mode.selected;
         const inDisplay = prevMode && prevMode.id === 'display';
-        if (inDisplay && Modes && Modes.options && Modes.options.edit) {
+        const inAnimate = prevMode && prevMode.id === 'animate' && !cfg.animationEnabled;
+        if ((inDisplay || inAnimate) && Modes && Modes.options && Modes.options.edit) {
             Modes.options.edit.select();
         }
         // Armor: rename elements to part-encoding tokens so each face's part is read
@@ -3064,6 +3100,9 @@
             if (restoreNames) restoreNames();
             if (inDisplay && Modes && Modes.options && Modes.options.display) {
                 Modes.options.display.select();
+            }
+            if (inAnimate && Modes && Modes.options && Modes.options.animate) {
+                try { Modes.options.animate.select(); } catch (e) {}
             }
         }
     }
@@ -3107,18 +3146,47 @@
         firstperson_lefthand:  { x: 0, y: 0,   z: 0  },
         head:                  { x: 0, y: 0,   z: 0  },
         gui:                   { x: 0, y: 0, z: 0 },
-        ground:                { x: 0, y: 0,  z: 0 },
+        // ground/on_shelf: +8 raises the carrier elements (and thus the anchor c2)
+        // half a block. In-game: with everything else vanilla-exact at lift 0,
+        // dropped items still sat half a block LOW — the dropped-item pipeline
+        // positions the model half a block higher than the held/framed one.
+        // The shift rides the carrier bake, so it holds under any display R*S.
+        ground:                { x: 0, y: 8,  z: 0 },
         fixed:                 { x: 0, y: 0,  z: 0 },
-        on_shelf:              { x: 0, y: 0, z: 0 },
+        on_shelf:              { x: 0, y: 8, z: 0 },
     };
 
+    // Slots whose carrier faces bake their U range OFF-CENTRE within the
+    // face-id texel: normal faces span (px+0.1 .. px+0.9), U midpoint px+0.5;
+    // marked faces span (px+0.35 .. px+0.95), U midpoint px+0.65. This is a
+    // SLOT MARKER the shader world path reads back via fract of the quad's U
+    // MIDPOINT — the midpoint survives MC's anti-bleed UV shrink (which
+    // contracts UVs SYMMETRICALLY toward the quad centre; the previous
+    // absolute-margin marker read fract(UV0*atlasSize) directly and the shrink
+    // pushed EVERY face past the threshold, lifting all world slots +0.5).
+    // Dropped/shelf items need that extra +0.5-block lift here because it can't
+    // ride model.json (MC clamps ground display translation Y — verified
+    // in-game) or the carrier elements (+8 is the model-format coordinate cap).
+    // The range stays inside the same face-id texel, so decoding is unaffected.
+    const MARKED_UV_SLOTS = { ground: true, on_shelf: true };
     function calibratedElementsForSlot(baseElements, slot) {
         const off = SLOT_OFFSETS[slot] || { x: 0, y: 0, z: 0 };
-        if (off.x === 0 && off.y === 0 && off.z === 0) return baseElements;
+        const marked = !!MARKED_UV_SLOTS[slot];
+        if (off.x === 0 && off.y === 0 && off.z === 0 && !marked) return baseElements;
+        // Shift the U range +0.25/+0.05 texel: midpoint px+0.5 -> px+0.65.
+        // (u1-u0) spans 0.8 texel, so one texel in uv units = (u1-u0)/0.8.
+        const markUv = ([u0, v0, u1, v1]) => {
+            const texel = (u1 - u0) / 0.8;
+            return [u0 + 0.25 * texel, v0, u1 + 0.05 * texel, v1];
+        };
         return baseElements.map(el => ({
             ...el,
             from: [el.from[0] + off.x, el.from[1] + off.y, el.from[2] + off.z],
             to:   [el.to[0]   + off.x, el.to[1]   + off.y, el.to[2]   + off.z],
+            ...(marked ? {
+                faces: Object.fromEntries(Object.entries(el.faces).map(
+                    ([dir, f]) => [dir, { ...f, uv: markUv(f.uv) }])),
+            } : {}),
         }));
     }
 
@@ -3315,9 +3383,14 @@
             // Per-slot-group lift (BB units, 16 = 1 block). The centre-carrier over-lifts
             // model.json-display slots by +0.5 block; the compensation is NOT uniform —
             // verified in-game:
-            //   head / fixed (item frame): -8 (the full over-lift).
-            //   the 4 HAND slots:          -6 (the held-item hand POSE already raises the
-            //                                  item, so it needs less compensation).
+            //   ALL slots are 0 — in-game verified: the decoded model is already
+            //   block-centre relative, so with the shader reconstructing display
+            //   R*S from the carrier edges, lift-0 hand/world slots match the same
+            //   vanilla model exactly (rotations included). The old constants
+            //   (-8/-6) were compensating an offset that wasn't there, per pose.
+            //   The map + liftSlot stay so every slot still gets an EXPLICIT
+            //   display entry (stops MC leaking block-model defaults into un-set
+            //   slots), and as the knob for future per-pose tweaks (in-game only).
             // History: this was 8 (old cube-BOTTOM carrier), mis-tuned to 3, then wrongly
             // set to 0 when the carrier moved to cube centre (which actually flipped the
             // error to +0.5 HIGH). gui is handled in the GUI shader path (+0.5*slotSize);
@@ -3330,9 +3403,16 @@
             // axis, so a rotated slot won't fully centre from a pure Y nudge — that case needs
             // per-model tuning. firstperson pose needs more than thirdperson (different hold).
             const SLOT_LIFT_Y = {
-                head: -8, fixed: -8,
-                thirdperson_righthand: -6, thirdperson_lefthand: -6,
-                firstperson_righthand: -10, firstperson_lefthand: -10,
+                head: 0, fixed: 0,
+                thirdperson_righthand: 0, thirdperson_lefthand: 0,
+                firstperson_righthand: 0, firstperson_lefthand: 0,
+                // ground/on_shelf sit a FULL block below vanilla's dropped-item
+                // pipeline (in-game measured). Carrier elements provide +0.5
+                // (SLOT_OFFSETS +8 — capped by the model format, to.y <= 32);
+                // the other +0.5 comes from the shader via the MARKED_UV_SLOTS
+                // slot marker. Display translation is useless here: MC clamps
+                // ground translation Y (re-verified in-game 2026-07).
+                ground: 0, on_shelf: 0,
             };
             const liftSlot = (d, lift) => {
                 const base = d || IDENTITY_DISPLAY;
@@ -3408,11 +3488,18 @@
             // Datapack: only for multi-frame animations. Default to a datapacks/
             // folder next to the resource pack (no extra dialog when root is set).
             if (cfg.generateDatapack && result.nframes > 1) {
+                // Legacy single-part armor exports write the equipment asset as
+                // <model>_<slot> (per-piece exports use <model>_<piece>) — tell the
+                // datapack the real name so its summon equips an asset that exists.
+                const legacyEquipAsset = (cfg.exportAsEquipment
+                    && !(Array.isArray(cfg.selectedPieces) && cfg.selectedPieces.length))
+                    ? `${modelName}_${(cfg.equipmentSlot || 'chest').replace(/[^a-z0-9_]/gi, '_').toLowerCase()}`
+                    : null;
                 const dpFiles = generateDatapackFiles(
                     cfg.datapackAnimId, result.nframes,
                     cfg.datapackNamespace, cfg.datapackTargetType,
                     cfg.datapackEquipSlot,
-                    baseItem, modelName
+                    baseItem, modelName, legacyEquipAsset
                 );
                 // Empty output dir defaults to a sibling of the resource pack. That default
                 // is unwritable when the RP root is a Flatpak document-portal mount
@@ -3585,7 +3672,11 @@
     // Section 10b: Datapack Function Generation
     // =========================================================
 
-    function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot, baseItem, modelName) {
+    function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot, baseItem, modelName, equipAsset) {
+        // equipAsset (optional): the exact equipment asset id suffix the resource
+        // pack export actually wrote (legacy single-part exports name it by SLOT,
+        // e.g. "cat_chest", while per-piece exports name it by PIECE, "cat_chestplate").
+        // Without it the summon defaults to the per-piece convention.
         // Sanitize to valid resource-location chars [a-z0-9_.-]: free-text like
         // "My Pack" / "Walk!" would otherwise produce invalid namespaces and
         // `function ns:id` refs (baseItem/cmdName are already sanitized this way).
@@ -3710,13 +3801,17 @@
 
         // _apply_auto — set autoplay color (custom_color = tcolor from @s <id>)
         if (isPlayer) {
+            // Every ${tmp} selector needs `at @s`: distance=..0.01 is measured from
+            // the EXECUTION position, and the stand was summoned at @s — without it
+            // a `execute as <player>` from a command block matches nothing (item
+            // never updates + the temp stand leaks).
             files.set(`data/${ns}/function/${priv}/_apply_auto.mcfunction`, [
                 tmpSummon,
-                `item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
-                `data modify entity ${tmp} ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
-                `execute store result entity ${tmp} ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get @s ${id}`,
-                `item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`,
-                `kill ${tmp}`,
+                `execute at @s run item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
+                `execute at @s run data modify entity ${tmp} ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
+                `execute at @s store result entity ${tmp} ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get @s ${id}`,
+                `execute at @s run item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`,
+                `execute at @s run kill ${tmp}`,
             ].join('\n'));
         } else {
             files.set(`data/${ns}/function/${priv}/_apply_auto.mcfunction`, [
@@ -3731,11 +3826,11 @@
                 `scoreboard players operation #temp ${id} = #base ${id}`,
                 `scoreboard players operation #temp ${id} += @s ${id}`,
                 tmpSummon,
-                `item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
-                `data modify entity ${tmp} ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
-                `execute store result entity ${tmp} ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get #temp ${id}`,
-                `item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`,
-                `kill ${tmp}`,
+                `execute at @s run item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
+                `execute at @s run data modify entity ${tmp} ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
+                `execute at @s store result entity ${tmp} ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get #temp ${id}`,
+                `execute at @s run item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`,
+                `execute at @s run kill ${tmp}`,
             ].join('\n'));
         } else {
             files.set(`data/${ns}/function/${priv}/_apply_manual.mcfunction`, [
@@ -3791,7 +3886,7 @@
                 // ARMOR slot: leather piece carrying the equippable component that
                 // points at the armor export asset (eqName = <model>_<piece>).
                 const piece = ARMOR_PIECE[slot];
-                equipItem = `${slot}:{id:"minecraft:leather_${piece}",count:1,components:{"minecraft:equippable":{slot:"${slot}",asset_id:"minecraft:${model}_${piece}"}}}`;
+                equipItem = `${slot}:{id:"minecraft:leather_${piece}",count:1,components:{"minecraft:equippable":{slot:"${slot}",asset_id:"minecraft:${equipAsset || `${model}_${piece}`}"}}}`;
             } else {
                 // HAND slot: the base item with custom_model_data (mirror item_display).
                 equipItem = `${slot}:{id:"minecraft:${base}",count:1,components:{"minecraft:custom_model_data":{strings:["${model}"]}}}`;
@@ -4034,9 +4129,12 @@
                         }
                     }
 
-                    // Sync animEnd with current animation length
+                    // Sync animEnd with the current animation length only when the
+                    // persisted trim is unset/invalid or exceeds the clip — a saved
+                    // end-trim must survive a dialog reopen (animStart already does).
                     const curAnim = Animation.all[state.animationIndex];
-                    if (curAnim) state.animEnd = curAnim.length;
+                    if (curAnim && (!(state.animEnd > state.animStart) || state.animEnd > curAnim.length))
+                        state.animEnd = curAnim.length;
 
                     suspendPersist = false;
                     return state;
@@ -4059,11 +4157,15 @@
                     // If the user just came back from BB's Display editor, pull their
                     // edits (Project.display_settings) into the dialog so they reach the
                     // export. One-shot flag set by openInDisplayEditor; cleared here.
+                    // Session-scoped + project-checked (was localStorage: a machine-
+                    // global flag survived restarts and fired in OTHER projects,
+                    // clobbering their display fields with the wrong project's data).
                     try {
-                        if (typeof localStorage !== 'undefined' && localStorage.getItem('objcubed_pull_display')) {
-                            localStorage.removeItem('objcubed_pull_display');
+                        if (pullDisplayForProject && typeof Project !== 'undefined' && Project
+                            && Project.uuid === pullDisplayForProject) {
                             this._loadFromDisplaySettings();
                         }
+                        pullDisplayForProject = null;
                     } catch (e) {}
                     // Tooltip portal — single floating element repositioned per hover.
                     // Lives on document.body so it never gets clipped by the dialog.
@@ -4191,7 +4293,7 @@
                         const start = +this.animStart || 0;
                         const end = +this.animEnd || 0;
                         if (end <= start) return '';
-                        const n = Math.max(1, Math.floor((end - start) * fps) + 1);
+                        const n = Math.max(1, Math.floor((end - start) * fps + 1e-6) + 1);
                         return n + ' ' + tPlural(n, 'frames');
                     },
                     // Auto-computed duration in ticks (1 tick = 1/20 s).
@@ -4212,7 +4314,7 @@
                         const start = +this.animStart || 0;
                         const end = +this.animEnd || 0;
                         if (end <= start) return 1;
-                        return Math.max(1, Math.floor((end - start) * fps) + 1);
+                        return Math.max(1, Math.floor((end - start) * fps + 1e-6) + 1);
                     },
                     previewTexSize() {
                         // Returns {w, h} based on current texture/atlas choice.
@@ -4594,54 +4696,63 @@
                     // what the dialog has set. lefthand always mirrors thirdperson.
                     _dialogSlotTransforms() {
                         const v = (k) => +this[k] || 0;
+                        // Scale: blank/garbage -> 1, but a TYPED 0 stays 0 (the
+                        // standard vanilla trick to hide an item in a display slot;
+                        // `|| 1` would silently un-hide it).
+                        const sv = (k) => {
+                            const raw = this[k];
+                            if (raw === '' || raw == null) return 1;
+                            const n = +raw;
+                            return Number.isFinite(n) ? n : 1;
+                        };
                         const third = {
                             rotation:    [v('dThirdRX'), v('dThirdRY'), v('dThirdRZ')],
                             translation: [v('dThirdTX'), v('dThirdTY'), v('dThirdTZ')],
-                            scale:       [+this.dThirdSX || 1, +this.dThirdSY || 1, +this.dThirdSZ || 1],
+                            scale:       [sv('dThirdSX'), sv('dThirdSY'), sv('dThirdSZ')],
                         };
                         return {
                             thirdperson_righthand: third,
                             thirdperson_lefthand: this.useSeparateLefthand ? {
                                 rotation:    [v('dLeftRX'), v('dLeftRY'), v('dLeftRZ')],
                                 translation: [v('dLeftTX'), v('dLeftTY'), v('dLeftTZ')],
-                                scale:       [+this.dLeftSX || 1, +this.dLeftSY || 1, +this.dLeftSZ || 1],
+                                scale:       [sv('dLeftSX'), sv('dLeftSY'), sv('dLeftSZ')],
                             } : third,
                             firstperson_righthand: {
                                 rotation:    [v('dFprRX'), v('dFprRY'), v('dFprRZ')],
                                 translation: [v('dFprTX'), v('dFprTY'), v('dFprTZ')],
-                                scale:       [+this.dFprSX || 1, +this.dFprSY || 1, +this.dFprSZ || 1],
+                                scale:       [sv('dFprSX'), sv('dFprSY'), sv('dFprSZ')],
                             },
                             firstperson_lefthand: {
                                 rotation:    [v('dFplRX'), v('dFplRY'), v('dFplRZ')],
                                 translation: [v('dFplTX'), v('dFplTY'), v('dFplTZ')],
-                                scale:       [+this.dFplSX || 1, +this.dFplSY || 1, +this.dFplSZ || 1],
+                                scale:       [sv('dFplSX'), sv('dFplSY'), sv('dFplSZ')],
                             },
                             head: {
                                 rotation:    [v('dHeadRX'), v('dHeadRY'), v('dHeadRZ')],
                                 translation: [v('dHeadTX'), v('dHeadTY'), v('dHeadTZ')],
-                                scale:       [+this.dHeadSX || 1, +this.dHeadSY || 1, +this.dHeadSZ || 1],
+                                scale:       [sv('dHeadSX'), sv('dHeadSY'), sv('dHeadSZ')],
                             },
                             gui: {
                                 rotation:    [v('dGuiRX'), v('dGuiRY'), v('dGuiRZ')],
                                 translation: [v('dGuiTX'), v('dGuiTY'), v('dGuiTZ')],
-                                scale:       [+this.dGuiSX || 1, +this.dGuiSY || 1, +this.dGuiSZ || 1],
+                                scale:       [sv('dGuiSX'), sv('dGuiSY'), sv('dGuiSZ')],
                                 // (No pivot here: this feeds BB's Display editor, which
                                 // has no pivot field. The GUI pivot is export-only.)
                             },
                             ground: {
                                 rotation:    [v('dGroundRX'), v('dGroundRY'), v('dGroundRZ')],
                                 translation: [v('dGroundTX'), v('dGroundTY'), v('dGroundTZ')],
-                                scale:       [+this.dGroundSX || 1, +this.dGroundSY || 1, +this.dGroundSZ || 1],
+                                scale:       [sv('dGroundSX'), sv('dGroundSY'), sv('dGroundSZ')],
                             },
                             fixed: {
                                 rotation:    [v('dFixedRX'), v('dFixedRY'), v('dFixedRZ')],
                                 translation: [v('dFixedTX'), v('dFixedTY'), v('dFixedTZ')],
-                                scale:       [+this.dFixedSX || 1, +this.dFixedSY || 1, +this.dFixedSZ || 1],
+                                scale:       [sv('dFixedSX'), sv('dFixedSY'), sv('dFixedSZ')],
                             },
                             on_shelf: {
                                 rotation:    [v('dShelfRX'), v('dShelfRY'), v('dShelfRZ')],
                                 translation: [v('dShelfTX'), v('dShelfTY'), v('dShelfTZ')],
-                                scale:       [+this.dShelfSX || 1, +this.dShelfSY || 1, +this.dShelfSZ || 1],
+                                scale:       [sv('dShelfSX'), sv('dShelfSY'), sv('dShelfSZ')],
                             },
                         };
                     },
@@ -4664,7 +4775,11 @@
                             const p = PFX[key], r = slot.rotation, tr = slot.translation, s = slot.scale;
                             if (r && r.length === 3) { this[p+'RX'] = +r[0]||0; this[p+'RY'] = +r[1]||0; this[p+'RZ'] = +r[2]||0; }
                             if (tr && tr.length === 3) { this[p+'TX'] = +tr[0]||0; this[p+'TY'] = +tr[1]||0; this[p+'TZ'] = +tr[2]||0; }
-                            if (s && s.length === 3) { this[p+'SX'] = +s[0]||1; this[p+'SY'] = +s[1]||1; this[p+'SZ'] = +s[2]||1; }
+                            // A 0 scale set in BB's editor is deliberate (hidden item) — keep it.
+                            if (s && s.length === 3) {
+                                const sn = (x) => Number.isFinite(+x) ? +x : 1;
+                                this[p+'SX'] = sn(s[0]); this[p+'SY'] = sn(s[1]); this[p+'SZ'] = sn(s[2]);
+                            }
                         }
                     },
                     // Issue #10: replaces the old in-dialog 3D preview. Writes the
@@ -4750,7 +4865,7 @@
                         // Flag a one-shot pull so the NEXT time this dialog opens it
                         // reads back whatever the user adjusts in BB's Display editor,
                         // so those edits reach the export (two-way sync).
-                        try { localStorage.setItem('objcubed_pull_display', '1'); } catch (e) {}
+                        try { pullDisplayForProject = (typeof Project !== 'undefined' && Project && Project.uuid) || null; } catch (e) {}
                         // 3) Close this dialog so the now-behind BB editor is visible.
                         this.closeDialog();
                     },
@@ -5554,7 +5669,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.5.78',
+        version: '0.5.79',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

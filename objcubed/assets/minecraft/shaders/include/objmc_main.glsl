@@ -74,7 +74,10 @@ if (marker == ivec4(12,34,56,255)) {
                 tcolor = 0;
                 autoplay = false;
             } else {
-                tcolor = (cR*65536)%32768 + cG*256 + cB;
+                // (cR%128) strips only the 0x800000 manual-mode flag bit, keeping
+                // frame bits 16-22. The old decode multiplied cR by 65536 then took
+                // it mod 32768 — identically 0, so frames >= 65536 wrapped mod 2^16.
+                tcolor = (cR%128)*65536 + cG*256 + cB;
                 autoplay = (Color.r <= 0.5);
             }
         } else {
@@ -135,6 +138,13 @@ if (marker == ivec4(12,34,56,255)) {
             time = autoplay ? time + duration - mod(tcolor, duration) : tcolor;
             frame = int(time * nframes / duration) % nframes;
         }
+#ifdef ENTITY
+        // GUI icons are baked ONCE into MC's gui item atlas at an arbitrary
+        // GameTime, so an animated model's icon froze at whatever frame was
+        // current on each resource reload. Pin the icon to frame 0 (time 0
+        // also zeroes the interpolation mix below).
+        if (isGUI == 1) { frame = 0; time = 0.0; }
+#endif
         //relative vertex id from unique face uv
         int id = (((uvoffset.y-2) * size.x) + uvoffset.x) * 4 + corner;
         id += frame * nvertices;
@@ -234,10 +244,11 @@ if (marker == ivec4(12,34,56,255)) {
             vec3 m = (posoffset - guiPivot) * guiScale; // S about the chosen pivot
             m = guiRotMat * m;                          // R about the chosen pivot (vanilla XYZ)
             m += guiPivot + guiTrans / 16.0;            // restore + display T (1/16-block)
-            // No Y anchor lift for GUI: in-game calibration shows the ortho atlas
-            // framing below already lands the model at the right height. (An earlier
-            // +0.5 here over-raised it by half a block. The world/hand slots DO need
-            // the +0.5, applied via model.json display in saveSingleOutput.)
+            // No constant Y term here (the old +0.5*slotSize "carrier compensation"
+            // left the icon half a block LOW vs the same vanilla model — in-game
+            // verified). The decoded frame is block-centre relative, so with
+            // guiPivot defaulting to the origin this path is vanilla's
+            // Sg*(R*S*v + T) with no leftover constants.
             // ---- GUI atlas framing (MC 26.1.2 GuiItemAtlas.drawToSlot) ----
             // Per slot MC bakes, INTO the vertex positions (ModelViewMat ~ identity
             // for the atlas pass):
@@ -268,10 +279,10 @@ if (marker == ivec4(12,34,56,255)) {
             // vanilla XYZ rotation compose correctly with the slot frame) AND matches
             // the fragment-shader GUI normal flip (objmc_light.glsl: isGUI -> z*=-1).
             // No y+=-64: the slot-center translate is already inside the anchor.
-            // GUI carrier compensation: c2 sits at the cube CENTRE (from[8,8,8]); with the
-            // -slotSize Y reflection that lands the icon +0.5 block HIGH, so add +0.5*slotSize
-            // back (mirrors the model.json -8 lift on hand/head/fixed; verified in-game).
-            posoffset = m * vec3(slotSize, -slotSize, slotSize) + vec3(0.0, 0.5 * slotSize, 0.0);
+            // (The old +0.5*slotSize "carrier compensation" term here dated from the
+            // era of the model.json -8 lifts; after the centre re-anchor moved into
+            // the guiPivot/q16 math it left the icon half a block LOW vs vanilla.)
+            posoffset = m * vec3(slotSize, -slotSize, slotSize);
             // guiRotMat stays plain vanilla Rv (no F flip, no zx axis flip).
         }
         if (isHand == 1) {
@@ -296,44 +307,57 @@ if (marker == ivec4(12,34,56,255)) {
             // perpendicular to the flat placeholder (unmeasurable) -> min(Sx,Sy), which is
             // exact for uniform and single-axis (X- or Y-only) stretches; only pure depth
             // (Z) stretch can't be recovered. Verified by tools/render-tester/diff.mjs.
+            //
+            // NO constant re-anchor here: the decoded model is already BLOCK-CENTRE
+            // relative (in-game verified: with model.json lifts at 0 and no offset,
+            // firstperson matches the same vanilla model exactly, rotations included;
+            // an extra -0.5 fold sat every hand slot half a block low).
             posoffset = hrot * (posoffset * vec3(hsy, hsx, min(hsx, hsy)));
         }
         if (isHand + isGUI == 0) {
             // World path: rebuild the model's orientation from the baked carrier
             // basis so it follows its render transform — item-frame mounting
-            // (wall/floor/ceiling) + RMB, entity rotation, etc. Runs whenever
-            // autorotate is enabled.
+            // (wall/floor/ceiling) + RMB, entity rotation, display R*S, etc.
             //
-            // Previously also gated by `&& !hasStaticDisplay` so that setting a
-            // world-slot display would skip this and "match BB" exactly. But that
-            // gate is GLOBAL, so ANY world rotation (e.g. an on_shelf pose) also
-            // killed item-frame orientation — frames went static, facing one way on
-            // every mounting. Gate removed; suppressing this for a specific static
-            // slot, if ever needed, must be per-context, not a global bit.
-            if (any(greaterThan(autorotate,vec2(0)))) {
-                //normal estimated rotation calculation from The Der Discohund
-                vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
-                vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
-                vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
-                // Baked carrier edges carry display ROTATION *and* SCALE (MC 26.1.2 bakes
-                // display into the vertices). The 1-block placeholder edge is 1.0 in block
-                // units at scale 1, so each baked edge length IS display.scale on that axis.
-                // The old normalize() threw the scale away -> the size never applied. Keep
-                // it: scale in model space, then the (unchanged) orthonormal rotation.
-                vec3 ex = vPos0 - vPos1, ey = vPos0 - vPos2;
-                float sx = length(ex), sy = length(ey);
-                vPos1 = normalize(ex);
-                vPos2 = normalize(ey - dot(ey, vPos1) * vPos1); // Gram-Schmidt
-                mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
-                // UNIFORM scale only: the flat 1-face placeholder exposes just its two
-                // in-plane edges, so the third (perpendicular/depth) display-scale axis is
-                // physically unrecoverable, and which display axis maps to which in-plane
-                // edge depends on the bake. Average the two measured edges -> correct for
-                // uniform display.scale (the common case; matches the GUI path's slotSize).
-                // Per-axis scale (see hand path): X,Y from the measured edges, Z (perpendicular,
-                // unmeasurable) -> min(Sx,Sy) — exact for uniform + single-axis stretch.
-                posoffset = fullRotation * (posoffset * vec3(sy, sx, min(sx, sy)));
-            }
+            // UNCONDITIONAL now (was gated on autorotate): the baked carrier edges
+            // are the ONLY place the model.json display rotation/scale exists, so
+            // without this a static thirdperson/head/fixed display rotation never
+            // reached the model at all — and the centre re-anchor below must
+            // rotate/scale with the display to match vanilla.
+            //normal estimated rotation calculation from The Der Discohund
+            vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
+            vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
+            vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
+            // Baked carrier edges carry display ROTATION *and* SCALE (MC 26.1.2 bakes
+            // display into the vertices). The 1-block placeholder edge is 1.0 in block
+            // units at scale 1, so each baked edge length IS display.scale on that axis.
+            vec3 ex = vPos0 - vPos1, ey = vPos0 - vPos2;
+            float sx = length(ex), sy = length(ey);
+            vPos1 = normalize(ex);
+            vPos2 = normalize(ey - dot(ey, vPos1) * vPos1); // Gram-Schmidt
+            mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
+            // Per-axis scale (see hand path): X,Y from the measured edges, Z (perpendicular,
+            // unmeasurable) -> min(Sx,Sy) — exact for uniform + single-axis stretch.
+            //
+            // NO constant re-anchor (see hand path): the decoded model is already
+            // block-centre relative — in-game verified with lifts 0: thirdperson and
+            // item frames match the same vanilla model exactly.
+            //
+            // Dropped/shelf items ride a FULL block higher in vanilla. Half comes
+            // from the +8 carrier-element offset in their model.json (SLOT_OFFSETS,
+            // capped by the model format); the other half is added here, gated on
+            // the SLOT MARKER: ground/on_shelf carriers bake their U range
+            // OFF-CENTRE in the face-id texel (U midpoint px+0.65 vs the normal
+            // px+0.5, see MARKED_UV_SLOTS in objcubed.js). Read the quad's U
+            // MIDPOINT — it survives MC's anti-bleed UV shrink, which contracts
+            // UVs symmetrically toward the quad centre (an absolute-margin test
+            // here previously misfired on EVERY face and lifted all world slots).
+            // MC clamps ground display translation Y, so model.json cannot carry
+            // this half.
+            float umid = (subgroupQuadBroadcast(UV0.x, 0) + subgroupQuadBroadcast(UV0.x, 2))
+                         * 0.5 * float(atlasSize.x);
+            vec3 slotlift = (fract(umid) > 0.575) ? vec3(0.0, 0.5, 0.0) : vec3(0.0);
+            posoffset = fullRotation * ((posoffset + slotlift) * vec3(sy, sx, min(sx, sy)));
         }
     }
 #endif
@@ -432,8 +456,11 @@ if (marker == ivec4(12,34,56,255)) {
 #ifdef ENTITY
 if (isCustom == 0) {
     ivec4 am = ivec4(texelFetch(Sampler0, ivec2(0,0), 0)*255.0+0.5);
-    // 254 = legacy chest-only armor; 253 = per-limb armor (part id in t[8].b).
-    if (am.rgb == ivec3(12,34,56) && (am.a == 254 || am.a == 253)) {
+    // 253 = box-packed armor (part id in t[8].b, nboxes in t[8].a). Legacy
+    // marker-254 (chest-only) PNGs never wrote nboxes — decoding them here read
+    // the GUI header alpha (255) as the box count and indexed far past t[16].
+    // Legacy support removed: re-export old armor with the current plugin.
+    if (am.rgb == ivec3(12,34,56) && am.a == 253) {
         isCustom = 1;
         ivec2 ao = ivec2(0);
         for (int i = 1; i < 14; i++) t[i] = getmeta(ao, i); // t[8..10] north+part, t[11..13] south
@@ -449,9 +476,8 @@ if (isCustom == 0) {
         float at = GameTime * 24000.0;
         at = aap ? at + adur : 0.0;
         int afr = int(at * float(anf) / adur) % anf;
-        // Target body part for per-limb armor. Per-limb exports use marker 253 and put
-        // the part id in t[8].b; legacy armor uses marker 254 where t[8].b holds stale
-        // GUI data, so it is forced to chest (0). Out-of-range also clamps to chest.
+        // Target body part: marker-253 exports put the part id in t[8].b.
+        // Out-of-range clamps to chest (0).
         // BOX-PACKING: MC submits this slot's carrier as `nboxes` cube boxes (chest 3 =
         // body+arms, head/feet 2, legs 3). Each equipment LAYER packs TWO model faces per
         // box -- onto its NORTH and SOUTH carrier face -- so up to 2*nboxes faces ride a

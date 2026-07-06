@@ -128,8 +128,9 @@ describe('display-1:1 B: GUI header version + q16 round-trip', () => {
 
   it('scale/trans/rot/pivot round-trip within q16 epsilon', async () => {
     const api = loadWith();
-    // pivot defaults to the model bbox centre: OBJ is a unit quad (x,y 0..1, z=0)
-    // -> bbox centre [0.5,0.5,0]; cfg.scale=2, offset=[1,2,3] -> [2,3,3].
+    // pivot defaults to the BLOCK centre = the decoded-frame ORIGIN [0,0,0]
+    // (the decoded model is block-centre relative) — vanilla's display pivot;
+    // cfg.scale/offset do NOT move it (they bake into the positions).
     const res = await api.buildOutput(baseCfg({
       scale: 2, offset: [1, 2, 3],
       displaySlots: { gui: {
@@ -142,7 +143,7 @@ describe('display-1:1 B: GUI header version + q16 round-trip', () => {
     const wantScale = [1.5, 0.25, 3.75];
     const wantTrans = [12, -6, 100];
     const wantRot = [45, 60, 90];
-    const wantPivot = [2, 3, 3]; // bbox centre [0.5,0.5,0] * scale + offset
+    const wantPivot = [0, 0, 0]; // block centre = decoded origin, independent of cfg.scale/offset
     for (let i = 0; i < 3; i++) {
       expect(Math.abs(got.scale[i] - wantScale[i]), `scale ${i}`).toBeLessThan(EPS_SCALE);
       expect(Math.abs(got.trans[i] - wantTrans[i]), `trans ${i}`).toBeLessThan(EPS_TRANS);

@@ -115,37 +115,56 @@ describe('issue #11: autorotate size invariance', () => {
   });
 });
 
-// display-1:1 step A1: autorotate gate by the t[6].r bit-1 hasStaticDisplay flag.
-// Ports the shader's world-branch gate:
-//   if (any(greaterThan(autorotate,vec2(0))) && !hasStaticDisplay)
-//       posoffset = fullRotation * posoffset;   // else posoffset UNCHANGED
-// A static world display must win (no spin); with no display set, autorotate
-// still rotates.
-function worldBranch(quad, po, autorotate, hasStaticDisplay) {
-  const gate = (autorotate[0] > 0 || autorotate[1] > 0) && !hasStaticDisplay;
-  return gate ? gsOut(quad, po) : po;
+// World branch (current shader): UNCONDITIONAL reconstruction, NO constant
+// re-anchor (the decoded model is already block-centre relative — in-game
+// verified: lift-0 hand/world slots match the same vanilla model exactly):
+//   posoffset = fullRotation * (posoffset * vec3(sy, sx, min(sx,sy)))
+// Port with per-axis scale from the measured edges (ex = +Y edge, ey = +X edge).
+function worldBranch(quad, po) {
+  const vPos0 = quad[0];
+  const ex = sub(vPos0, quad[1]);
+  const ey = sub(vPos0, quad[3]);
+  const sx = len(ex), sy = len(ey);
+  const vPos1 = normalize(ex);
+  const vPos2 = normalize(sub(ey, scaleV(dot(ey, vPos1), vPos1)));
+  const c2col = cross(vPos2, vPos1);
+  const p = [po[0] * sy, po[1] * sx, po[2] * Math.min(sx, sy)];
+  return mat3mul(vPos2, vPos1, c2col, p);
 }
 
-describe('issue display-1:1 A1: autorotate gate', () => {
-  const quad = CLEAN.map((c) => rotY(c, 37)); // some non-zero rotation
-  const ar = [1, 0]; // autorotate enabled (yaw)
+describe('world branch: vanilla match (unconditional R*S, no constant re-anchor)', () => {
+  // Carrier NORTH quad with c2 at the block centre (encoder from[8,8,8]->to[24,24,8]):
+  // c0=(1.5,1.5,.5) c1=(1.5,.5,.5) c2=(.5,.5,.5) c3=(.5,1.5,.5); c0-c1=+Y, c0-c3=+X.
+  const PH = [[1.5, 1.5, 0.5], [1.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 1.5, 0.5]];
+  const piv = [0.5, 0.5, 0.5];
+  // bake display R(Y deg)*S about the block centre, like MC does to the carrier
+  const bake = (p, deg, S) => {
+    const r = rotY([(p[0] - piv[0]) * S[0], (p[1] - piv[1]) * S[1], (p[2] - piv[2]) * S[2]], deg);
+    return [r[0] + piv[0], r[1] + piv[1], r[2] + piv[2]];
+  };
+  // vanilla renders the same (block-centre-relative) model vertex as R*S*v
+  const vanilla = (po, deg, S) =>
+    rotY([po[0] * S[0], po[1] * S[1], po[2] * S[2]], deg);
 
-  it('hasStaticDisplay=1: world branch returns posoffset UNCHANGED', () => {
-    const out = worldBranch(quad, PO, ar, true);
-    expectVecEq(out, PO);
+  it('identity: posoffset passes through unchanged', () => {
+    expectVecEq(worldBranch(PH, PO), PO);
   });
 
-  it('hasStaticDisplay=0: world branch still rotates (posoffset changes, length preserved)', () => {
-    const out = worldBranch(quad, PO, ar, false);
-    // It rotated: not equal to input.
-    expect(out[0] === PO[0] && out[1] === PO[1] && out[2] === PO[2]).toBe(false);
-    // ...but the gsOut rotation is length-preserving.
-    expect(Math.abs(len(out) / PO_LEN - 1)).toBeLessThan(1e-5);
+  it('display rotation + uniform scale: matches vanilla R*S*v exactly', () => {
+    for (const deg of [0, 37, 90, 180, 275]) {
+      for (const S of [[1, 1, 1], [2, 2, 2], [0.5, 0.5, 0.5]]) {
+        const quad = PH.map((c) => bake(c, deg, S));
+        expectVecEq(worldBranch(quad, PO), vanilla(PO, deg, S));
+      }
+    }
   });
 
-  it('autorotate=0: gate never fires regardless of the static-display bit', () => {
-    expectVecEq(worldBranch(quad, PO, [0, 0], false), PO);
-    expectVecEq(worldBranch(quad, PO, [0, 0], true), PO);
+  it('reconstruction stays finite for a contaminated basis (no size pulse)', () => {
+    const quad = [PH[0], [40 / 16, 5 / 16, 60 / 16], PH[2], [12 / 16, 50 / 16, 3 / 16]];
+    const out = worldBranch(quad, PO);
+    // sx,sy contaminated != 1; just assert finite output (the Gram-Schmidt
+    // basis stays orthonormal).
+    expect(out.every(Number.isFinite)).toBe(true);
   });
 });
 

@@ -140,22 +140,24 @@ describe('A1 encoder: hasStaticDisplay bit (t[6].r bit 1)', () => {
   });
 });
 
-describe('A2/B encoder: t[14]/t[15] carry the q16 GUI pivot (bbox centre, not hand scale)', () => {
-  it('default GUI pivot = model bbox centre; hand scale does NOT leak into t[14]/t[15]', async () => {
+describe('A2/B encoder: t[14]/t[15] carry the q16 GUI pivot (block centre, not hand scale)', () => {
+  it('default GUI pivot = block centre [0, 0, 0]; hand scale does NOT leak into t[14]/t[15]', async () => {
     const api = loadWith();
     const res = await api.buildOutput(baseCfg({ displaySlots: {
       firstperson_righthand: { scale: [3,3,3] },
       firstperson_lefthand:  { scale: [0.5,0.5,0.5] },
     } }), [OBJ], '');
-    // OBJ is a unit quad (x,y in 0..1, z=0) -> bbox centre = [0.5,0.5,0].
-    // scale=1, offset=0 -> the default GUI pivot (now the bbox centre) = [0.5,0.5,0].
+    // Default GUI pivot = the BLOCK centre = the decoded-frame ORIGIN [0,0,0]
+    // (the decoded model is block-centre relative) — vanilla's display pivot —
+    // so a rotated icon matches the vanilla model (was: model bbox centre,
+    // off vanilla under rotation/scale).
     // Step B layout: t[14]=(pxH,pxL,pyH), t[15]=(pyL,pzH,pzL). Decode + epsilon
     // (q16 over -128..128) instead of hardcoding rounding-sensitive bytes.
     const dec = (hi, lo) => (hi * 256 + lo) / 65535 * 256 - 128;
     const p14 = pixel(res, 14, 0), p15 = pixel(res, 15, 0);
     const EPS = 256 / 65535 + 1e-9;
-    expect(Math.abs(dec(p14[0], p14[1]) - 0.5)).toBeLessThan(EPS); // pivot x
-    expect(Math.abs(dec(p14[2], p15[0]) - 0.5)).toBeLessThan(EPS); // pivot y
+    expect(Math.abs(dec(p14[0], p14[1]) - 0.0)).toBeLessThan(EPS); // pivot x
+    expect(Math.abs(dec(p14[2], p15[0]) - 0.0)).toBeLessThan(EPS); // pivot y
     expect(Math.abs(dec(p15[1], p15[2]) - 0.0)).toBeLessThan(EPS); // pivot z
     expect(p14[3]).toBe(255);
     expect(p15[3]).toBe(255);

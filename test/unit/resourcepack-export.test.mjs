@@ -33,7 +33,9 @@ function setup() {
 
 const RESULT = {
   pngBuffer: Buffer.from([1, 2, 3]),
-  elements: [{ from: [0, 0, 0], to: [16, 16, 16], faces: {} }],
+  // encoder-shaped carrier element: face uv = (px+0.1)*16/tw with px=0, tw=16
+  elements: [{ from: [0, 0, 0], to: [16, 16, 16],
+    faces: { north: { uv: [0.1, 2.1, 0.9, 2.9], texture: '#0', tintindex: 0 } } }],
   nframes: 1,
 };
 
@@ -103,30 +105,45 @@ describe('resource pack export (#7)', () => {
       resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
     });
 
-    // The carrier anchor c2 is at the cube CENTRE ([8,8,8], the v0.5.45 fix that centred
-    // the WORLD path). Model.json-display slots bake their display onto that centre-carrier
-    // and the shader re-anchors at c2, ending up +0.5 block HIGH — so they get a -8 Y
-    // compensation (verified in-game: -8 on display.Y centres head/hand/fixed). ground/
-    // on_shelf are NOT lifted (MC clamps their Y); gui is header-encoded (no model.json).
+    // The carrier anchor c2 is at the cube CENTRE ([8,8,8]) and the decoded model
+    // is block-centre relative, so every model.json lift is 0 (in-game verified:
+    // lift-0 hand/world slots match the same vanilla model exactly). ground/
+    // on_shelf ride half a block higher in vanilla's dropped-item pipeline —
+    // compensated by +8 carrier-element offsets (SLOT_OFFSETS). gui is
+    // header-encoded.
     const model = JSON.parse(
       memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json')
     );
-    // Per-pose, in-game verified: head/fixed -8, thirdperson hands -6, firstperson hands -10
-    // (the first-person hold raises the item more, so it needs a bigger compensation).
+    // All lifts are 0: the decoded model is already block-centre relative, so
+    // no model.json compensation is needed (the old -6/-8 constants pushed the
+    // model below the same vanilla model). The explicit identity entries must
+    // still be written (they stop MC leaking block-model display defaults into
+    // un-set slots).
     const lift = (y) => ({ rotation: [0, 0, 0], translation: [0, y, 0], scale: [1, 1, 1] });
-    for (const s of ['head', 'fixed']) {
-      expect(model.display[s], s).toEqual(lift(-8));
+    for (const s of ['head', 'fixed', 'thirdperson_righthand', 'thirdperson_lefthand',
+                     'firstperson_righthand', 'firstperson_lefthand']) {
+      expect(model.display[s], s).toEqual(lift(0));
     }
-    for (const s of ['thirdperson_righthand', 'thirdperson_lefthand']) {
-      expect(model.display[s], s).toEqual(lift(-6));
-    }
-    for (const s of ['firstperson_righthand', 'firstperson_lefthand']) {
-      expect(model.display[s], s).toEqual(lift(-10));
-    }
-    // Scoped: ground/on_shelf stay identity (not over-lifted by the centre-carrier).
+    // ground/on_shelf display stays identity (MC clamps ground translation Y);
+    // their full-block dropped-item offset = +8 carrier elements + the shader
+    // slot-marker half (0.2 UV margins, asserted below).
     for (const s of ['ground', 'on_shelf']) {
       if (model.display[s]) expect(model.display[s], s).toEqual(lift(0));
     }
+
+    // Slot marker: the ground json bakes its U range OFF-CENTRE in the face-id
+    // texel (U midpoint px+0.65; normal is px+0.5) — the shader world path reads
+    // the quad's U midpoint (shrink-invariant) to tell dropped/shelf items apart
+    // and add their extra +0.5 block.
+    const groundModel = JSON.parse(
+      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_ground.json'));
+    const mainUv = model.elements[0].faces.north.uv;
+    const groundUv = groundModel.elements[0].faces.north.uv;
+    const umidOf = (uv, tw) => ((uv[0] + uv[2]) / 2 * tw / 16) % 1; // uv = (px+m)*16/tw
+    expect(umidOf(mainUv, 16)).toBeCloseTo(0.5, 5);
+    expect(umidOf(groundUv, 16)).toBeCloseTo(0.65, 5);
+    // and the ground carrier still sits +8 above the main one (element offset)
+    expect(groundModel.elements[0].from[1]).toBe(model.elements[0].from[1] + 8);
   });
 
   it('cfg.cmdName drives the model/item case key and give command (#7)', async () => {
