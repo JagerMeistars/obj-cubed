@@ -556,11 +556,108 @@ if (isCustom == 0) {
         // t[8].a = nboxes. A missing face index is 65535 (that carrier face is culled).
         int nboxes = max(t[8].a, 1);
         int amod = nboxes * 24;                 // 6 faces * 4 corners per box
-        int aid = gl_VertexID % amod;
-        int aface = aid / 4;
-        int abody = aface / 6;
-        int ac = aid % 4;
-        int f6 = aface % 6;
+        // MC 26.2 moved entity geometry into shared vertex arenas with
+        // per-frame base offsets — gl_VertexID-derived indices became garbage
+        // (armor cubes scattered and jumped between frames). Everything is
+        // derived from the humanoid UV LAYOUT instead on 26.2+, which is
+        // version-gated in-shader: 26.2 also introduced the reversed depth
+        // buffer, whose projection has ProjMat[2][2] >= 0 (classic is ~ -1).
+        bool arev = ProjMat[2][2] > -0.5;
+        int abody; int ac; int f6;
+        float ascale = 1.0; bool areflect = false;
+        vec3 a0; vec3 a1; vec3 a2; vec3 a3;
+        if (!arev) {
+            // 26.1.x: vertex order is submission order, 24 verts per box.
+            int aid = gl_VertexID % amod;
+            int aface = aid / 4;
+            abody = aface / 6;
+            ac = aid % 4;
+            f6 = aface % 6;
+            a0 = subgroupQuadBroadcast(Pos, 0);
+            a1 = subgroupQuadBroadcast(Pos, 1);
+            a2 = subgroupQuadBroadcast(Pos, 2);
+            a3 = subgroupQuadBroadcast(Pos, 3);
+        } else {
+            // 26.2+: identify the face by its UV rect in the fixed humanoid
+            // 64x32 layout; corner roles by UV-corner quadrant (emission-order
+            // equivalents c0=TR c1=TL c2=BL c3=BR in uv space); side (left
+            // limbs are X-mirrored -> reversed winding) via the Normal.
+            vec3 P0 = subgroupQuadBroadcast(Pos, 0);
+            vec3 P1 = subgroupQuadBroadcast(Pos, 1);
+            vec3 P2 = subgroupQuadBroadcast(Pos, 2);
+            vec3 P3 = subgroupQuadBroadcast(Pos, 3);
+            vec2 T0 = subgroupQuadBroadcast(UV0, 0);
+            vec2 T1 = subgroupQuadBroadcast(UV0, 1);
+            vec2 T2 = subgroupQuadBroadcast(UV0, 2);
+            vec2 T3 = subgroupQuadBroadcast(UV0, 3);
+            vec2 qmid = (min(min(T0,T1),min(T2,T3)) + max(max(T0,T1),max(T2,T3))) * 0.5;
+            ivec2 pf = oc_armor_uvface(qmid * vec2(64.0, 32.0));
+            f6 = pf.y;
+            a0 = ((T0.x>qmid.x)&&(T0.y<qmid.y))?P0:((T1.x>qmid.x)&&(T1.y<qmid.y))?P1:((T2.x>qmid.x)&&(T2.y<qmid.y))?P2:P3;
+            a1 = ((T0.x<qmid.x)&&(T0.y<qmid.y))?P0:((T1.x<qmid.x)&&(T1.y<qmid.y))?P1:((T2.x<qmid.x)&&(T2.y<qmid.y))?P2:P3;
+            a2 = ((T0.x<qmid.x)&&(T0.y>qmid.y))?P0:((T1.x<qmid.x)&&(T1.y>qmid.y))?P1:((T2.x<qmid.x)&&(T2.y>qmid.y))?P2:P3;
+            a3 = ((T0.x>qmid.x)&&(T0.y>qmid.y))?P0:((T1.x>qmid.x)&&(T1.y>qmid.y))?P1:((T2.x>qmid.x)&&(T2.y>qmid.y))?P2:P3;
+            ac = (UV0.x < qmid.x) ? ((UV0.y < qmid.y) ? 1 : 2) : ((UV0.y < qmid.y) ? 0 : 3);
+            // Corner-role tables calibrated in-game (v7-v9 self-checks, 26.1.2):
+            // unmirrored boxes: emission c0 = uv TOP-RIGHT quadrant, then CCW in
+            // uv space (table above); mirrored (left-limb) boxes use the
+            // point-reflected arrangement -> map roles 3-ac and swap positions
+            // 0<->3, 1<->2. The winding sign below is for THIS ordering.
+            bool amirror = dot(cross(a0 - a1, a0 - a3), Normal) < 0.0;
+            // Wearer scale RELATIVE TO THE CALIBRATION WEARER: |a0-a3| is the box
+            // HEIGHT edge (same for all 4 side faces); canonical = (8 head | 12
+            // other + 2*inflation) * 0.9375 sixteenths. The 0.9375 is the player
+            // model scale, baked into player carrier vertices (probed: player
+            // chest 13.125, armor stand 14.0, both 26.1.x and 26.2) -- and AOFF
+            // was calibrated raw on a player, so a 0.9375-player IS the unit
+            // wearer: world players read ascale==1.0 exactly (the calibrated
+            // look, untouched), the GUI preview reads ~80, stands 1.067.
+            // Inner layer (leggings, CubeDeformation 0.5) iff the layer packs a leg;
+            // pre-v0.7.0 exports zero empty boxes' part ids -> waist may read outer
+            // (7% shrink); re-export fixes.
+            float ainfl = 1.0;
+            for (int b = 0; b < nboxes && b < 3; b++)
+                if (t[8 + b].b == 4 || t[8 + b].b == 5) { ainfl = 0.5; break; }
+            // 0.9235: theoretical 0.9375 (player bake) minus ~1.5% -- hand-calibrated
+            // in-game 2026-07 (the probes saw the same ~1.5% on legs/feet; origin
+            // unexplained, the knob absorbs it).
+            ascale = length(a0 - a3) * 16.0 / (((pf.x == 0 ? 8.0 : 12.0) + 2.0 * ainfl) * 0.9235);
+            // The inventory player preview (PiP) bakes a reflection (det<0,
+            // vanilla scale(s,s,-s)) into Pos, but its Normals do NOT track the
+            // pose (probed: body winding-vs-Normal flips with rotation), so the
+            // winding test cannot detect the reflection. Infer it from scale
+            // alone: the preview draws the player many-x scaled (~75 probed),
+            // while world wearers cap at 15 (scale attr 16 * player 0.9375).
+            // ponytail: ascale>20 heuristic -- a >20x-scaled world wearer on
+            // 26.2 would decode inside-out.
+            areflect = ascale > 20.0;
+            // Head/body are NEVER mirrored by MC -- skip the winding test (it is
+            // noise in the preview). Limb side-matching still needs it, and it
+            // holds up there (probed: part ids land on the correct sides).
+            bool amir = (pf.x < 2) ? false : (amirror != areflect);
+            if (amir) {
+                vec3 sw = a0; a0 = a3; a3 = sw;
+                sw = a1; a1 = a2; a2 = sw;
+                ac = 3 - ac;
+            }
+            // abody: the box in THIS layer whose part matches (kind, side).
+            abody = -1;
+            for (int b = 0; b < nboxes && b < 3; b++) {
+                int pt = t[8 + b].b;
+                int k2 = (pt == 1) ? 0 : (pt == 0) ? 1 : (pt <= 3) ? 2 : 3;
+                bool lf = (pt == 3 || pt == 5 || pt == 7);
+                if (k2 != pf.x || (k2 >= 2 && lf != amir)) continue;
+                // Older exports zero the part id of boxes that pack no faces in
+                // this layer (all 4 slots 65535) -- an empty box then reads as
+                // "body" and shadows the real one. Skip fully-empty entries.
+                if (t[8 + b].r * 256 + t[8 + b].g == 65535 && t[11 + b].r * 256 + t[11 + b].g == 65535) {
+                    ivec4 mw = getmeta(ao, 14 + b);
+                    ivec4 me = getmeta(ao, 17 + b);
+                    if (mw.r * 256 + mw.g == 65535 && me.r * 256 + me.g == 65535) continue;
+                }
+                abody = b; break;
+            }
+        }
         // Pack rides 4 carrier faces per box: NORTH(3), SOUTH(5), WEST(2), EAST(4). Model-face
         // indices: t[8+abody] (north, .b = part), t[11+abody] (south), and -- read directly
         // since they overflow the t[16] array -- header texels 14+abody (west), 17+abody
@@ -568,14 +665,14 @@ if (isCustom == 0) {
         // up/down anchors also depend on handedness, unlike the X/Z faces).
         int afk = 65535;
         int aemis = 0;                              // this carrier face's emissive level (0..15)
-        if (abody < nboxes) {
+        if (abody >= 0 && abody < nboxes) {
             ivec4 em = getmeta(ao, 20 + abody);     // per-box emissive: r=N g=S b=W a=E
             if (f6 == 3) { afk = t[8 + abody].r * 256 + t[8 + abody].g; aemis = em.r; }
             else if (f6 == 5) { afk = t[11 + abody].r * 256 + t[11 + abody].g; aemis = em.g; }
             else if (f6 == 2) { ivec4 m = getmeta(ao, 14 + abody); afk = m.r * 256 + m.g; aemis = em.b; }
             else if (f6 == 4) { ivec4 m = getmeta(ao, 17 + abody); afk = m.r * 256 + m.g; aemis = em.a; }
         }
-        int atarget = (abody < nboxes) ? t[8 + abody].b : 0;
+        int atarget = (abody >= 0 && abody < nboxes) ? t[8 + abody].b : 0;
         if (atarget < 0 || atarget > 7) atarget = 0;
         // MC renders left limbs (3/5/7) X-mirrored (CubeListBuilder.mirror); un-mirrored below.
         bool aleft = (atarget == 3 || atarget == 5 || atarget == 7);
@@ -602,7 +699,7 @@ if (isCustom == 0) {
         const float ADHe[8] = float[8]( 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
         // A6 debug: OC_DBG_COLOR(vec4(float(abody)/3.0, float(f6)/5.0, 0.0, 1.0));
         // Keep NORTH(3)/SOUTH(5)/WEST(2)/EAST(4) of each packed box; cull DOWN(0)/UP(1)+empty.
-        if (f6 < 2 || abody >= nboxes || afk == 65535) {
+        if (f6 < 2 || abody < 0 || abody >= nboxes || afk == 65535) {
             Pos = vec3(9999.0);
         } else {
             // Per-face emissive: a face marked light_emission in BB renders fullbright.
@@ -696,15 +793,16 @@ if (isCustom == 0) {
             // BEFORE the offset, so there is no lateral shift; combined with the det(-1)
             // left basis this cancels MC's X-mirror — left reads the same way as right.
             if (aleft) posoffset.x = -posoffset.x;
-            posoffset -= AOFF[atarget];
+            // ascale: model + AOFF are block units; the carrier (and thus the measured
+            // anchor corners) is in wearer units. ==1.0 in world, no-op there.
+            posoffset = (posoffset - AOFF[atarget]) * ascale;
             // Full 3D orientation from the carrier-quad corners (Der Discohund basis),
             // exactly like the world path above. This captures all THREE axes including
             // limb TWIST -- the 2-DOF normal method (ay/ap) lost the twist, so animated
             // arms/legs could not fully follow the swing.
-            vec3 a0 = subgroupQuadBroadcast(Pos, 0);
-            vec3 a1 = subgroupQuadBroadcast(Pos, 1);
-            vec3 a2 = subgroupQuadBroadcast(Pos, 2);
-            vec3 a3 = subgroupQuadBroadcast(Pos, 3);
+            // (a0..a3 corner roles were resolved above: lane order on 26.1.x,
+            // uv-quadrant roles on 26.2+ — both in the emission-order
+            // arrangement the calibrated basis below expects.)
             vec3 e1 = normalize(a0 - a1);
             vec3 e2 = normalize(a0 - a3);
             e2 = normalize(e2 - dot(e2, e1) * e1);               // Gram-Schmidt
@@ -714,6 +812,9 @@ if (isCustom == 0) {
             mat3 abasis = aleft
                 ? mat3(-e1, -e2, -cross(e1, e2))   // left: up negated; X-mirror handled above
                 : mat3(-e1,  e2, -cross(e1, e2));  // right/head/chest: calibrated, unchanged
+            // Reflected pass: desired transform is R*abasis; R flips the measured
+            // cross(e1,e2) sign, so R*abasis == the measured basis with column 2 negated.
+            if (areflect) abasis[2] = -abasis[2];
             // STAGE 2: a model face can ride any of 4 carrier faces. Each needs (1) an
             // orientation correction C_F so it faces front like the north face, and (2) a
             // re-anchor onto the box's NORTH corner-2 so all overlay there. C_F and the
@@ -727,6 +828,7 @@ if (isCustom == 0) {
             mat3 abasisBox = abasis * CF;
             posoffset = abasisBox * posoffset;     // orient to carrier; faces front, upright
             vec3 n = cross(e1, e2);                 // outward face normal (unit)
+            if (areflect) n = -n;                   // measured cross is inward under R
             vec3 anchor;
             if      (f6 == 3) anchor = a2;                          // north: the corner itself
             else if (f6 == 2) anchor = a2 + (a0 - a1);             // west:  +depth edge, no perp

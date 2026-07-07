@@ -1,7 +1,13 @@
 #version 450
 #extension GL_KHR_shader_subgroup_quad: enable
 
+// 26.2 validates shader-declared uniforms against the pipeline: variants with
+// NO_CARDINAL_LIGHTING (energy_swirl, eyes, ...) do not provide the Lighting
+// UBO, so light.glsl (which declares it) must be compiled out there — same
+// guard vanilla 26.2 uses.
+#if defined(PER_FACE_LIGHTING) || !defined(NO_CARDINAL_LIGHTING)
 #moj_import <minecraft:light.glsl>
+#endif
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:dynamictransforms.glsl>
 #moj_import <minecraft:projection.glsl>

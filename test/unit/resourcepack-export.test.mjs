@@ -1,4 +1,4 @@
-// Issue #7: one-shot resource-pack export into the objc_cubed namespace.
+// Issue #7: one-shot resource-pack export into the objcubed namespace.
 // saveSingleOutput must write the PNG, per-slot models and the vanilla item
 // override directly via fs (NO Blockbench.export / save dialogs), under a single
 // resource pack root.
@@ -40,7 +40,7 @@ const RESULT = {
 };
 
 describe('resource pack export (#7)', () => {
-  it('writes the full objc_cubed layout with no Blockbench.export', async () => {
+  it('writes the full objcubed layout with no Blockbench.export', async () => {
     const { api, memfs, wasExportCalled } = setup();
 
     await api.saveSingleOutput(RESULT, {}, {
@@ -53,15 +53,15 @@ describe('resource pack export (#7)', () => {
     const keys = [...memfs.writes.keys()];
 
     // (2) Expected write keys.
-    expect(keys).toContain('/rp/assets/objc_cubed/textures/item/cat.png');
-    expect(keys).toContain('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json');
+    expect(keys).toContain('/rp/assets/objcubed/textures/item/cat.png');
+    expect(keys).toContain('/rp/assets/objcubed/models/item/cat_thirdperson_righthand.json');
     expect(keys).toContain('/rp/assets/minecraft/items/iron_ingot.json');
 
     // (3) Model JSON texture refs are namespaced + particle present.
     const model = JSON.parse(
-      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json')
+      memfs.writes.get('/rp/assets/objcubed/models/item/cat_thirdperson_righthand.json')
     );
-    expect(model.textures['0']).toBe('objc_cubed:item/cat');
+    expect(model.textures['0']).toBe('objcubed:item/cat');
     expect(model.textures.particle).toBeTruthy();
 
     // (4) Item override: vanilla fallback + a custom_model_data case for 'cat'.
@@ -92,7 +92,7 @@ describe('resource pack export (#7)', () => {
     expect(refs.length).toBeGreaterThan(0);
     for (const r of refs) {
       expect(r.startsWith('custom/')).toBe(false);
-      const ok = r.startsWith('objc_cubed:item/') || r === 'minecraft:item/iron_ingot';
+      const ok = r.startsWith('objcubed:item/') || r === 'minecraft:item/iron_ingot';
       expect(ok, `ref ${r}`).toBe(true);
     }
   });
@@ -112,7 +112,7 @@ describe('resource pack export (#7)', () => {
     // compensated by +8 carrier-element offsets (SLOT_OFFSETS). gui is
     // header-encoded.
     const model = JSON.parse(
-      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json')
+      memfs.writes.get('/rp/assets/objcubed/models/item/cat_thirdperson_righthand.json')
     );
     // All lifts are 0: the decoded model is already block-centre relative, so
     // no model.json compensation is needed (the old -6/-8 constants pushed the
@@ -136,7 +136,7 @@ describe('resource pack export (#7)', () => {
     // (id 2 -> 0.57); the plain/neutral json keeps 0.5 (id 0). The shader
     // reads the quad's U midpoint (shrink-invariant) to recover the id.
     const groundModel = JSON.parse(
-      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_ground.json'));
+      memfs.writes.get('/rp/assets/objcubed/models/item/cat_ground.json'));
     const mainUv = model.elements[0].faces.north.uv;
     const groundUv = groundModel.elements[0].faces.north.uv;
     const umidOf = (uv, tw) => ((uv[0] + uv[2]) / 2 * tw / 16) % 1; // uv = (px+m)*16/tw
@@ -144,7 +144,7 @@ describe('resource pack export (#7)', () => {
     expect(umidOf(groundUv, 16)).toBeCloseTo(0.535, 5);
     // The neutral default fallback json exists and carries marker id 0.
     const defModel = JSON.parse(
-      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_default.json'));
+      memfs.writes.get('/rp/assets/objcubed/models/item/cat_default.json'));
     expect(umidOf(defModel.elements[0].faces.north.uv, 16)).toBeCloseTo(0.5, 5);
     // and the ground carrier still sits +8 above the main one (element offset)
     expect(groundModel.elements[0].from[1]).toBe(model.elements[0].from[1] + 8);
@@ -158,18 +158,18 @@ describe('resource pack export (#7)', () => {
       resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
     });
     const third = JSON.parse(
-      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json'));
+      memfs.writes.get('/rp/assets/objcubed/models/item/cat_thirdperson_righthand.json'));
     const umidOf = (uv, tw) => ((uv[0] + uv[2]) / 2 * tw / 16) % 1;
     expect(umidOf(third.elements[0].faces.north.uv, 16)).toBeCloseTo(0.535, 5);
     // ...and the neutral default stays id 0.
     const def = JSON.parse(
-      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_default.json'));
+      memfs.writes.get('/rp/assets/objcubed/models/item/cat_default.json'));
     expect(umidOf(def.elements[0].faces.north.uv, 16)).toBeCloseTo(0.5, 5);
     // item selector: thirdperson now has its OWN case; fallback -> _default
     const item = JSON.parse(memfs.writes.get('/rp/assets/minecraft/items/iron_ingot.json'));
     const catCase = item.model.cases.find(c => c.when === 'cat').model;
     expect(catCase.cases.some(c => c.when === 'thirdperson_righthand')).toBe(true);
-    expect(catCase.fallback.model).toBe('objc_cubed:item/cat_default');
+    expect(catCase.fallback.model).toBe('objcubed:item/cat_default');
   });
 
   it('armor export does NOT shift item elements (the -0.5 is baked into the PNG for all exports)', async () => {
@@ -182,7 +182,7 @@ describe('resource pack export (#7)', () => {
       exportAsEquipment: true, equipmentSlot: 'chest',
     });
     const m = JSON.parse(
-      memfs.writes.get('/rp/assets/objc_cubed/models/item/cat_thirdperson_righthand.json'));
+      memfs.writes.get('/rp/assets/objcubed/models/item/cat_thirdperson_righthand.json'));
     expect(m.elements[0].from[1]).toBe(RESULT.elements[0].from[1]);
     expect(m.elements[0].to[1]).toBe(RESULT.elements[0].to[1]);
   });
@@ -199,12 +199,12 @@ describe('resource pack export (#7)', () => {
     const slug = 'my_key'; // sanitized (lowercased, non [a-z0-9_] -> _)
 
     // PNG + per-slot model + texture ref all keyed by the sanitized cmdName.
-    expect(keys).toContain(`/rp/assets/objc_cubed/textures/item/${slug}.png`);
-    expect(keys).toContain(`/rp/assets/objc_cubed/models/item/${slug}_thirdperson_righthand.json`);
+    expect(keys).toContain(`/rp/assets/objcubed/textures/item/${slug}.png`);
+    expect(keys).toContain(`/rp/assets/objcubed/models/item/${slug}_thirdperson_righthand.json`);
     const model = JSON.parse(
-      memfs.writes.get(`/rp/assets/objc_cubed/models/item/${slug}_thirdperson_righthand.json`)
+      memfs.writes.get(`/rp/assets/objcubed/models/item/${slug}_thirdperson_righthand.json`)
     );
-    expect(model.textures['0']).toBe(`objc_cubed:item/${slug}`);
+    expect(model.textures['0']).toBe(`objcubed:item/${slug}`);
 
     // Item override case key matches the sanitized cmdName.
     const item = JSON.parse(memfs.writes.get('/rp/assets/minecraft/items/iron_ingot.json'));
@@ -232,7 +232,7 @@ describe('resource pack export (#7)', () => {
         else if (v && typeof v === 'object') walk(v);
       }
     })(sel);
-    expect(refs.some(r => r.startsWith('objc_cubed:item/foo'))).toBe(true);
+    expect(refs.some(r => r.startsWith('objcubed:item/foo'))).toBe(true);
     for (const r of refs) expect(r.startsWith('custom/')).toBe(false);
   });
 });

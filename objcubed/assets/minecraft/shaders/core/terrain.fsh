@@ -3,7 +3,8 @@
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:globals.glsl>
 #moj_import <minecraft:chunksection.glsl>
-#moj_import <minecraft:light.glsl>
+// (no minecraft:light.glsl: 26.2 terrain pipelines don't provide the Lighting
+// UBO it declares, and the BLOCK branch of objmc_light.glsl doesn't need it)
 
 uniform sampler2D Sampler0;
 
@@ -22,7 +23,9 @@ flat in int noshadow;
 
 out vec4 fragColor;
 
-vec4 sampleNearest(sampler2D sampler, vec2 uv, vec2 pixelSize, vec2 du, vec2 dv, vec2 texelScreenSize) {
+// (param renamed sampler -> source: the 26.2 shader compiler rejects `sampler`
+// as an identifier, matching vanilla 26.2's naming)
+vec4 sampleNearest(sampler2D source, vec2 uv, vec2 pixelSize, vec2 du, vec2 dv, vec2 texelScreenSize) {
     // Convert our UV back up to texel coordinates and find out how far over we are from the center of each pixel
     vec2 uvTexelCoords = uv / pixelSize;
     vec2 texelCenter = round(uvTexelCoords) - 0.5f;
@@ -33,7 +36,7 @@ vec4 sampleNearest(sampler2D sampler, vec2 uv, vec2 pixelSize, vec2 du, vec2 dv,
     texelOffset = clamp(texelOffset, 0.0f, 1.0f);
 
     uv = (texelCenter + texelOffset) * pixelSize;
-    return textureGrad(sampler, uv, du, dv);
+    return textureGrad(source, uv, du, dv);
 }
 
 vec4 sampleNearest(sampler2D source, vec2 uv, vec2 pixelSize) {

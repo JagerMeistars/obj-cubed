@@ -68,3 +68,39 @@ vec3 bezb(vec3 a, vec3 b, vec3 c, vec3 d, float t) {
 vec3 bezier(vec3 a, vec3 b, vec3 c, vec3 d, float t) {
     return bezb(b,b+(c-a)/6,c-(d-b)/6,c,t);
 }
+
+// ── Armor UV decode (MC 26.2+) ──────────────────────────────────────────────
+// On 26.2 entity geometry lives in shared vertex arenas with per-frame base
+// offsets, so gl_VertexID-derived indices are garbage. The humanoid armor
+// layer UV LAYOUT (64x32 grid, fixed since alpha) identifies everything
+// instead: which box a face belongs to, and which face of the box it is.
+// Returns ivec2(partKind, f6):
+//   partKind: 0 head, 1 body, 2 arm, 3 leg, -1 not recognized
+//   f6 (matches the vertexID-order decode): 0 down, 1 up, 2 west, 3 north,
+//   4 east, 5 south. Left limbs share the right limb's rects (legacy layout);
+//   the SIDE is recovered separately from the quad winding.
+// m = face UV midpoint in layout units (UV0 * vec2(64, 32)).
+ivec2 oc_armor_uvface(vec2 m) {
+    // box uv origins + dims (w, h, d): head(0,0,8,8,8) body(16,16,8,12,4)
+    // arm(40,16,4,12,4) leg(0,16,4,12,4)
+    for (int i = 0; i < 4; i++) {
+        vec2 o  = (i == 0) ? vec2( 0.0,  0.0) : (i == 1) ? vec2(16.0, 16.0)
+                : (i == 2) ? vec2(40.0, 16.0) : vec2( 0.0, 16.0);
+        vec3 wh = (i == 0) ? vec3(8.0, 8.0, 8.0) : (i == 1) ? vec3(8.0, 12.0, 4.0)
+                : vec3(4.0, 12.0, 4.0);
+        float w = wh.x, h = wh.y, d = wh.z;
+        vec2 r = m - o;
+        if (r.x < 0.0 || r.y < 0.0 || r.x >= 2.0*(w + d) || r.y >= d + h) continue;
+        int f6;
+        if (r.y < d) {
+            // top strip: up/down caps (culled by the armor path anyway)
+            if (r.x < d || r.x >= d + 2.0*w) continue;
+            f6 = (r.x < d + w) ? 1 : 0;
+        } else {
+            // side strip: west | north | east | south (calibration order)
+            f6 = (r.x < d) ? 2 : (r.x < d + w) ? 3 : (r.x < d + w + d) ? 4 : 5;
+        }
+        return ivec2(i, f6);
+    }
+    return ivec2(-1, -1);
+}

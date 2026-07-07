@@ -43,8 +43,8 @@ describe('buildSlotModelJson', () => {
 
   it('carries both the base and particle textures', () => {
     const m = JSON.parse(s());
-    expect(m.textures['0']).toBe('objc_cubed:item/cat');
-    expect(m.textures.particle).toBe('objc_cubed:item/cat');
+    expect(m.textures['0']).toBe('objcubed:item/cat');
+    expect(m.textures.particle).toBe('objcubed:item/cat');
   });
 
   it('preserves elements and display verbatim', () => {

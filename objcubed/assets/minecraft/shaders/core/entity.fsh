@@ -1,7 +1,12 @@
 #version 150
 
 #moj_import <minecraft:fog.glsl>
+// Guarded like entity.vsh: NO_CARDINAL_LIGHTING pipelines (26.2) don't provide
+// the Lighting UBO that light.glsl declares. objmc_light.glsl guards its
+// minecraft_mix_light use with the same condition.
+#if defined(PER_FACE_LIGHTING) || !defined(NO_CARDINAL_LIGHTING)
 #moj_import <minecraft:light.glsl>
+#endif
 #moj_import <minecraft:dynamictransforms.glsl>
 
 uniform sampler2D Sampler0;

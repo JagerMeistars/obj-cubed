@@ -327,7 +327,7 @@
             help_datapackNamespace: 'Datapack namespace. Commands are run as "function <namespace>:<id>/play".',
             help_datapackTargetType: 'Who the animation applies to: equipment entity (zombie, skeleton), item_display entity, or player.',
             help_datapackEquipSlot: 'Which equipment slot is used for the model — hand/helmet/chestplate/leggings/boots.',
-            help_respack_dir: 'Resource pack root folder. The plugin writes texture, models and the item override into assets/objc_cubed and assets/minecraft under it. Picked once.',
+            help_respack_dir: 'Resource pack root folder. The plugin writes texture, models and the item override into assets/objcubed and assets/minecraft under it. Picked once.',
             help_base_item: 'Vanilla item the model overrides (e.g. iron_ingot). Multiple models on the same base item coexist via custom_model_data.',
             help_cmd_name: 'The string you put on the base item to show this model. The plugin writes a give command (<base item>_give.txt) with it. Default is the project name.',
             help_equipment: 'One equipment layer per model face. Renders the 3D model as worn armor via the entity shader. Reliable on the chest of a static armor stand; on moving players the anchor may tilt (work in progress).',
@@ -387,7 +387,7 @@
             tour_t_equipslot: 'Armor pieces',
             tour_b_equipslot: 'Tick the pieces of the set to export: helmet, chestplate, leggings, boots. Each piece spans its body parts (a chestplate = torso + both arms) and follows the wearer\'s bones. Tag your groups via right-click → obj³: Body part first.',
             tour_t_respack: 'Resource-pack folder',
-            tour_b_respack: 'Choose one resource-pack root folder; obj³ writes everything under the objc_cubed namespace inside it. Use the folder button to browse. This is where the finished pack lands.',
+            tour_b_respack: 'Choose one resource-pack root folder; obj³ writes everything under the objcubed namespace inside it. Use the folder button to browse. This is where the finished pack lands.',
             tour_t_baseitem: 'Base item',
             tour_b_baseitem: 'The vanilla item your model rides on top of, such as iron_ingot. The /give command uses this item, and your model replaces its appearance. Any item works; pick one you will not confuse with the real thing.',
             tour_t_cmdname: 'Model name',
@@ -592,7 +592,7 @@
             help_datapackNamespace: 'Namespace датапака. Команды вызываются как «function <namespace>:<id>/play».',
             help_datapackTargetType: 'Кому применяется анимация: сущности с экипировкой (зомби, скелет), сущность item_display, или игроку.',
             help_datapackEquipSlot: 'Какой слот экипировки используется для модели — рука/шлем/нагрудник/поножи/ботинки.',
-            help_respack_dir: 'Корневая папка ресурспака. Плагин кладёт текстуру, модели и override предмета в assets/objc_cubed и assets/minecraft внутри неё. Выбирается один раз.',
+            help_respack_dir: 'Корневая папка ресурспака. Плагин кладёт текстуру, модели и override предмета в assets/objcubed и assets/minecraft внутри неё. Выбирается один раз.',
             help_base_item: 'Ванильный предмет, который заменяется моделью (например iron_ingot). Несколько моделей на одном предмете сосуществуют через custom_model_data.',
             help_cmd_name: 'Строка, которую вы вешаете на базовый предмет, чтобы показать эту модель. Плагин пишет команду give (<базовый предмет>_give.txt) с ней. По умолчанию — имя проекта.',
             help_equipment: 'Один слой экипировки на каждую грань модели. Рендерит 3D-модель как надетую броню через шейдер сущности. Надёжно работает на нагруднике статичного armor stand; на движущихся игроках якорь может наклоняться (в разработке).',
@@ -652,7 +652,7 @@
             tour_t_equipslot: 'Части брони',
             tour_b_equipslot: 'Отметьте части комплекта для экспорта: шлем, нагрудник, поножи, ботинки. Каждая часть охватывает свои части тела (нагрудник = торс + обе руки) и следует за костями носителя. Сначала пометьте группы через ПКМ → obj³: Часть тела.',
             tour_t_respack: 'Папка ресурспака',
-            tour_b_respack: 'Выберите одну корневую папку ресурспака; obj³ пишет всё в namespace objc_cubed внутри неё. Кнопка папки открывает обзор. Именно сюда ляжет готовый пак.',
+            tour_b_respack: 'Выберите одну корневую папку ресурспака; obj³ пишет всё в namespace objcubed внутри неё. Кнопка папки открывает обзор. Именно сюда ляжет готовый пак.',
             tour_t_baseitem: 'Базовый предмет',
             tour_b_baseitem: 'Ванильный предмет, на котором держится модель, например iron_ingot. Команда /give использует его, а модель заменяет его вид. Подойдёт любой предмет; берите тот, что не спутаете с настоящим.',
             tour_t_cmdname: 'Имя модели',
@@ -3249,7 +3249,7 @@
     ];
     // Single source of truth for the export namespace. All exported assets live
     // under assets/<EXPORT_NS>/ and are referenced as <EXPORT_NS>:item/<name>.
-    const EXPORT_NS = 'objc_cubed';
+    const EXPORT_NS = 'objcubed';
     // Per-slot placeholder calibration. Adjusts the `from`/`to` of every
     // element by these BB-unit deltas. Values measured against a reference
     // vanilla JSON cube placed at the same OBJ coordinates.
@@ -3451,7 +3451,7 @@
         return existing;
     }
 
-    // assets/minecraft/atlases/blocks.json — ensures the objc_cubed item
+    // assets/minecraft/atlases/blocks.json — ensures the objcubed item
     // textures are stitched into the block atlas (the atlas the objmc shaders
     // sample). A directory source with source 'item' picks up every
     // assets/<ns>/textures/item/*.png across all namespaces and registers it as
@@ -3497,7 +3497,7 @@
             fs.mkdirSync(itemsDir,  { recursive: true });
             fs.mkdirSync(atlasDir,  { recursive: true });
 
-            // PNG → assets/objc_cubed/textures/item/<modelName>.png (no Blockbench.export).
+            // PNG → assets/objcubed/textures/item/<modelName>.png (no Blockbench.export).
             // Named after modelName so the per-slot model texture refs resolve.
             fs.writeFileSync(path.join(texDir, `${modelName}.png`), result.pngBuffer);
 
@@ -3520,7 +3520,7 @@
                 return false;
             });
 
-            // Per-slot model JSONs → assets/objc_cubed/models/item/<modelName>_<slot>.json.
+            // Per-slot model JSONs → assets/objcubed/models/item/<modelName>_<slot>.json.
             //
             // VERTICAL-ORIGIN CONVENTION (in-game verified): the encoder bakes
             // Y-0.5 into the PNG positions, the carrier anchor c2 sits at the
@@ -3695,7 +3695,7 @@
                 // t[11+abody], west header-texel 14+abody, east 17+abody; the 4 faces' emissive
                 // levels pack into texel 20+abody (r=N,g=S,b=W,a=E). Missing face -> 65535
                 // (culled). Header texels reach 20+nboxes-1 (=22 for 3 boxes) -> needs tw >= 23.
-                const writePackedLayer = (texPath, nboxes, slots) => {
+                const writePackedLayer = (texPath, nboxes, slots, parts) => {
                     const buf = result.rawBuf.slice();
                     buf[3] = 253;                               // armor marker
                     buf[8 * 4 + 3] = nboxes & 255;              // t[8].a = box count
@@ -3708,7 +3708,10 @@
                     for (let abody = 0; abody < nboxes; abody++) {
                         const s = slots[abody] || {};
                         put16(8 + abody, s.northK);             // north -> t[8+abody].r:g
-                        buf[(8 + abody) * 4 + 2] = (s.part || 0) & 255;   // part -> t[8+abody].b
+                        // Write the part id even for boxes with no faces in this layer:
+                        // the 26.2 uv decode selects boxes BY part, and a zeroed id
+                        // reads as "body" and shadows the real body box.
+                        buf[(8 + abody) * 4 + 2] = (s.part != null ? s.part : (parts ? parts[abody] : 0) || 0) & 255;
                         put16(11 + abody, s.southK);            // south -> t[11+abody]
                         put16(14 + abody, s.westK);             // west  -> texel 14+abody
                         put16(17 + abody, s.eastK);             // east  -> texel 17+abody
@@ -3752,7 +3755,7 @@
                             });
                             if (slots.every(s => !s)) continue;           // empty layer
                             const texName = `${eqName}_${L}`;
-                            writePackedLayer(path.join(eqTexDir, `${texName}.png`), piece.nboxes, slots);
+                            writePackedLayer(path.join(eqTexDir, `${texName}.png`), piece.nboxes, slots, piece.carrier);
                             layers.push({ texture: `${equipNs}:${texName}` });
                         }
                         // A piece with no tagged faces would write an empty {layers:{type:[]}}
@@ -3801,7 +3804,7 @@
                             part: partInfo.id,
                         };
                         const texName = `${eqName}_${L}`;
-                        writePackedLayer(path.join(eqTexDir, `${texName}.png`), partInfo.nboxes, slots);
+                        writePackedLayer(path.join(eqTexDir, `${texName}.png`), partInfo.nboxes, slots, partInfo.carrier);
                         layers.push({ texture: `${equipNs}:${texName}` });
                     }
                     fs.writeFileSync(path.join(equipJsonDir, `${eqName}.json`),
@@ -5897,7 +5900,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.6.1',
+        version: '0.7.0',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

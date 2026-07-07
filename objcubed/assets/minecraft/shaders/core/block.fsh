@@ -2,7 +2,8 @@
 
 #moj_import <minecraft:fog.glsl>
 #moj_import <minecraft:dynamictransforms.glsl>
-#moj_import <minecraft:light.glsl>
+// (no minecraft:light.glsl: 26.2 block pipelines don't provide the Lighting
+// UBO it declares, and the BLOCK branch of objmc_light.glsl doesn't need it)
 
 uniform sampler2D Sampler0;
 

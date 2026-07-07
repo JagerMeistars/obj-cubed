@@ -29,11 +29,12 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 ## Requirements
 
 - BlockBench 4.8.0+ (desktop variant — the custom PNG encoder needs Node.js)
-- Minecraft 26.1.2 — the bundled core shaders target this core-shader version
+- Minecraft 26.1.2 – 26.2 — the bundled core shaders support both (26.2's reversed
+  depth buffer and relocated entity geometry are detected and handled in-shader)
 - Armor export additionally needs the entity equipment pipeline (included in the pack)
 
 Core shaders are a vanilla resource-pack feature, but they are version-sensitive: the
-shaders are tuned for 26.1.2 and may need updating for other versions. Modded
+shaders are tuned for 26.1.2–26.2 and may need updating for other versions. Modded
 compatibility is not guaranteed.
 
 ## Installation
@@ -183,12 +184,12 @@ a second model on the same base item coexists via custom_model_data.
 ```
 <resource pack root>/
   pack.mcmeta
-  assets/objc_cubed/
+  assets/objcubed/
     textures/item/<name>.png         — your exported PNG texture
-    models/item/<name>_<slot>.json   — per-slot JSON models (ref objc_cubed:item/<name>)
+    models/item/<name>_<slot>.json   — per-slot JSON models (ref objcubed:item/<name>)
   assets/minecraft/
     items/<baseItem>.json            — item override (custom_model_data select)
-    atlases/blocks.json              — stitches objc_cubed item textures into the atlas
+    atlases/blocks.json              — stitches objcubed item textures into the atlas
     equipment/<name>_<piece>.json            — armor definitions (equipment export only)
     textures/entity/equipment/<layer>/...    — per-face armor layer textures
     shaders/

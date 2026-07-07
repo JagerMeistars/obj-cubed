@@ -35,7 +35,13 @@ else if (noshadow == 0) {
 #ifdef ENTITY
     //flip normal z for gui (zx flip in vertex shader)
     if (isGUI == 1) normal.z *= -1;
+#if defined(PER_FACE_LIGHTING) || !defined(NO_CARDINAL_LIGHTING)
     color *= minecraft_mix_light(Light0_Direction, Light1_Direction, normal, overlayColor);
+#else
+    // NO_CARDINAL_LIGHTING pipelines have no Lighting UBO: skip the
+    // directional relight, keep the overlay tint.
+    color *= overlayColor;
+#endif
 #endif
 
     color *= lightColor;
