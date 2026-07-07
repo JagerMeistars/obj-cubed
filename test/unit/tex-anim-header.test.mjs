@@ -103,10 +103,11 @@ function header(res) {
   const ntextures = t3[3];
   // objmc_main.glsl:140 headerheight = 2 + ceil(nvertices*0.25/size.x)
   const headerheight = 2 + Math.ceil(nvertices * 0.25 / sizeX);
-  // Row-1 texture clock (issue #9): x=4 RGB = texFrametime, x=5.r = fade flag.
+  // Row-1 texture clock (issue #9): x=4 RGB = texFrametime, x=5.r bit0 = fade
+  // (bits 1..4 = the v2 dynamic slot-marker count).
   const r1x4 = rd(4, 1), r1x5 = rd(5, 1);
   const texFrametime = r1x4[0] * 65536 + r1x4[1] * 256 + r1x4[2];
-  const texFade = r1x5[0];
+  const texFade = r1x5[0] & 1;
   return { tw, sizeX, sizeY, ntextures, nvertices, headerheight, texFrametime, texFade, rd };
 }
 
@@ -167,10 +168,11 @@ describe('tex-anim #9: header + per-region frame baking', () => {
     // ntextures resolves to 1; size.y is the FULL height (no frame split).
     expect(h.ntextures).toBe(1);
     expect(h.sizeY).toBe(H);
-    // Row-1 animation pixels stay zeroed (RGB=0) as before #9 — EXCEPT x=5.b,
-    // which now always carries the v2 slot-marker/band-header version flag.
+    // Row-1 animation pixels stay zeroed (RGB=0) as before #9 — EXCEPT x=5:
+    // r bits 1..4 = dynamic slot-marker count (ground+shelf are always dynamic
+    // -> 2 -> r=4), b = the v2 version flag.
     expect(h.rd(4, 1)).toEqual([0, 0, 0, 255]);
-    expect(h.rd(5, 1)).toEqual([0, 0, 1, 255]);
+    expect(h.rd(5, 1)).toEqual([4, 0, 1, 255]);
 
     // Independently rebuild the EXACT pre-#9 buffer from the same decoded header
     // and source strip, then compare byte-for-byte against the produced buffer.

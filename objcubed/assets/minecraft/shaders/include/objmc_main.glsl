@@ -321,10 +321,12 @@ if (marker == ivec4(12,34,56,255)) {
                           * 0.5 * float(atlasSize.x);
             float handsz = min(hsx, hsy);
             if (hflags.b == 1) {
-                int hslot = clamp(int(round((fract(humid) - 0.5) / 0.04)), 0, 7);
-                if (hslot >= 1 && hslot <= 4) {
-                    ivec4 hdyn = ivec4(texelFetch(Sampler0, topleft + ivec2(hslot - 1, 1), 0) * 255.0 + 0.5);
-                    handsz = float(hdyn.r*256 + hdyn.g) / 65535.0 * 4.0;
+                int hslot = clamp(int(round((fract(humid) - 0.5) / 0.035)), 0, 8);
+                if (hslot >= 1) {
+                    int hdynx = (hslot <= 4) ? (hslot - 1) : (6 + 2*hflags.g + (hslot - 5));
+                    ivec4 hdyn = ivec4(texelFetch(Sampler0, topleft + ivec2(hdynx, 1), 0) * 255.0 + 0.5);
+                    float hszq = float(hdyn.r*256 + hdyn.g) / 65535.0 * 4.0;
+                    if (hszq > 0.0) handsz = hszq;
                 }
             }
             posoffset = hrot * (posoffset * vec3(hsy, hsx, handsz));
@@ -359,26 +361,29 @@ if (marker == ivec4(12,34,56,255)) {
             // item frames match the same vanilla model exactly.
             //
             // SLOT MARKER (v2): the carrier UV's U MIDPOINT encodes a slot id
-            // (px + 0.5 + id*0.04; midpoints survive MC's anti-bleed UV shrink,
-            // which contracts UVs symmetrically toward the quad centre). Ids:
-            // 0 neutral; 1..4 dynamic (row-1 pixel id-1 = q16 Z display scale +
-            // lift flag — the flat carrier only exposes X/Y edges, so a distinct
-            // Z scale must ride the header); 5/6 ground/shelf (+0.5-block lift:
-            // their pipeline rides half a block higher, and MC clamps ground
-            // display translation Y). Legacy exports (no v2 flag at x=5.b) keep
-            // the old single 0.65-midpoint lift rule.
+            // (px + 0.5 + id*0.035; midpoints survive MC's anti-bleed UV shrink,
+            // which contracts UVs symmetrically toward the quad centre). Id 0 =
+            // neutral; ids 1..8 = dynamic per-slot entries carrying a q16 Z
+            // display scale (0 = no override — the flat carrier only exposes
+            // X/Y edges, so a distinct Z scale must ride the header) + the
+            // +0.5-block dropped/shelf lift flag (their pipeline rides half a
+            // block higher, and MC clamps ground display translation Y). Entry
+            // pixels: ids 1..4 at row-1 x=0..3, ids 5..8 AFTER the atlas bands.
+            // Legacy exports (no v2 flag at x=5.b) keep the old 0.65-mid rule.
             ivec4 vflags = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
             float umid = (subgroupQuadBroadcast(UV0.x, 0) + subgroupQuadBroadcast(UV0.x, 2))
                          * 0.5 * float(atlasSize.x);
             float mfrac = fract(umid);
             int slotid = (vflags.b == 1)
-                ? clamp(int(round((mfrac - 0.5) / 0.04)), 0, 7)
-                : ((mfrac > 0.575) ? 5 : 0);
-            vec3 slotlift = (slotid == 5 || slotid == 6) ? vec3(0.0, 0.5, 0.0) : vec3(0.0);
+                ? clamp(int(round((mfrac - 0.5) / 0.035)), 0, 8)
+                : ((mfrac > 0.575) ? -1 : 0);
+            vec3 slotlift = (slotid == -1) ? vec3(0.0, 0.5, 0.0) : vec3(0.0); // legacy ground rule
             float slotsz = min(sx, sy);
-            if (vflags.b == 1 && slotid >= 1 && slotid <= 4) {
-                ivec4 dyn = ivec4(texelFetch(Sampler0, topleft + ivec2(slotid - 1, 1), 0) * 255.0 + 0.5);
-                slotsz = float(dyn.r*256 + dyn.g) / 65535.0 * 4.0;
+            if (vflags.b == 1 && slotid >= 1) {
+                int dynx = (slotid <= 4) ? (slotid - 1) : (6 + 2*vflags.g + (slotid - 5));
+                ivec4 dyn = ivec4(texelFetch(Sampler0, topleft + ivec2(dynx, 1), 0) * 255.0 + 0.5);
+                float szq = float(dyn.r*256 + dyn.g) / 65535.0 * 4.0;
+                if (szq > 0.0) slotsz = szq;
                 if ((dyn.b & 1) == 1) slotlift = vec3(0.0, 0.5, 0.0);
             }
             posoffset = fullRotation * ((posoffset + slotlift) * vec3(sy, sx, slotsz));
@@ -414,7 +419,7 @@ if (marker == ivec4(12,34,56,255)) {
         // atlas ROW falls inside one of the bands [y0, y0+frameH) cycle — the
         // rest of the atlas stays static.
         ivec4 aaf = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
-        int nbands = min(aaf.g, 4);
+        int nbands = min(aaf.g, 15);
         if (nbands > 0) {
             ivec4 m4 = ivec4(texelFetch(Sampler0, topleft + ivec2(4,1), 0) * 255.0 + 0.5);
             float ft = max(float(m4.r*65536 + m4.g*256 + m4.b), 1.0);
@@ -447,7 +452,7 @@ if (marker == ivec4(12,34,56,255)) {
             }
             texCoord  = (vec2(topleft.x, topleft.y+headerheight) + texuvpx + vec2(0.0, dy ))/atlasSize + uvjit;
             texCoord2 = (vec2(topleft.x, topleft.y+headerheight) + texuvpx + vec2(0.0, dy2))/atlasSize + uvjit;
-            transition = (inBand && bool(aaf.r)) ? fract(texTime / ft) : 0.0;
+            transition = (inBand && ((aaf.r & 1) == 1)) ? fract(texTime / ft) : 0.0;
         } else {
             texCoord = (vec2(topleft.x,topleft.y+headerheight) + texuvpx)/atlasSize + uvjit;
         }
@@ -658,7 +663,7 @@ if (isCustom == 0) {
                 // V-flipped). x=5.g holds the band COUNT (0..4); the midpoint
                 // decision keeps all 4 corners of a quad together.
                 ivec4 aaf = ivec4(texelFetch(Sampler0, ao + ivec2(5,1), 0)*255.0+0.5);
-                int anb = min(aaf.g, 4);
+                int anb = min(aaf.g, 15);
                 if (anb > 0) {
                     ivec4 am4 = ivec4(texelFetch(Sampler0, ao + ivec2(4,1), 0)*255.0+0.5);
                     float aft = max(float(am4.r*65536 + am4.g*256 + am4.b), 1.0);
@@ -684,7 +689,7 @@ if (isCustom == 0) {
                     }
                     texCoord  = (vec2(0, ahh) + auv*vec2(as) + vec2(0.0, ady ))/vec2(atlasSize) + ajit;
                     texCoord2 = (vec2(0, ahh) + auv*vec2(as) + vec2(0.0, ady2))/vec2(atlasSize) + ajit;
-                    transition = (aInBand && bool(aaf.r)) ? fract(atexTime / aft) : 0.0;
+                    transition = (aInBand && ((aaf.r & 1) == 1)) ? fract(atexTime / aft) : 0.0;
                 }
             }
             // Un-mirror left limbs: flip model X about its centre (geometry is centred)

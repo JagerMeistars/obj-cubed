@@ -2908,28 +2908,37 @@
         // Only written when ntextures>1 so a non-animated export stays byte-for-
         // byte identical to the pre-#9 encoder (these pixels remain zeroed).
         // Row-1 layout (v2):
-        //   x=0..3       — dynamic slot-marker table: pixel i = (SzH, SzL, flags)
-        //                  for marker id i+1 (q16 Z scale over 0..4; flags bit0 =
-        //                  dropped-item lift). Zero when unused.
-        //   x=4 RGB      — texture-animation frametime (24-bit ticks/frame)
-        //   x=5          — r = fade, g = atlas band COUNT (0..4), b = v2 flag
-        //   x=6+2i,7+2i  — atlas band i: (y0H, y0L, fHH) / (fHL, frameCount, -)
-        // Old shaders read x=5.g as a boolean enable — band count 1 still works.
+        //   x=0..3           — dynamic slot-marker entries for ids 1..4:
+        //                      (SzH, SzL, flags). Sz at q16 over 0..4, 0 = no
+        //                      Z override; flags bit0 = dropped/shelf lift.
+        //   x=4 RGB          — texture-animation frametime (24-bit ticks/frame)
+        //   x=5              — r = fade(bit0) | dynCount(bits1..4),
+        //                      g = atlas band COUNT, b = v2 flag
+        //   x=6+2i, 7+2i     — atlas band i: (y0H, y0L, fHH) / (fHL, frames, -)
+        //   x=6+2B + (id-5)  — dynamic entries for ids 5..8 (B = band count)
+        // Capacity is bounded by the texture width; bands are trimmed to fit.
+        const { dynamics } = assignSlotMarkers(buildDisplayTransforms(cfg));
+        const extraDyn = Math.max(0, dynamics.length - 4);
+        const maxBands = Math.min(15, Math.floor((tw - 6 - extraDyn) / 2));
+        if (atlasBands.length > maxBands) {
+            surfaceWarning(`the row-1 header fits ${maxBands} animated strips at this texture width (${tw}px) — ${atlasBands.length - maxBands} strip(s) will stay static. Widen the texture for more.`);
+            atlasBands.length = Math.max(0, maxBands);
+        }
         const texAnimActive = ntextures > 1 || atlasBands.length > 0;
         if (texAnimActive) {
             put(4, 1, Math.trunc(texFrametime/65536)%256, Math.trunc(texFrametime/256)%256,
                       texFrametime%256, 255);
         }
-        put(5, 1, (texAnimActive && texFade) ? 1 : 0, atlasBands.length, 1, 255);
+        put(5, 1, ((texAnimActive && texFade) ? 1 : 0) | (dynamics.length << 1),
+                  atlasBands.length, 1, 255);
         for (const [i, b] of atlasBands.entries()) {
             put(6 + 2*i, 1, Math.trunc(b.y0/256)%256, b.y0%256, Math.trunc(b.frameH/256)%256, 255);
             put(7 + 2*i, 1, b.frameH%256, b.frameCount%256, 0, 255);
         }
         // Dynamic slot markers (see assignSlotMarkers): per-slot exact display
         // Z scale + lift flag, addressed by the marker id baked into that
-        // slot's carrier UV midpoints.
+        // slot's carrier UV midpoints. Ids 1..4 at x=0..3; 5..8 after the bands.
         {
-            const { dynamics } = assignSlotMarkers(buildDisplayTransforms(cfg));
             const q16s = (v) => {
                 const c = Math.max(0, Math.min(4, v));
                 const u = Math.round(c / 4 * 65535);
@@ -2937,7 +2946,8 @@
             };
             for (const [i, d] of dynamics.entries()) {
                 const [hi, lo] = q16s(d.sz);
-                put(i, 1, hi, lo, d.lift ? 1 : 0, 255);
+                const x = i < 4 ? i : 6 + 2*atlasBands.length + (i - 4);
+                put(x, 1, hi, lo, d.lift ? 1 : 0, 255);
             }
         }
 
@@ -3262,23 +3272,26 @@
 
     // ── SLOT MARKERS v2 ─────────────────────────────────────────────────────
     // Each per-slot model.json bakes a SLOT ID into the U MIDPOINT of its
-    // carrier face UVs: midpoint = px + 0.5 + id*0.04 (U span 0.4 texel). The
+    // carrier face UVs: midpoint = px + 0.5 + id*0.035 (U span 0.4 texel). The
     // midpoint survives MC's anti-bleed UV shrink (it contracts UVs
     // SYMMETRICALLY toward the quad centre), and the shader recovers the id
     // via fract of the subgroup quad's U midpoint. Ids:
     //   0     — neutral (midpoint px+0.5 = the plain 0.1/0.9 margins; no
     //           marker rewrite needed): no lift, Z display scale falls back
     //           to min(Sx, Sy) (exact for uniform / X- or Y-only scales).
-    //   1..4  — DYNAMIC: this export's slots whose display Z scale differs
-    //           from min(Sx, Sy). Row-1 pixel x = id-1 carries (SzH, SzL,
-    //           flags): Sz at q16 over 0..4, flags bit0 = dropped-item lift.
-    //   5, 6  — ground / on_shelf defaults: +0.5-block lift (their pipeline
-    //           rides half a block higher; model.json translation Y is clamped
-    //           by MC and the +8 element offset is capped by the format).
+    //   1..8  — DYNAMIC, one per slot needing a lift and/or a distinct Z
+    //           display scale (there are exactly 8 non-GUI slots, so this
+    //           covers every slot). Each id owns a row-1 table pixel carrying
+    //           (SzH, SzL, flags): Sz at q16 over 0..4 with 0 = "no override,
+    //           use min(Sx,Sy)"; flags bit0 = the +0.5-block dropped/shelf
+    //           lift (their pipeline rides half a block higher; model.json
+    //           translation Y is clamped by MC and the +8 element offset is
+    //           capped by the format). Table pixels: ids 1..4 at x=0..3, ids
+    //           5..8 AFTER the atlas bands at x = 6 + 2*bandCount + (id-5).
     // Gated by the v2 flag (row-1 x=5.b): legacy exports keep the old single
     // 0.65-midpoint rule in the shader.
-    const SLOT_MARKER = { NEUTRAL: 0, GROUND: 5, SHELF: 6, DYN_MIN: 1, DYN_MAX: 4 };
-    const slotMarkerMid = (id) => 0.5 + id * 0.04;
+    const SLOT_MARKER = { NEUTRAL: 0, DYN_MIN: 1, DYN_MAX: 8 };
+    const slotMarkerMid = (id) => 0.5 + id * 0.035;
     function calibratedElementsForSlot(baseElements, slot, markerId) {
         const off = SLOT_OFFSETS[slot] || { x: 0, y: 0, z: 0 };
         const id = markerId || 0;
@@ -3305,28 +3318,27 @@
 
     // Assign v2 marker ids for this export from its display transforms.
     // Returns { ids: Map<slot, id>, dynamics: [{slot, sz, lift}] } — dynamics
-    // are written into the PNG row-1 table (x = id-1) by buildOutput's caller.
+    // are written into the PNG row-1 table by buildOutput (sz 0 = "no Z
+    // override"). Every slot needing a lift and/or a distinct Z scale gets an
+    // entry; there are 8 non-GUI slots and 8 ids, so nothing ever overflows.
     function assignSlotMarkers(displayTransforms) {
         const ids = new Map();
         const dynamics = [];
-        const needsDyn = (d) => {
-            if (!d || !d.scale) return false;
+        const zOverride = (d) => {
+            if (!d || !d.scale) return 0;
             const s = d.scale;
-            return Math.abs(s[2] - Math.min(s[0], s[1])) > 1e-4;
+            return Math.abs(s[2] - Math.min(s[0], s[1])) > 1e-4 ? s[2] : 0;
         };
         for (const slot of DISPLAY_SLOTS) {
             if (slot === 'gui') continue;                  // GUI scale is header-exact already
             const lift = (slot === 'ground' || slot === 'on_shelf');
-            if (needsDyn(displayTransforms[slot])) {
-                if (dynamics.length < SLOT_MARKER.DYN_MAX) {
-                    dynamics.push({ slot, sz: displayTransforms[slot].scale[2], lift });
-                    ids.set(slot, SLOT_MARKER.DYN_MIN + dynamics.length - 1);
-                    continue;
-                }
-                surfaceWarning(`more than ${SLOT_MARKER.DYN_MAX} display slots use a distinct Z scale — "${slot}" falls back to min(X,Y) scale on Z.`);
+            const sz = zOverride(displayTransforms[slot]);
+            if (lift || sz !== 0) {
+                dynamics.push({ slot, sz, lift });
+                ids.set(slot, SLOT_MARKER.DYN_MIN + dynamics.length - 1);
+            } else {
+                ids.set(slot, SLOT_MARKER.NEUTRAL);
             }
-            if (lift) ids.set(slot, slot === 'ground' ? SLOT_MARKER.GROUND : SLOT_MARKER.SHELF);
-            else ids.set(slot, SLOT_MARKER.NEUTRAL);
         }
         return { ids, dynamics };
     }

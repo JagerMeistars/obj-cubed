@@ -207,9 +207,9 @@ describe('atlas texture animation (strip inside a stitched atlas)', () => {
     expect(rd(3, 0)[3]).toBe(1);
     // atlas is 16 wide, 32(strip)+16(flat) = 48 tall
     expect(rd(1, 0)[2] * 256 + rd(7, 0)[0]).toBe(48);
-    // row-1 atlas-anim band: x=5 = (fade=1, enable=1); x=4 = frametime 7
-    expect(rd(5, 1)[0]).toBe(1);                         // fade
-    expect(rd(5, 1)[1]).toBe(1);                         // enable flag
+    // row-1 atlas-anim band: x=5.r bit0 = fade, x=5.g = band count; x=4 = frametime 7
+    expect(rd(5, 1)[0] & 1).toBe(1);                     // fade (bits 1..4 = dyn count)
+    expect(rd(5, 1)[1]).toBe(1);                         // band count
     expect(rd(4, 1)[0] * 65536 + rd(4, 1)[1] * 256 + rd(4, 1)[2]).toBe(7); // frametime
     // band: the atlas stores regions V-FLIPPED, so image frame 0 (top) lives at
     // the BOTTOM of the strip region: y0 = off.y + off.h - frameH = 0+32-16 = 16.
@@ -323,13 +323,13 @@ describe('atlas texture animation (strip inside a stitched atlas)', () => {
 
   it('shader has the v2 slot-marker decode (id from U midpoint, dyn Sz table)', () => {
     expect(GLSL).toMatch(/vflags\.b == 1/);               // v2 gate
-    expect(GLSL).toMatch(/mfrac - 0\.5\) \/ 0\.04/);      // id decode
-    expect(GLSL).toMatch(/slotid - 1, 1/);                // dyn table pixel
+    expect(GLSL).toMatch(/mfrac - 0\.5\) \/ 0\.035/);     // id decode (ids 0..8)
+    expect(GLSL).toMatch(/6 \+ 2\*vflags\.g \+ \(slotid - 5\)/); // ids 5..8 after the bands
     expect(GLSL).toMatch(/handsz/);                       // hand path uses it too
   });
 
   it('shader has the atlas-anim sampling path (multi-band, steps UP per frame)', () => {
-    expect(GLSL).toMatch(/min\(aaf\.g, 4\)/);   // x=5.g = band COUNT (up to 4)
+    expect(GLSL).toMatch(/min\(aaf\.g, 15\)/);  // x=5.g = band COUNT (up to 15)
     expect(GLSL).toMatch(/inBand/);
     expect(GLSL).toMatch(/-tf \* fH/); // flip-aware: frames step upward in storage
   });

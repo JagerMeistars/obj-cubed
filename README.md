@@ -94,9 +94,9 @@ geometry animation (its clock is separate — both can run at once):
   treated as vertical square frames; UV-map onto the **top** frame.
 - Set **ticks per frame** and optional **cross-fade** (like `interpolate` in a
   vanilla `.mcmeta`).
-- Works in hand, GUI, world and **on armor**. Inside an **atlas**, up to four
-  animated strips are supported — they animate (each with its own frame count),
-  the other textures stay static.
+- Works in hand, GUI, world and **on armor**. Inside an **atlas**, multiple
+  animated strips are supported (each with its own frame count; capacity scales
+  with texture width, up to 15) — the other textures stay static.
 - The GUI icon is pinned to frame 0 of both the geometry and the texture (MC
   bakes inventory icons once, so a live clock would freeze a random frame).
 
@@ -239,14 +239,10 @@ When `colorbehavior = time/time/time` (set automatically when generating a datap
 
 ## Limitations (by design or not yet supported)
 
-- **Up to four animated strips per atlas** (the row-1 header holds four bands);
-  further strips are exported static, with a warning. All strips share one
-  tick rate.
-- **Up to four display slots with a distinct Z scale** per model: the flat
-  carrier only exposes X/Y, so a Z scale that differs from `min(Sx, Sy)` rides
-  the header via a per-slot marker (exact); a fifth such slot falls back to
-  `min(Sx, Sy)`, with a warning. Uniform and X-/Y-only scales are always exact,
-  and the GUI slot is always exact.
+- **Animated strips per atlas are texture-width-bound**: each strip costs two
+  header pixels, so a 16px-wide texture fits ~5 strips, 32px ~11, 64px+ the
+  hard cap of 15. Overflowing strips are exported static, with a warning that
+  says how many fit. All strips share one tick rate.
 - **Ground / shelf Y translation** is clamped by Minecraft itself; obj³
   compensates the base height internally, but a custom Y translation on these
   slots will not move the model.

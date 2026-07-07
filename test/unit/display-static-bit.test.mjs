@@ -162,9 +162,11 @@ describe('A2/B encoder: t[14]/t[15] carry the q16 GUI pivot (block centre, not h
     expect(p14[3]).toBe(255);
     expect(p15[3]).toBe(255);
     // Hand scale stays OUT of t[14]/t[15] (it lives in model.json display now).
-    // Dead row-1 hand rotation/translation pixels stay zeroed.
-    expect(pixel(res, 0, 1)).toEqual([0, 0, 0, 255]);
-    expect(pixel(res, 1, 1)).toEqual([0, 0, 0, 255]);
+    // Row-1 x=0..1 now hold the v2 dynamic slot-marker entries for ground and
+    // on_shelf (always dynamic: Sz sentinel 0 + lift flag 1); x=2..3 stay zeroed
+    // (no other dynamic slots in this export — the hand scales are uniform).
+    expect(pixel(res, 0, 1)).toEqual([0, 0, 1, 255]);
+    expect(pixel(res, 1, 1)).toEqual([0, 0, 1, 255]);
     expect(pixel(res, 2, 1)).toEqual([0, 0, 0, 255]);
     expect(pixel(res, 3, 1)).toEqual([0, 0, 0, 255]);
   });
