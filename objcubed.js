@@ -1421,6 +1421,18 @@
     // Codecs.obj.compile() (which reads mesh.vertices), then restore.
     //
     // Uses DELTA matrix: delta = frameMatrix * inv(restMatrix).
+    // Sampled frame count for [start, end] at fps, endpoints inclusive. BB stores
+    // animation length rounded to ~5 decimals, so span*fps for non-decimal fps
+    // lands just BELOW the integer (1/3 s @ 24fps -> 0.33333*24 = 7.99992) and a
+    // bare floor() DROPS THE FINAL KEYFRAME — armor/item play_once then freezes
+    // one frame short of the artist's end pose. Snap to the nearest integer when
+    // within 0.01 frame (covers BB's rounding at any sane fps); floor otherwise
+    // (a mid-frame trim the user typed on purpose stays a trim).
+    function frameCountOf(start, end, fps) {
+        const span = (end - start) * fps;
+        const n = Math.abs(span - Math.round(span)) < 0.01 ? Math.round(span) : Math.floor(span);
+        return Math.max(1, n + 1);
+    }
     // At frameStart the delta is identity → frame 0 matches static export exactly.
     // Any constant scene scale in BB's THREE.js root cancels out.
     async function compileAnimatedObjFrames(anim, opts) {
@@ -1428,10 +1440,7 @@
         const fps        = opts.fps        || anim.snapping || 20;
         const frameStart = opts.frameStart != null ? opts.frameStart : 0;
         const frameEnd   = opts.frameEnd   != null ? opts.frameEnd   : anim.length;
-        // +1e-6 epsilon: (end-start)*fps lands just below the integer for many
-        // user-typed decimals (1.16*25 = 28.999…) and a bare floor would drop
-        // the final keyframe. previewFrameCount/frameCountPreview mirror this.
-        const nframes    = Math.max(1, Math.floor((frameEnd - frameStart) * fps + 1e-6) + 1);
+        const nframes    = frameCountOf(frameStart, frameEnd, fps);
         const filterGroups = collectBoneUUIDs();
         const filterArm  = filterGroups.size > 0;
 
@@ -4527,7 +4536,7 @@
                         const start = +this.animStart || 0;
                         const end = +this.animEnd || 0;
                         if (end <= start) return '';
-                        const n = Math.max(1, Math.floor((end - start) * fps + 1e-6) + 1);
+                        const n = frameCountOf(start, end, fps);
                         return n + ' ' + tPlural(n, 'frames');
                     },
                     // Auto-computed duration in ticks (1 tick = 1/20 s).
@@ -4548,7 +4557,7 @@
                         const start = +this.animStart || 0;
                         const end = +this.animEnd || 0;
                         if (end <= start) return 1;
-                        return Math.max(1, Math.floor((end - start) * fps + 1e-6) + 1);
+                        return frameCountOf(start, end, fps);
                     },
                     previewTexSize() {
                         // Returns {w, h} based on current texture/atlas choice.
@@ -6060,7 +6069,7 @@
             computePartCenters, buildFaceToPart, collectBodyPartTags, applyBodyPartTags, parseFaceToken,
             calibratedElementsForSlot,
             buildItemTransformMatrix, activeSlotPrefixFor,
-            parseObj, parseMtl, posPixels, uvPixels, vertPixels, atlasTexIndicesFrom,
+            parseObj, parseMtl, posPixels, uvPixels, vertPixels, atlasTexIndicesFrom, frameCountOf,
             buildAtlas,
             encodePNG, estimateOutputPng, t, LANG, PERSISTABLE_FIELDS,
             surfaceWarning, pluralForm, tPlural,
