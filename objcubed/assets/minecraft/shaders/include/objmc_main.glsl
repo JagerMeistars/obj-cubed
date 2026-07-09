@@ -817,9 +817,18 @@ if (isCustom == 0) {
             // BEFORE the offset, so there is no lateral shift; combined with the det(-1)
             // left basis this cancels MC's X-mirror — left reads the same way as right.
             if (aleft) posoffset.x = -posoffset.x;
+            // WAIST: part-0 box on the LEGGINGS layer (this layer packs a leg).
+            // AOFF[0] was calibrated on the chest-layer body box (CubeDeformation
+            // 1.0); the leggings body box (0.5) has its anchor corner 0.5 model px
+            // closer to the box centre on every axis. Model-frame signs (-x,+y,+z)
+            // map through abasis to (+e1,+e2,-n) = toward centre. Theory value
+            // 0.0293 = 0.5/16 * 0.9375; per-axis calibration knob.
+            vec3 aoff = AOFF[atarget];
+            if (atarget == 0) for (int b = 0; b < nboxes && b < 3; b++)
+                if (t[8 + b].b == 4 || t[8 + b].b == 5) { aoff += vec3(-0.0293, 0.0293, 0.0293); break; }
             // ascale: model + AOFF are block units; the carrier (and thus the measured
             // anchor corners) is in wearer units. ==1.0 in world, no-op there.
-            posoffset = (posoffset - AOFF[atarget]) * ascale;
+            posoffset = (posoffset - aoff) * ascale;
             // Full 3D orientation from the carrier-quad corners (Der Discohund basis),
             // exactly like the world path above. This captures all THREE axes including
             // limb TWIST -- the 2-DOF normal method (ay/ap) lost the twist, so animated

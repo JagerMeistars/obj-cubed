@@ -280,6 +280,7 @@
             bp_none: '— None —',
             bp_head: 'Head',
             bp_body: 'Body / Chest',
+            bp_waist: 'Waist (leggings)',
             bp_arm_r: 'Right arm',
             bp_arm_l: 'Left arm',
             bp_leg_r: 'Right leg',
@@ -542,6 +543,7 @@
             bp_none: '— Нет —',
             bp_head: 'Голова',
             bp_body: 'Тело / Грудь',
+            bp_waist: 'Пояс (поножи)',
             bp_arm_r: 'Правая рука',
             bp_arm_l: 'Левая рука',
             bp_leg_r: 'Правая нога',
@@ -1301,7 +1303,7 @@
         if (!map || typeof Group === 'undefined' || !Group.all) return;
         for (const g of Group.all) {
             const v = g && g.uuid ? map[g.uuid] : undefined;
-            if (typeof v === 'number' && v >= -1 && v <= 7) g.objcubed_body_part = v;
+            if (typeof v === 'number' && v >= -1 && v <= 8) g.objcubed_body_part = v;
         }
     }
 
@@ -2164,7 +2166,8 @@
         return map;
     }
 
-    // Per-piece armor: map a face's group/element name to a body-part id (0..7),
+    // Per-piece armor: map a face's group/element name to a body-part id (0..8,
+    // 8 = waist: the leggings layer's body box),
     // mirroring collectEmissiveMap. A face's part comes from the nearest ancestor
     // GROUP carrying objcubed_body_part (set via the group context menu), or its own;
     // element/group NAMES matching a part also work (fallback, also used by tests).
@@ -2176,6 +2179,7 @@
         left_leg: 5, leftleg: 5, leg_l: 5, l_leg: 5,
         right_foot: 6, rightfoot: 6, foot_r: 6, r_foot: 6, right_boot: 6, boot_r: 6,
         left_foot: 7, leftfoot: 7, foot_l: 7, l_foot: 7, left_boot: 7, boot_l: 7,
+        waist: 8, pelvis: 8, hips: 8, hip: 8,
     };
     function normPartName(s) { return (s || '').toLowerCase().trim().replace(/[ \-]+/g, '_'); }
     // Export helper: turn the dialog's per-texture checkbox array into the list of
@@ -2320,6 +2324,11 @@
             const piv = pivots.get(part);
             ref.set(part, piv || [(b.min[0] + b.max[0]) / 2, b.min[1], (b.min[2] + b.max[2]) / 2]);
         }
+        // Waist(8) is body-anchored geometry on the leggings layer: re-centering it
+        // on its OWN bbox strips the artist's drawn offset from the torso (belt
+        // rendered shifted). Unless the artist pivoted the waist group explicitly,
+        // share the body(0) reference so waist places exactly like body-tagged geo.
+        if (ref.has(8) && !pivots.get(8) && ref.has(0)) ref.set(8, ref.get(0));
         return ref;
     }
 
@@ -3686,11 +3695,15 @@
                 // and its CARRIER box layout (abody -> part, from the shader's ABOX table) for
                 // box-packing: one layer rides TWO model faces per carrier box (its NORTH and
                 // SOUTH face), so a chestplate packs body+r_arm+l_arm x2 faces into one draw.
-                // Parts: 0 body,1 head,2 r_arm,3 l_arm,4 r_leg,5 l_leg,6 r_foot,7 l_foot.
+                // Parts: 0 body,1 head,2 r_arm,3 l_arm,4 r_leg,5 l_leg,6 r_foot,7 l_foot,
+                // 8 waist (an export-side alias: rides the leggings layer's body box, so
+                // it's written as part 0 — the shader then applies the body AOFF/carrier).
+                // `tags` maps each carrier box to the FACE TAG it collects (defaults to
+                // `carrier`); only leggings needs it, to pull waist(8) into its body box.
                 const PIECE_MAP = {
                     helmet:     { layer: 'humanoid',          slot: 'head',  give: 'helmet',     allowed: [1],       carrier: [1],       nboxes: 2 },
                     chestplate: { layer: 'humanoid',          slot: 'chest', give: 'chestplate', allowed: [0, 2, 3], carrier: [2, 3, 0], nboxes: 3 },
-                    leggings:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   allowed: [4, 5],    carrier: [5, 4, 0], nboxes: 3 },
+                    leggings:   { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   allowed: [4, 5, 8], carrier: [5, 4, 0], tags: [5, 4, 8], nboxes: 3 },
                     boots:      { layer: 'humanoid',          slot: 'feet',  give: 'boots',      allowed: [6, 7],    carrier: [7, 6],    nboxes: 2 },
                 };
                 // Per-face emissive levels (light_emission, 0..15) so the armor shader can make
@@ -3747,10 +3760,10 @@
                         const eqName = `${modelName}_${pieceKey}`;
                         const eqTexDir = path.join(root, 'assets', equipNs, 'textures', 'entity', 'equipment', piece.layer);
                         fs.mkdirSync(eqTexDir, { recursive: true });
-                        // Faces per carrier box (by abody) = that box's part's faces, in order.
-                        const boxFaces = piece.carrier.map(part =>
-                            piece.allowed.indexOf(part) === -1 ? []
-                                : faceToPart.reduce((a, p, k) => { if (p === part) a.push(k); return a; }, []));
+                        // Faces per carrier box (by abody) = that box's TAG's faces, in order.
+                        const boxFaces = (piece.tags || piece.carrier).map(tag =>
+                            piece.allowed.indexOf(tag) === -1 ? []
+                                : faceToPart.reduce((a, p, k) => { if (p === tag) a.push(k); return a; }, []));
                         // Four faces per box per layer: north@4L, south@4L+1, west@4L+2, east@4L+3.
                         const layerCount = Math.max(1, ...boxFaces.map(f => Math.ceil(f.length / 4)));
                         const layers = [];
@@ -3794,6 +3807,7 @@
                         right_foot: { layer: 'humanoid',          slot: 'feet',  give: 'boots',      carrier: [7, 6],    nboxes: 2, id: 6 },
                         left_foot:  { layer: 'humanoid',          slot: 'feet',  give: 'boots',      carrier: [7, 6],    nboxes: 2, id: 7 },
                         legs:       { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   carrier: [5, 4, 0], nboxes: 3, id: 5 },
+                        waist:      { layer: 'humanoid_leggings', slot: 'legs',  give: 'leggings',   carrier: [5, 4, 0], nboxes: 3, id: 0 },
                         feet:       { layer: 'humanoid',          slot: 'feet',  give: 'boots',      carrier: [7, 6],    nboxes: 2, id: 7 },
                     };
                     const partInfo = PART_MAP[cfg.equipmentSlot] || PART_MAP.chest;
@@ -5972,7 +5986,7 @@
                 // [i18n key, body-part id]. Label text comes from t() so the menu and
                 // its toast follow the active language.
                 const OC_BODY_PARTS = [
-                    ['bp_none', -1], ['bp_head', 1], ['bp_body', 0], ['bp_arm_r', 2], ['bp_arm_l', 3],
+                    ['bp_none', -1], ['bp_head', 1], ['bp_body', 0], ['bp_waist', 8], ['bp_arm_r', 2], ['bp_arm_l', 3],
                     ['bp_leg_r', 4], ['bp_leg_l', 5], ['bp_foot_r', 6], ['bp_foot_l', 7],
                 ];
                 this._bodyPartMenuItem = {

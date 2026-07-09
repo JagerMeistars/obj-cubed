@@ -263,6 +263,27 @@ describe('equipment (armor) export — Approach C', () => {
     expect(dec.boxes[2]).toEqual({ northK: 1, part: 0, southK: null, westK: null, eastK: null }); // body
   });
 
+  it('piece mode: waist(8) rides the leggings body box as part 0, not the chestplate', async () => {
+    const { api, memfs } = setup();
+    const r = makeResult(4);
+    r.faceGroups = ['waist', 'right_leg', 'left_leg', 'body']; // parts 8,4,5,0
+    await api.saveSingleOutput(r, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+      exportAsEquipment: true, cmdName: 'cat', selectedPieces: ['chestplate', 'leggings'],
+    });
+    const dec = decodePacked(
+      memfs.writes.get('/rp/assets/minecraft/textures/entity/equipment/humanoid_leggings/cat_leggings_0.png'));
+    expect(dec.nboxes).toBe(3);
+    // carrier order [l_leg(5), r_leg(4), body(0)]; waist face lands in the body box AS part 0.
+    expect(dec.boxes[0]).toEqual({ northK: 2, part: 5, southK: null, westK: null, eastK: null }); // l_leg
+    expect(dec.boxes[1]).toEqual({ northK: 1, part: 4, southK: null, westK: null, eastK: null }); // r_leg
+    expect(dec.boxes[2]).toEqual({ northK: 0, part: 0, southK: null, westK: null, eastK: null }); // waist -> body box
+    // chestplate keeps only the real body face (3), not the waist face (0).
+    const cdec = decodePacked(
+      memfs.writes.get('/rp/assets/minecraft/textures/entity/equipment/humanoid/cat_chestplate_0.png'));
+    expect(cdec.boxes[2]).toEqual({ northK: 3, part: 0, southK: null, westK: null, eastK: null });
+  });
+
   it('piece mode: duplicate element names resolve by OBJ block order (the real bug)', async () => {
     // Two cubes both literally named "cube" (BB default) under part-tagged groups.
     // The name-keyed map collided them (-> all one part); block order must not.
@@ -328,6 +349,21 @@ describe('equipment (armor) export — Approach C', () => {
     // Without centering (item path): raw BB coords preserved (no regression).
     const raw = api.buildVertexData([obj], null, null, null);
     expect(raw.data.positions.some(p => p.some(c => Math.abs(c) > 5))).toBe(true);
+  });
+
+  it('centering: waist(8) shares the body(0) reference — belt keeps its drawn offset', () => {
+    const { api } = setup();
+    // Torso quad centered at X=10.5; belt quad deliberately OFF-axis (X 12..13).
+    const obj = [
+      'o body',  'v 10 0 0', 'v 11 0 0', 'v 11 1 0', 'v 10 1 0', 'f 1 2 3 4',
+      'o waist', 'v 12 5 0', 'v 13 5 0', 'v 13 6 0', 'v 12 6 0', 'f 5 6 7 8',
+    ].join('\n');
+    const f0 = api.parseObj(obj, 0);
+    const partRef = api.computePartCenters(f0, [0, 8]);
+    expect(partRef.get(8)).toEqual(partRef.get(0)); // NOT its own bbox [12.5, 5, 0]
+    // Without body geometry, waist falls back to its own bbox (nothing better).
+    const alone = api.computePartCenters(f0, [-1, 8]);
+    expect(alone.get(8)).toEqual([12.5, 5, 0]);
   });
 
   it('group body-part tags round-trip through collect/apply (persistence fix)', () => {
