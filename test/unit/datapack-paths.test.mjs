@@ -144,21 +144,32 @@ describe('datapack correctness (review batch 2)', () => {
     const files = api.generateDatapackFiles('walk', 10, 'mypack', 'equipment', 'mainhand');
     // play_once stores an absolute deadline = gametime + nframes in objective <id>.end
     const playOnce = files.get('data/mypack/function/walk/play_once.mcfunction');
-    expect(playOnce).toMatch(/execute store result score @s walk\.end run time query gametime/);
-    expect(playOnce).toMatch(/scoreboard players add @s walk\.end 10/); // + nframes
+    expect(playOnce).toMatch(/execute store result score @s objcubed\.walk\.end run time query gametime/);
+    expect(playOnce).toMatch(/scoreboard players add @s objcubed\.walk\.end 10/); // + nframes
     // init registers the new objective
     const init = files.get('data/mypack/function/walk/init.mcfunction');
-    expect(init).toMatch(/scoreboard objectives add walk\.end dummy/);
+    expect(init).toMatch(/scoreboard objectives add objcubed\.walk\.end dummy/);
     // a minecraft:tick tag drives the per-entity check
     expect(files.has('data/minecraft/tags/function/tick.json')).toBe(true);
     const tickTag = JSON.parse(files.get('data/minecraft/tags/function/tick.json'));
     expect(tickTag.values).toContain('mypack:walk/tick');
     expect(files.has('data/mypack/function/walk/zzz/_latch_once.mcfunction')).toBe(true);
     const latch = files.get('data/mypack/function/walk/zzz/_latch_once.mcfunction');
-    expect(latch).toMatch(/scoreboard players set @s walk 9/);          // last frame = nframes-1
+    expect(latch).toMatch(/scoreboard players set @s objcubed\.walk 9/);          // last frame = nframes-1
     expect(latch).toMatch(/tag @s remove walk\.once/);
     // referential closure: tick.mcfunction and _check_once must exist
     expect(files.has('data/mypack/function/walk/tick.mcfunction')).toBe(true);
     expect(files.has('data/mypack/function/walk/zzz/_check_once.mcfunction')).toBe(true);
+  });
+it('armor slots drive minecraft:dyed_color; hand slots keep potion_contents (prefix objcubed.)', () => {
+    const armor = api.generateDatapackFiles('walk', 10, 'mypack', 'equipment', 'chest');
+    const armorApply = armor.get('data/mypack/function/walk/zzz/_apply_auto.mcfunction');
+    expect(armorApply).toMatch(/"minecraft:dyed_color" set value 0/);
+    expect(armorApply).toMatch(/"minecraft:dyed_color" int 1 run scoreboard players get @s objcubed\.walk/);
+    expect(armorApply).not.toMatch(/potion_contents/);
+    const hand = api.generateDatapackFiles('walk', 10, 'mypack', 'equipment', 'mainhand');
+    const handApply = hand.get('data/mypack/function/walk/zzz/_apply_auto.mcfunction');
+    expect(handApply).toMatch(/"minecraft:potion_contents"\.custom_color int 1/);
+    expect(handApply).not.toMatch(/dyed_color/);
   });
 });

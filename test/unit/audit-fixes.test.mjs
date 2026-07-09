@@ -178,8 +178,10 @@ function loadAtlasDims(dimsBySrc) {
     settings: { language: { value: 'en' } },
     Image: FakeImage, document,
     Texture: { all: [
-      { uuid: 'a', name: 'strip', source: 'data:strip', img: { src: 'data:strip' } },
-      { uuid: 'b', name: 'flat', source: 'data:flat', img: { src: 'data:flat' } },
+      Object.assign({ uuid: 'a', name: 'strip', source: 'data:strip', img: { src: 'data:strip' } },
+        dimsBySrc['data:strip'].tex || {}),
+      Object.assign({ uuid: 'b', name: 'flat', source: 'data:flat', img: { src: 'data:flat' } },
+        dimsBySrc['data:flat'].tex || {}),
     ] },
     Outliner: { root: [] },
   };
@@ -188,6 +190,40 @@ function loadAtlasDims(dimsBySrc) {
   vm.runInContext(CODE, sandbox, { filename: SRC });
   return mod.exports.__test;
 }
+
+describe('multi-resolution textures in an atlas (krushka3 bug)', () => {
+  // A plain hi-res texture has uv_height < image height (coarser uv GRID over the
+  // WHOLE image). Only a texture actually animated in BB confines uv space to one
+  // frame. uvh must stay = image height here or every face gets squeezed into the
+  // top band.
+  it('hi-res non-animated texture (uv_height = h/2): uvh = full image height', async () => {
+    const api = loadAtlasDims({
+      'data:strip': { w: 16, h: 32, tex: { uv_width: 8, uv_height: 16 } },
+      'data:flat':  { w: 16, h: 16 },
+    });
+    const atlas = await api.buildAtlas([0, 1], false);
+    expect(atlas.offsets.get(0).uvh).toBe(32);
+    expect(atlas.offsets.get(1).uvh).toBe(16);
+  });
+  it('BB-animated texture (frame_count > 1) keeps the one-frame uvh even with texAnim off', async () => {
+    const api = loadAtlasDims({
+      'data:strip': { w: 16, h: 32, tex: { uv_width: 16, uv_height: 16, frame_count: 2 } },
+      'data:flat':  { w: 16, h: 16 },
+    });
+    const atlas = await api.buildAtlas([0, 1], false);
+    expect(atlas.offsets.get(0).uvh).toBe(16);
+  });
+  it('no frame_count getter: texAnim checkbox + slice shape decides', async () => {
+    const api = loadAtlasDims({
+      'data:strip': { w: 16, h: 32, tex: { uv_width: 16, uv_height: 16 } },
+      'data:flat':  { w: 16, h: 16 },
+    });
+    const on = await api.buildAtlas([0, 1], true);
+    expect(on.offsets.get(0).uvh).toBe(16);
+    const off = await api.buildAtlas([0, 1], false);
+    expect(off.offsets.get(0).uvh).toBe(32);
+  });
+});
 
 describe('atlas texture animation (strip inside a stitched atlas)', () => {
   it('16x32 strip (2 frames) stacked first + 16x16 static: header band + shader path', async () => {

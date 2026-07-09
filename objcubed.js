@@ -2071,7 +2071,7 @@
 
     // Build a texture atlas by stacking multiple textures vertically.
     // Returns { data: Uint8Array, width, height, offsets: Map<texIdx, {x,y,w,h}> }
-    async function buildAtlas(texIndices) {
+    async function buildAtlas(texIndices, texAnimEnabled) {
         if (!texIndices || texIndices.length === 0) throw new Error('No textures selected for atlas');
         const texDatas = [];
         for (const idx of texIndices) {
@@ -2081,12 +2081,20 @@
         let atlasH = 0;
         const offsets = new Map(); // texIdx → { x, y, w, h, uvh }
         for (const t of texDatas) {
-            // uvh = the texture's BLOCKBENCH UV-space height. For a texture marked
-            // animated IN BLOCKBENCH, BB sets its UV size to ONE FRAME and the OBJ
-            // codec emits vt normalized to that frame — so remapUV must scale V by
-            // uvh, not the full image height. Plain textures: uvh == image height.
+            // uvh = the texture's BLOCKBENCH UV-space height, but ONLY for a
+            // texture that is actually ANIMATED in BB (there its uv space covers
+            // ONE frame, and the OBJ codec emits vt normalized to that frame).
+            // A plain hi-res texture ALSO has uv_height < image height (the uv
+            // grid is just coarser) yet its uv space maps the WHOLE image —
+            // treating it as a frame squeezed all faces into the top band and
+            // broke every multi-resolution model. Animated = BB's frame_count
+            // when the getter exists, else the texAnim checkbox + slice shape.
             const bbTex = Texture.all[t.idx];
-            const uvh = (bbTex && +bbTex.uv_height > 0) ? +bbTex.uv_height : t.rgba.height;
+            const uvhRaw = (bbTex && +bbTex.uv_height > 0) ? +bbTex.uv_height : t.rgba.height;
+            const sliced = uvhRaw < t.rgba.height && t.rgba.height % uvhRaw === 0;
+            const fc = bbTex ? +bbTex.frame_count : NaN;
+            const bbAnimated = Number.isFinite(fc) ? fc > 1 : (!!texAnimEnabled && sliced);
+            const uvh = (sliced && bbAnimated) ? uvhRaw : t.rgba.height;
             offsets.set(t.idx, { x: 0, y: atlasH, w: t.rgba.width, h: t.rgba.height, uvh });
             atlasH += t.rgba.height;
         }
@@ -2652,7 +2660,7 @@
         const atlasBands = []; // { y0, frameH, frameCount } per animated strip inside the atlas (max 4)
         if (cfg.useAtlas && referencedTexIndices.size > 1) {
             // Multi-texture: build atlas
-            const atlas = await buildAtlas([...referencedTexIndices]);
+            const atlas = await buildAtlas([...referencedTexIndices], !!cfg.texAnimEnabled);
             texData = { data: atlas.data, width: atlas.width, height: atlas.height };
             atlasInfo = {
                 materialToTexIdx,
@@ -3756,7 +3764,10 @@
                             if (slots.every(s => !s)) continue;           // empty layer
                             const texName = `${eqName}_${L}`;
                             writePackedLayer(path.join(eqTexDir, `${texName}.png`), piece.nboxes, slots, piece.carrier);
-                            layers.push({ texture: `${equipNs}:${texName}` });
+                            layers.push({ texture: `${equipNs}:${texName}`,
+                                // dyeable: the datapack drives playback through minecraft:dyed_color
+                                // (the shader reads the layer tint); undyed stays white = autoplay header.
+                                dyeable: { color_when_undyed: 16777215 } });
                         }
                         // A piece with no tagged faces would write an empty {layers:{type:[]}}
                         // def (invisible armor) and still report success — skip + tell the user.
@@ -3805,7 +3816,10 @@
                         };
                         const texName = `${eqName}_${L}`;
                         writePackedLayer(path.join(eqTexDir, `${texName}.png`), partInfo.nboxes, slots, partInfo.carrier);
-                        layers.push({ texture: `${equipNs}:${texName}` });
+                        layers.push({ texture: `${equipNs}:${texName}`,
+                                // dyeable: the datapack drives playback through minecraft:dyed_color
+                                // (the shader reads the layer tint); undyed stays white = autoplay header.
+                                dyeable: { color_when_undyed: 16777215 } });
                     }
                     fs.writeFileSync(path.join(equipJsonDir, `${eqName}.json`),
                         JSON.stringify({ layers: { [layerType]: layers } }, null, 2), 'utf8');
@@ -3832,6 +3846,9 @@
         // `function ns:id` refs (baseItem/cmdName are already sanitized this way).
         const ns = ((namespace || 'objcubed').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')) || 'objcubed';
         const id = ((animId || 'anim').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')) || 'anim';
+        // Scoreboard objectives get their own namespace prefix so generated
+        // objectives can't collide with a map's own scoreboards named after models.
+        const sb = `objcubed.${id}`;
         const pub = `${id}`;
         const priv = `${id}/zzz`;
         const files = new Map();
@@ -3852,6 +3869,15 @@
             ? 'item'
             : (EQUIP_PATH[equipSlot] || 'equipment.mainhand');
         const playerSlot = PLAYER_SLOT[equipSlot] || 'weapon.mainhand';
+        // Armor renders as equipment layers: the tint channel there is the DYE
+        // color (layers are exported dyeable), not the potion color.
+        const isArmor = ['head', 'chest', 'legs', 'feet'].includes(equipSlot);
+        const compSet = isArmor
+            ? `${equipPath}.components."minecraft:dyed_color" set value 0`
+            : `${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`;
+        const compStore = isArmor
+            ? `${equipPath}.components."minecraft:dyed_color" int 1`
+            : `${equipPath}.components."minecraft:potion_contents".custom_color int 1`;
         // Per-run isolation (A5): a per-animation tag + tight distance relative to
         // the executing player (@s) so concurrent player runs each grab only the
         // stand at their own feet (not another player's leftover stand).
@@ -3875,11 +3901,11 @@
 
         // init — scoreboards + constants
         files.set(`data/${ns}/function/${pub}/init.mcfunction`, [
-            `scoreboard objectives add ${id} dummy`,
-            `scoreboard objectives add ${id}.end dummy`,
-            `scoreboard players set #dur ${id} ${nframes}`,
-            `scoreboard players set #base ${id} 8388608`,
-            `scoreboard players set #cycle ${id} 24000`,
+            `scoreboard objectives add ${sb} dummy`,
+            `scoreboard objectives add ${sb}.end dummy`,
+            `scoreboard players set #dur ${sb} ${nframes}`,
+            `scoreboard players set #base ${sb} 8388608`,
+            `scoreboard players set #cycle ${sb} 24000`,
         ].join('\n'));
 
         // play — autoplay loop starting at frame 0 (synced to GameTime). Stores the
@@ -3889,9 +3915,9 @@
         // play_from to start at a specific frame.)
         files.set(`data/${ns}/function/${pub}/play.mcfunction`, [
             `function ${ns}:${pub}/init`,
-            `execute store result score #gt ${id} run time query gametime`,
-            `scoreboard players operation #gt ${id} %= #dur ${id}`,
-            `scoreboard players operation @s ${id} = #gt ${id}`,
+            `execute store result score #gt ${sb} run time query gametime`,
+            `scoreboard players operation #gt ${sb} %= #dur ${sb}`,
+            `scoreboard players operation @s ${sb} = #gt ${sb}`,
             `tag @s add ${id}.auto`,
             `tag @s remove ${id}.once`,
             `function ${ns}:${priv}/_apply_auto`,
@@ -3901,19 +3927,19 @@
         files.set(`data/${ns}/function/${pub}/stop.mcfunction`, [
             `function ${ns}:${pub}/init`,
             `# play_once: freeze at last frame`,
-            `execute if entity @s[tag=${id}.once] run scoreboard players operation @s ${id} = #dur ${id}`,
-            `execute if entity @s[tag=${id}.once] run scoreboard players remove @s ${id} 1`,
+            `execute if entity @s[tag=${id}.once] run scoreboard players operation @s ${sb} = #dur ${sb}`,
+            `execute if entity @s[tag=${id}.once] run scoreboard players remove @s ${sb} 1`,
             `# autoplay: compute current frame`,
-            `execute if entity @s[tag=${id}.auto] store result score #gt ${id} run time query gametime`,
-            `execute if entity @s[tag=${id}.auto] run scoreboard players operation #gt ${id} -= @s ${id}`,
-            `execute if entity @s[tag=${id}.auto] run scoreboard players operation #gt ${id} %= #dur ${id}`,
-            `execute if entity @s[tag=${id}.auto] run scoreboard players operation @s ${id} = #gt ${id}`,
+            `execute if entity @s[tag=${id}.auto] store result score #gt ${sb} run time query gametime`,
+            `execute if entity @s[tag=${id}.auto] run scoreboard players operation #gt ${sb} -= @s ${sb}`,
+            `execute if entity @s[tag=${id}.auto] run scoreboard players operation #gt ${sb} %= #dur ${sb}`,
+            `execute if entity @s[tag=${id}.auto] run scoreboard players operation @s ${sb} = #gt ${sb}`,
             `tag @s remove ${id}.auto`,
             `tag @s remove ${id}.once`,
             `function ${ns}:${priv}/_apply_manual`,
         ].join('\n'));
 
-        // set — freeze at specific frame (user sets @s <id> = frame before calling)
+        // set — freeze at specific frame (user sets @s objcubed.<id> = frame before calling)
         files.set(`data/${ns}/function/${pub}/set.mcfunction`, [
             `function ${ns}:${pub}/init`,
             `tag @s remove ${id}.auto`,
@@ -3921,13 +3947,13 @@
             `function ${ns}:${priv}/_apply_manual`,
         ].join('\n'));
 
-        // play_from — autoplay loop from frame N (user sets @s <id> = N before calling)
+        // play_from — autoplay loop from frame N (user sets @s objcubed.<id> = N before calling)
         files.set(`data/${ns}/function/${pub}/play_from.mcfunction`, [
             `function ${ns}:${pub}/init`,
-            `execute store result score #gt ${id} run time query gametime`,
-            `scoreboard players operation #gt ${id} -= @s ${id}`,
-            `scoreboard players operation #gt ${id} %= #dur ${id}`,
-            `scoreboard players operation @s ${id} = #gt ${id}`,
+            `execute store result score #gt ${sb} run time query gametime`,
+            `scoreboard players operation #gt ${sb} -= @s ${sb}`,
+            `scoreboard players operation #gt ${sb} %= #dur ${sb}`,
+            `scoreboard players operation @s ${sb} = #gt ${sb}`,
             `tag @s add ${id}.auto`,
             `tag @s remove ${id}.once`,
             `function ${ns}:${priv}/_apply_auto`,
@@ -3938,12 +3964,12 @@
         // tick latch can freeze the entity permanently after nframes ticks.
         files.set(`data/${ns}/function/${pub}/play_once.mcfunction`, [
             `function ${ns}:${pub}/init`,
-            `execute store result score @s ${id} run time query gametime`,
-            `scoreboard players operation @s ${id} %= #cycle ${id}`,
-            `scoreboard players add @s ${id} 32768`,
+            `execute store result score @s ${sb} run time query gametime`,
+            `scoreboard players operation @s ${sb} %= #cycle ${sb}`,
+            `scoreboard players add @s ${sb} 32768`,
             // absolute deadline = now + nframes ticks (monotonic gametime, NOT day-wrapped)
-            `execute store result score @s ${id}.end run time query gametime`,
-            `scoreboard players add @s ${id}.end ${nframes}`,
+            `execute store result score @s ${sb}.end run time query gametime`,
+            `scoreboard players add @s ${sb}.end ${nframes}`,
             `tag @s remove ${id}.auto`,
             `tag @s add ${id}.once`,
             `function ${ns}:${priv}/_apply_auto`,
@@ -3958,36 +3984,36 @@
             files.set(`data/${ns}/function/${priv}/_apply_auto.mcfunction`, [
                 tmpSummon,
                 `execute at @s run item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
-                `execute at @s run data modify entity ${tmp} ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
-                `execute at @s store result entity ${tmp} ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get @s ${id}`,
+                `execute at @s run data modify entity ${tmp} ${compSet}`,
+                `execute at @s store result entity ${tmp} ${compStore} run scoreboard players get @s ${sb}`,
                 `execute at @s run item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`,
                 `execute at @s run kill ${tmp}`,
             ].join('\n'));
         } else {
             files.set(`data/${ns}/function/${priv}/_apply_auto.mcfunction`, [
-                `data modify entity @s ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
-                `execute store result entity @s ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get @s ${id}`,
+                `data modify entity @s ${compSet}`,
+                `execute store result entity @s ${compStore} run scoreboard players get @s ${sb}`,
             ].join('\n'));
         }
 
         // _apply_manual — set manual color (custom_color = 0x800000 + frame from @s <id>)
         if (isPlayer) {
             files.set(`data/${ns}/function/${priv}/_apply_manual.mcfunction`, [
-                `scoreboard players operation #temp ${id} = #base ${id}`,
-                `scoreboard players operation #temp ${id} += @s ${id}`,
+                `scoreboard players operation #temp ${sb} = #base ${sb}`,
+                `scoreboard players operation #temp ${sb} += @s ${sb}`,
                 tmpSummon,
                 `execute at @s run item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
-                `execute at @s run data modify entity ${tmp} ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
-                `execute at @s store result entity ${tmp} ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get #temp ${id}`,
+                `execute at @s run data modify entity ${tmp} ${compSet}`,
+                `execute at @s store result entity ${tmp} ${compStore} run scoreboard players get #temp ${sb}`,
                 `execute at @s run item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`,
                 `execute at @s run kill ${tmp}`,
             ].join('\n'));
         } else {
             files.set(`data/${ns}/function/${priv}/_apply_manual.mcfunction`, [
-                `scoreboard players operation #temp ${id} = #base ${id}`,
-                `scoreboard players operation #temp ${id} += @s ${id}`,
-                `data modify entity @s ${equipPath}.components."minecraft:potion_contents" set value {custom_color:0}`,
-                `execute store result entity @s ${equipPath}.components."minecraft:potion_contents".custom_color int 1 run scoreboard players get #temp ${id}`,
+                `scoreboard players operation #temp ${sb} = #base ${sb}`,
+                `scoreboard players operation #temp ${sb} += @s ${sb}`,
+                `data modify entity @s ${compSet}`,
+                `execute store result entity @s ${compStore} run scoreboard players get #temp ${sb}`,
             ].join('\n'));
         }
 
@@ -3998,11 +4024,11 @@
             `execute as @e[tag=${id}.once] run function ${ns}:${priv}/_check_once`,
         ].join('\n'));
         files.set(`data/${ns}/function/${priv}/_check_once.mcfunction`, [
-            `execute store result score #now ${id} run time query gametime`,
-            `execute if score #now ${id} >= @s ${id}.end run function ${ns}:${priv}/_latch_once`,
+            `execute store result score #now ${sb} run time query gametime`,
+            `execute if score #now ${sb} >= @s ${sb}.end run function ${ns}:${priv}/_latch_once`,
         ].join('\n'));
         files.set(`data/${ns}/function/${priv}/_latch_once.mcfunction`, [
-            `scoreboard players set @s ${id} ${nframes - 1}`,   // static last frame
+            `scoreboard players set @s ${sb} ${nframes - 1}`,   // static last frame
             `tag @s remove ${id}.once`,
             `function ${ns}:${priv}/_apply_manual`,
         ].join('\n'));
@@ -4062,8 +4088,8 @@
             `CONTROL (run AS the entity, e.g. execute as @e[tag=${ns}.${pub}] run …):`,
             `  ${ns}:${pub}/play        loop from frame 0`,
             `  ${ns}:${pub}/play_once   play once then freeze`,
-            `  ${ns}:${pub}/play_from   loop from frame N (set score @s ${id} = N first)`,
-            `  ${ns}:${pub}/set         freeze at frame N (set score @s ${id} = N first)`,
+            `  ${ns}:${pub}/play_from   loop from frame N (set score @s ${sb} = N first)`,
+            `  ${ns}:${pub}/set         freeze at frame N (set score @s ${sb} = N first)`,
             `  ${ns}:${pub}/stop        freeze at the current frame`,
             ``,
         ].join('\n'));
@@ -5900,7 +5926,7 @@
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export the current model with obj³ encoding for Minecraft resource packs',
         icon: 'icon',
-        version: '0.7.0',
+        version: '0.7.1',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
@@ -6014,6 +6040,7 @@
             calibratedElementsForSlot,
             buildItemTransformMatrix, activeSlotPrefixFor,
             parseObj, parseMtl, posPixels, uvPixels, vertPixels, atlasTexIndicesFrom,
+            buildAtlas,
             encodePNG, estimateOutputPng, t, LANG, PERSISTABLE_FIELDS,
             surfaceWarning, pluralForm, tPlural,
             UI_SCALE,

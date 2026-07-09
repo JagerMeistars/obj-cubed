@@ -405,7 +405,9 @@ if (marker == ivec4(12,34,56,255)) {
         ivec4 texmeta  = ivec4(texelFetch(Sampler0, topleft + ivec2(4,1), 0) * 255.0 + 0.5);
         ivec4 texflags = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
         float texFrametime = max(float(texmeta.r*65536 + texmeta.g*256 + texmeta.b), 1.0);
-        bool  texFade = bool(texflags.r);
+        // x=5.r packs fade in BIT 0 (bits 1..4 = dynamic-marker count) -- bool()
+        // of the whole byte turned cross-fade on for any model with dynamic slots.
+        bool  texFade = (texflags.r & 1) == 1;
         int   texframe = int(texTime / texFrametime) % ntextures;
         int   texnext  = (texframe + 1) % ntextures;
         vec2 base  = vec2(topleft.x, topleft.y + headerheight + texframe*size.y);
@@ -544,8 +546,30 @@ if (isCustom == 0) {
         int avth = t[5].b*256+t[7].b;
         noshadow = getb(t[6].r, 7, 1);
         float at = GameTime * 24000.0;
-        at = aap ? at + adur : 0.0;
-        int afr = int(at * float(anf) / adur) % anf;
+        // Datapack playback control rides the DYE tint: equipment layers are
+        // exported dyeable (undyed renders white = no override -> header
+        // autoplay), the datapack stores the control word in minecraft:dyed_color.
+        // Decode mirrors the item colorbehavior-73 path; Color is otherwise
+        // unused for custom armor (the fragment tints by overlayColor).
+        int acr = int(Color.r*255.0+0.5);
+        int acg = int(Color.g*255.0+0.5);
+        int acb = int(Color.b*255.0+0.5);
+        int afr;
+        if (acr == 255 && acg == 255 && acb == 255) {
+            at = aap ? at + adur : 0.0;
+            afr = int(at * float(anf) / adur) % anf;
+        } else {
+            int atc = (acr%128)*65536 + acg*256 + acb;
+            if (Color.r > 0.5) {                        // manual: freeze at frame atc
+                at = float(atc);
+            } else if (atc >= 32768) {                  // play_once from tick atc-32768
+                int ael = (int(at) % 24000 - (atc - 32768) + 24000) % 24000;
+                at = (ael >= anf - 1) ? float(anf - 1) : float(ael) + fract(at);
+            } else {                                    // autoplay with phase offset
+                at = at + adur - mod(float(atc), adur);
+            }
+            afr = min(int(at * float(anf) / adur), anf - 1) % anf;
+        }
         // Target body part: marker-253 exports put the part id in t[8].b.
         // Out-of-range clamps to chest (0).
         // BOX-PACKING: MC submits this slot's carrier as `nboxes` cube boxes (chest 3 =
@@ -752,7 +776,7 @@ if (isCustom == 0) {
                 int texnext  = (texframe + 1) % ant;
                 texCoord  = (vec2(0, ahh + texframe*as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
                 texCoord2 = (vec2(0, ahh + texnext *as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
-                transition = bool(texflags.r) ? fract(texTime / texFrametime) : 0.0;
+                transition = ((texflags.r & 1) == 1) ? fract(texTime / texFrametime) : 0.0;
             } else {
                 // Atlas texture-animation bands (mirror of the item path): only
                 // faces whose V midpoint falls inside an animated strip's stored
