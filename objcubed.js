@@ -3791,7 +3791,12 @@
                         fs.writeFileSync(path.join(equipJsonDir, `${eqName}.json`),
                             JSON.stringify({ layers: { [piece.layer]: layers } }, null, 2), 'utf8');
                         fs.writeFileSync(path.join(equipJsonDir, `${eqName}_give.txt`),
-                            `give @s minecraft:leather_${piece.give}[minecraft:equippable={slot:"${piece.slot}",asset_id:"${equipNs}:${eqName}"}]\n`, 'utf8');
+                            // equip_sound intentionally_empty: the datapack drives playback by
+                            // item-replacing the worn piece (dye control word) — the default
+                            // equip sound would replay on EVERY play/stop/set call.
+                            // tooltip_display hides the dye line ("Dyed") — the dye is the
+                            // datapack's playback control word, not something to show.
+                            `give @s minecraft:leather_${piece.give}[minecraft:equippable={slot:"${piece.slot}",asset_id:"${equipNs}:${eqName}",equip_sound:"minecraft:intentionally_empty"},minecraft:tooltip_display={hidden_components:["minecraft:dyed_color"]}]\n`, 'utf8');
                     }
                 } else {
                     // LEGACY single-part export: whole model anchored to ONE part. Uses the
@@ -3838,7 +3843,7 @@
                     fs.writeFileSync(path.join(equipJsonDir, `${eqName}.json`),
                         JSON.stringify({ layers: { [layerType]: layers } }, null, 2), 'utf8');
                     fs.writeFileSync(path.join(equipJsonDir, `${eqName}_give.txt`),
-                        `give @s minecraft:leather_${partInfo.give}[minecraft:equippable={slot:"${partInfo.slot}",asset_id:"${equipNs}:${eqName}"}]\n`, 'utf8');
+                        `give @s minecraft:leather_${partInfo.give}[minecraft:equippable={slot:"${partInfo.slot}",asset_id:"${equipNs}:${eqName}",equip_sound:"minecraft:intentionally_empty"},minecraft:tooltip_display={hidden_components:["minecraft:dyed_color"]}]\n`, 'utf8');
                 }
             }
 
@@ -3897,9 +3902,10 @@
         // stand at their own feet (not another player's leftover stand).
         const tmpTag = `objcubed_temp_${id}`;
         const tmp = `@e[tag=${tmpTag},distance=..0.01,limit=1,sort=nearest]`;
-        // Marker:1b -> no collision; spawn AT the player (execute at @s) so the
-        // distance filter resolves to a stand at the player's position.
-        const tmpSummon = `execute at @s run summon armor_stand ~ ~ ~ {Tags:["${tmpTag}"],Invisible:1b,Marker:1b}`;
+        // Marker:1b -> no collision; Silent:1b -> the stand's own equip sound is
+        // muted when the item is copied onto it; spawn AT the player (execute at
+        // @s) so the distance filter resolves to a stand at the player's position.
+        const tmpSummon = `execute at @s run summon armor_stand ~ ~ ~ {Tags:["${tmpTag}"],Invisible:1b,Marker:1b,Silent:1b}`;
 
         files.set('pack.mcmeta', JSON.stringify({
             pack: {
@@ -3926,7 +3932,8 @@
         // phase offset (gametime % dur) so frame 0 shows now and advances; re-issuing
         // restarts cleanly. (The old code did `-= @s` first, which on a second call read
         // the stored OFFSET as if it were the frame and jumped to a stale phase — use
-        // play_from to start at a specific frame.)
+        // play_from to start at a specific frame.) NOTE: every call re-stamps the
+        // phase ("frame 0 = now") — calling play from a tick loop pins frame 0.
         files.set(`data/${ns}/function/${pub}/play.mcfunction`, [
             `function ${ns}:${pub}/init`,
             `execute store result score #gt ${sb} run time query gametime`,
@@ -4076,7 +4083,7 @@
                 // ARMOR slot: leather piece carrying the equippable component that
                 // points at the armor export asset (eqName = <model>_<piece>).
                 const piece = ARMOR_PIECE[slot];
-                equipItem = `${slot}:{id:"minecraft:leather_${piece}",count:1,components:{"minecraft:equippable":{slot:"${slot}",asset_id:"minecraft:${equipAsset || `${model}_${piece}`}"}}}`;
+                equipItem = `${slot}:{id:"minecraft:leather_${piece}",count:1,components:{"minecraft:equippable":{slot:"${slot}",asset_id:"minecraft:${equipAsset || `${model}_${piece}`}",equip_sound:"minecraft:intentionally_empty"},"minecraft:tooltip_display":{hidden_components:["minecraft:dyed_color"]}}}`;
             } else {
                 // HAND slot: the base item with custom_model_data (mirror item_display).
                 equipItem = `${slot}:{id:"minecraft:${base}",count:1,components:{"minecraft:custom_model_data":{strings:["${model}"]}}}`;
@@ -4100,7 +4107,7 @@
                     : `SPAWN:   function ${ns}:${pub}/summon   (spawns an armor_stand ALREADY equipped with the obj³ item). To wear it yourself instead, give from ${model}_<piece>_give.txt.`),
             ``,
             `CONTROL (run AS the entity, e.g. execute as @e[tag=${ns}.${pub}] run …):`,
-            `  ${ns}:${pub}/play        loop from frame 0`,
+            `  ${ns}:${pub}/play        loop from frame 0 (call ONCE — a tick-looped play restarts every tick and pins frame 0)`,
             `  ${ns}:${pub}/play_once   play once then freeze`,
             `  ${ns}:${pub}/play_from   loop from frame N (set score @s ${sb} = N first)`,
             `  ${ns}:${pub}/set         freeze at frame N (set score @s ${sb} = N first)`,

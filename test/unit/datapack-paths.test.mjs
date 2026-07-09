@@ -92,6 +92,17 @@ describe('datapack correctness (review batch 2)', () => {
     expect(files.get('data/objcubed/function/walk/play_from.mcfunction')).toMatch(/-= @s/);
   });
 
+  it('player path is silent + hides the dye control word from tooltips', () => {
+    const files = api.generateDatapackFiles('walk', 5, 'objcubed', 'player', 'chest');
+    // the temp stand must not play its own equip sound when the item is copied on
+    expect(files.get('data/objcubed/function/walk/zzz/_apply_auto.mcfunction')).toMatch(/Silent:1b/);
+    // armor summon carries no-sound equippable + hidden dyed_color tooltip
+    const armor = api.generateDatapackFiles('walk', 8, 'mypack', 'equipment', 'head', 'stick', 'mymodel');
+    const summon = armor.get('data/mypack/function/walk/summon.mcfunction');
+    expect(summon).toMatch(/equip_sound:"minecraft:intentionally_empty"/);
+    expect(summon).toMatch(/"minecraft:tooltip_display":\{hidden_components:\["minecraft:dyed_color"\]\}/);
+  });
+
   it('emits a summon function, load tag, and README (issue #9)', () => {
     const files = api.generateDatapackFiles('walk', 8, 'mypack', 'item_display', null, 'stick', 'mymodel');
     const summon = files.get('data/mypack/function/walk/summon.mcfunction');

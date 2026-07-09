@@ -534,6 +534,19 @@ if (isCustom == 0) {
     // Legacy support removed: re-export old armor with the current plugin.
     if (am.rgb == ivec3(12,34,56) && am.a == 253) {
         isCustom = 1;
+        // The dye tint on driven armor is the datapack CONTROL WORD (a small
+        // frame/phase int ≈ black), not a color — it's decoded below, but the
+        // wrapping vsh already baked Color into the vertex color, rendering the
+        // whole piece black. Rebuild the vertex color with WHITE instead.
+        #ifdef PER_FACE_LIGHTING
+        vec2 ocwl = minecraft_compute_light(Light0_Direction, Light1_Direction, Normal);
+        vertexPerFaceColorBack  = minecraft_mix_light_separate(-ocwl, vec4(1.0));
+        vertexPerFaceColorFront = minecraft_mix_light_separate( ocwl, vec4(1.0));
+        #elif defined(NO_CARDINAL_LIGHTING)
+        vertexColor = vec4(1.0);
+        #else
+        vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, Normal, vec4(1.0));
+        #endif
         ivec2 ao = ivec2(0);
         for (int i = 1; i < 14; i++) t[i] = getmeta(ao, i); // t[8..10] north+part, t[11..13] south
         ivec2 as = ivec2(t[1].r*256+t[1].g, t[1].b*256+t[7].r);

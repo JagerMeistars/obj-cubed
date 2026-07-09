@@ -221,6 +221,8 @@ describe('equipment (armor) export — Approach C', () => {
     const give = memfs.writes.get('/rp/assets/minecraft/equipment/cat_chestplate_give.txt');
     expect(give).toContain('leather_chestplate');
     expect(give).toContain('slot:"chest"');
+    // dye-driven playback item-replaces the worn piece — silence the equip sound
+    expect(give).toContain('equip_sound:"minecraft:intentionally_empty"');
   });
 
   it('piece mode: per-face emissive (light_emission) bakes into texel 20+abody', async () => {
