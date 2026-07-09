@@ -66,41 +66,6 @@ compatibility is not guaranteed.
    - **Advanced** — easing, interpolation, color behavior, autorotate
 4. Click **Export** — saves a PNG (encoded model) and JSON (Minecraft model) to your chosen location
 
-### Export settings
-
-| Setting | Description |
-|---------|-------------|
-| **Scale** | Multiplies vertex positions before encoding |
-| **Offset** | Adds to vertex positions (X, Y, Z) |
-| **FPS** | Frames per second for animation baking |
-| **Autoplay** | Animation loops automatically using GameTime |
-| **Easing** | Interpolation between vertex frames: none, linear, cubic ease-in-out, bezier |
-| **Fade** (animated texture) | Cross-fade between texture frames, like `interpolate` in a vanilla `.mcmeta` |
-| **Color behavior** | What each RGB byte of overlay color controls (direct/time/scale/overlay/hurt) |
-| **Auto Rotate** | Shader estimates rotation from normals (yaw, pitch, or both) |
-| **No Shadow** | Disable face-normal shading |
-| **Flip UV** | Flip texture UVs vertically (try if model looks wrong) |
-| **No PoT** | Don't round texture height to power of two |
-| **Filter Armature** | Exclude bone shapes from export (enable for armature rigs) |
-
-### Animated textures
-
-A texture that is a **stack of frames** can play in game independently of the
-geometry animation (its clock is separate — both can run at once):
-
-- **Best path:** mark the texture animated **in Blockbench** (texture
-  properties). BB then shows a one-frame UV grid — just UV-map your model as
-  usual, no special rules.
-- **Plain strip:** a texture whose height is a whole multiple of its width is
-  treated as vertical square frames; UV-map onto the **top** frame.
-- Set **ticks per frame** and optional **cross-fade** (like `interpolate` in a
-  vanilla `.mcmeta`).
-- Works in hand, GUI, world and **on armor**. Inside an **atlas**, multiple
-  animated strips are supported (each with its own frame count; capacity scales
-  with texture width, up to 15) — the other textures stay static.
-- The GUI icon is pinned to frame 0 of both the geometry and the texture (MC
-  bakes inventory icons once, so a live clock would freeze a random frame).
-
 ### Datapack generation
 
 When animation is enabled, you can generate a datapack for controlling animation via commands:
