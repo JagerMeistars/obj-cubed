@@ -60,6 +60,14 @@ if (marker == ivec4(12,34,56,255)) {
 #endif
 #ifdef ENTITY
     isGUI = int(isgui(ProjMat));
+    // Inventory player preview (PiP): 26.2 draws it into a tiny offscreen ortho
+    // target — probed 2026-07-10: |P00| >= 0.015 there vs < 0.008 for any real
+    // screen GUI ortho (scaled width >= 250px), held-item placeholder edge ~75
+    // (the wearer bake). A held item there must follow its hand carrier like in
+    // world — the icon transform + frame-0 pin misplace it. Icons never enter
+    // this branch on 26.2 (probed: the atlas bake bypasses it), so this gate
+    // only reroutes the PiP draw.
+    if (isGUI == 1 && abs(ProjMat[0][0]) > 0.010) isGUI = 0;
     isHand = int(ishand(ProjMat));
     if (((isGUI + isHand == 0) && visibility.x) || (bool(isHand) && visibility.y) || (bool(isGUI) && visibility.z)) {
         //colorbehavior
