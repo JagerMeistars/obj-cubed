@@ -3205,6 +3205,19 @@
         const inAnimate = prevMode && prevMode.id === 'animate' && !cfg.animationEnabled;
         if ((inDisplay || inAnimate) && Modes && Modes.options && Modes.options.edit) {
             Modes.options.edit.select();
+            // Leaving Display mode restores the scene LAZILY: right after
+            // select() the meshes' matrixWorld still carries the display-slot
+            // transform, and Codecs.obj.compile() reads matrixWorld — an export
+            // from the Display tab baked the model shifted/rotated (in-game
+            // "опущенные модели": verified 2026-07-10, cube sank 0.5 block with
+            // a rotation residue). Yield a tick for BB's exit hooks, then force
+            // a world-matrix refresh so the codec sees rest-pose geometry.
+            await new Promise(r => setTimeout(r, 0));
+            try {
+                if (typeof scene !== 'undefined' && scene && scene.updateMatrixWorld) {
+                    scene.updateMatrixWorld(true);
+                }
+            } catch (e) {}
         }
         // Armor: rename elements to part-encoding tokens so each face's part is read
         // from its OWN element (codec emit order != Outliner walk for nested groups/
