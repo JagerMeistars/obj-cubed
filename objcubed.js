@@ -3970,17 +3970,27 @@
         files.set(`data/${ns}/function/${pub}/stop.mcfunction`, [
             `function ${ns}:${pub}/init`,
             `# play_once: freeze at last frame`,
-            `execute if entity @s[tag=${id}.once] run scoreboard players operation @s ${sb} = #dur ${sb}`,
-            `execute if entity @s[tag=${id}.once] run scoreboard players remove @s ${sb} 1`,
+            `execute if entity @s[tag=${id}.once] run function ${ns}:${priv}/_stop_once`,
             `# autoplay: compute current frame`,
-            `execute if entity @s[tag=${id}.auto] store result score #gt ${sb} run time query gametime`,
-            `execute if entity @s[tag=${id}.auto] run scoreboard players operation #gt ${sb} -= @s ${sb}`,
-            `execute if entity @s[tag=${id}.auto] run scoreboard players operation #gt ${sb} %= #dur ${sb}`,
-            `execute if entity @s[tag=${id}.auto] run scoreboard players operation @s ${sb} = #gt ${sb}`,
+            `execute if entity @s[tag=${id}.auto] run function ${ns}:${priv}/_stop_auto`,
             `tag @s remove ${id}.auto`,
             `tag @s remove ${id}.once`,
             `function ${ns}:${priv}/_apply_manual`,
         ].join('\n'));
+
+        // _stop_once — freezes at the last frame
+        files.set(`data/${ns}/function/${priv}/_stop_once.mcfunction`, [
+            `scoreboard players operation @s ${sb} = #dur ${sb}`,
+            `scoreboard players remove @s ${sb} 1`,
+        ].join('\n'))
+
+        // _stop_auto — computes current frame
+        files.set(`data/${ns}/function/${priv}/_stop_auto.mcfunction`, [
+            `execute store result score #gt ${sb} run time query gametime`,
+            `scoreboard players operation #gt ${sb} -= @s ${sb}`,
+            `scoreboard players operation #gt ${sb} %= #dur ${sb}`,
+            `scoreboard players operation @s ${sb} = #gt ${sb}`,
+        ].join('\n'))
 
         // set — freeze at specific frame (user sets @s objcubed.<id> = frame before calling)
         files.set(`data/${ns}/function/${pub}/set.mcfunction`, [
