@@ -3935,8 +3935,9 @@
                 // Bare ints with min <= max. The old min_format:[101,1] (101.1) vs
                 // max_format:101 (101.0) was an inverted/empty range MC flags as
                 // incompatible. Permissive upper bound so it loads across versions.
-                pack_format: 101,
-                min_format: 101,
+                // 26.3-snapshot-4 data pack format = 111 (was 101).
+                pack_format: 111,
+                min_format: 111,
                 max_format: 9999,
             },
         }, null, 2));

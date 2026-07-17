@@ -21,10 +21,11 @@ in ivec2 UV2;
 in vec3 Normal;
 
 uniform sampler2D Sampler0;
-#ifndef NO_OVERLAY
+// OIT (26.3): the alpha-only phase provides neither overlay nor lightmap sampler.
+#if !defined(NO_OVERLAY) && !defined(OIT_ALPHA_ONLY)
 uniform sampler2D Sampler1;
 #endif
-#ifndef EMISSIVE
+#if !defined(EMISSIVE) && !defined(OIT_ALPHA_ONLY)
 uniform sampler2D Sampler2;
 #endif
 
@@ -59,7 +60,7 @@ void main() {
     texCoord = UV0;
     lightColor = vec4(1);
     overlayColor = vec4(1);
-#ifndef NO_OVERLAY
+#if !defined(NO_OVERLAY) && !defined(OIT_ALPHA_ONLY)
     overlayColor = texelFetch(Sampler1, UV1, 0);
 #endif
 #ifdef PER_FACE_LIGHTING
@@ -71,7 +72,7 @@ void main() {
 #else
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, Normal, Color);
 #endif
-#ifndef EMISSIVE
+#if !defined(EMISSIVE) && !defined(OIT_ALPHA_ONLY)
     lightColor = texture(Sampler2, vec2(UV2 / 16) / vec2(textureSize(Sampler2, 0)));
 #endif
 #ifdef APPLY_TEXTURE_MATRIX

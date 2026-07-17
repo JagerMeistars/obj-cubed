@@ -12,7 +12,10 @@ in vec2 UV0;
 in ivec2 UV2;
 
 uniform sampler2D Sampler0;
+// OIT (26.3): the alpha-only phase provides no lightmap sampler.
+#ifndef OIT_ALPHA_ONLY
 uniform sampler2D Sampler2;
+#endif
 
 out float sphericalVertexDistance;
 out float cylindricalVertexDistance;
@@ -40,7 +43,11 @@ void main() {
     noshadow = 0;
     Pos = Position + (ChunkPosition - CameraBlockPos) + CameraOffset;
     vertexColor = Color;
+#ifndef OIT_ALPHA_ONLY
     lightColor = minecraft_sample_lightmap(Sampler2, UV2);
+#else
+    lightColor = vec4(1.0);
+#endif
     texCoord = UV0;
     
     //objmc

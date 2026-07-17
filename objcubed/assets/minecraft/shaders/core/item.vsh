@@ -15,7 +15,10 @@ in ivec2 UV2;
 in vec3 Normal;
 
 uniform sampler2D Sampler0;
+// OIT (26.3): the alpha-only phase provides no lightmap sampler.
+#ifndef OIT_ALPHA_ONLY
 uniform sampler2D Sampler2;
+#endif
 
 
 out float sphericalVertexDistance;
@@ -40,7 +43,11 @@ void main() {
     Pos = Position;
     texCoord = UV0;
     overlayColor = vec4(1);
+#ifndef OIT_ALPHA_ONLY
     lightColor = texture(Sampler2, vec2(UV2 / 16) / vec2(textureSize(Sampler2, 0)));
+#else
+    lightColor = vec4(1.0);
+#endif
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, Normal, Color);
 
     //objmc

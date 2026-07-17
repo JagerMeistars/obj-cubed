@@ -11,7 +11,10 @@ in vec2 UV0;
 in ivec2 UV2;
 
 uniform sampler2D Sampler0;
+// OIT (26.3): the alpha-only phase provides no lightmap sampler.
+#ifndef OIT_ALPHA_ONLY
 uniform sampler2D Sampler2;
+#endif
 
 out float sphericalVertexDistance;
 out float cylindricalVertexDistance;
@@ -35,7 +38,11 @@ void main() {
     transition = 0;
     isCustom = 0;
     noshadow = 0;
+#ifndef OIT_ALPHA_ONLY
     lightColor = texture(Sampler2, clamp((UV2 / 256.0) + 0.5 / 16.0, vec2(0.5 / 16.0), vec2(15.5 / 16.0)));
+#else
+    lightColor = vec4(1.0);
+#endif
     vertexColor = Color;
 
     //objmc

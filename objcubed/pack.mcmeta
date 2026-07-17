@@ -1,7 +1,7 @@
 {
   "pack": {
-    "pack_format": 81,
-    "min_format": 70,
+    "pack_format": 92,
+    "min_format": 92,
     "max_format": 9999,
     "description": "obj³ — encoded models resource pack"
   }
