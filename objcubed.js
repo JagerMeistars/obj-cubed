@@ -240,10 +240,12 @@
             section_advanced: 'Advanced',
             lbl_easing: 'Easing',
             lbl_autorotate: 'Autorotate',
-            opt_none: 'None',
+            opt_none: 'None (hold)',
             opt_linear: 'Linear',
-            opt_cubic: 'Cubic',
-            opt_bezier: 'Bezier',
+            opt_cubic: 'Cubic (in-out)',
+            opt_bezier: 'Catmull-Rom',
+            opt_easein: 'Ease-In (quad)',
+            opt_easeout: 'Ease-Out (quad)',
             opt_off: 'Off',
             opt_horizontal: 'Horizontal',
             opt_vertical: 'Vertical',
@@ -338,7 +340,7 @@
             help_display_ground: 'Rotation and offset when on the ground (dropped).',
             help_display_fixed: 'Rotation and offset in item frame on wall.',
             help_cb_general: 'Each potion color channel (R/G/B) can be used as a switch: tint, animation time, scale, overlay, or hurt flash. Click to cycle.',
-            help_easing: 'Smoothing between vertex animation frames. Linear = simple average. Cubic/Bezier = smoother at joints.',
+            help_easing: 'Smoothing curve between vertex animation frames (per animation). None holds each frame (hard step); Linear = constant blend; Cubic = ease-in-out; Catmull-Rom = 4-point spline through neighbouring frames; Ease-In/Ease-Out = quadratic accelerate/decelerate.',
             help_autorotate: 'The shader derives the model rotation from quad normals, so it follows the render transform (item frames, entities). Yaw = horizontal only; Pitch = vertical only.',
             help_noshadow: 'Disable face darkening based on direction. Useful for glowing models.',
             help_flipuv: 'Flip texture vertically. Use if the model rendered upside down.',
@@ -394,7 +396,7 @@
             tour_t_cmdname: 'Model name',
             tour_b_cmdname: 'A short identifier for this model used as its custom_model_data name. obj³ shows it after export so you can /give the base item with this name and spawn your model in-game.',
             tour_t_easing: 'Easing',
-            tour_b_easing: 'Easing shapes how motion accelerates between frames so the animation looks less mechanical. None keeps frames raw; linear, cubic and bezier add progressively smoother transitions. Leave at default if unsure.',
+            tour_b_easing: 'Easing shapes how motion accelerates between frames so the animation looks less mechanical. None holds each frame; Linear, Cubic, Catmull-Rom and the quadratic Ease-In/Ease-Out add progressively different transitions. Leave at default if unsure.',
             tour_t_autorotate: 'Autorotate',
             tour_b_autorotate: 'Autorotate makes the model follow its render transform — turning to face the right way in item frames, on entities or in world slots, instead of staying fixed. Off keeps it fixed; horizontal, vertical or both choose which axes track. Handy for framed or worn items.',
             tour_t_flags: 'Advanced flags',
@@ -507,10 +509,12 @@
             section_advanced: 'Дополнительно',
             lbl_easing: 'Плавность',
             lbl_autorotate: 'Автоповорот',
-            opt_none: 'Нет',
+            opt_none: 'Нет (удержание)',
             opt_linear: 'Линейная',
-            opt_cubic: 'Кубическая',
-            opt_bezier: 'Безье',
+            opt_cubic: 'Кубическая (in-out)',
+            opt_bezier: 'Catmull-Rom',
+            opt_easein: 'Ease-In (квадрат)',
+            opt_easeout: 'Ease-Out (квадрат)',
             opt_off: 'Выкл',
             opt_horizontal: 'По горизонтали',
             opt_vertical: 'По вертикали',
@@ -604,7 +608,7 @@
             help_display_ground: 'Поворот и сдвиг модели когда она лежит на земле (выпавшая).',
             help_display_fixed: 'Поворот и сдвиг модели в item frame на стене.',
             help_cb_general: 'Каждый канал цвета зелья (R/G/B) можно использовать как переключатель: тинт, время анимации, масштаб, оттенок или вспышка урона. Клик меняет значение.',
-            help_easing: 'Сглаживание между кадрами анимации вершин. Линейная — обычное усреднение. Кубическая/Безье — плавнее на стыках.',
+            help_easing: 'Кривая сглаживания между кадрами анимации вершин (на всю анимацию). Нет — удержание кадра (резкий шаг); Линейная — равномерное смешивание; Кубическая — ease-in-out; Catmull-Rom — сплайн по 4 соседним кадрам; Ease-In/Ease-Out — квадратичное ускорение/замедление.',
             help_autorotate: 'Шейдер определяет поворот модели по нормалям, поэтому она следует за рендер-трансформом (рамки, сущности). Yaw = только горизонтальный; Pitch = только вертикальный.',
             help_noshadow: 'Отключить затемнение граней по их направлению. Полезно для светящихся моделей.',
             help_flipuv: 'Перевернуть текстуру по вертикали. Используйте, если модель отрендерилась перевёрнутой.',
@@ -660,7 +664,7 @@
             tour_t_cmdname: 'Имя модели',
             tour_b_cmdname: 'Короткий идентификатор модели, используемый как имя custom_model_data. obj³ показывает его после экспорта, чтобы вы выдали базовый предмет через /give с этим именем и заспавнили модель в игре.',
             tour_t_easing: 'Плавность',
-            tour_b_easing: 'Плавность задаёт, как движение ускоряется между кадрами, чтобы анимация выглядела менее механически. «Нет» оставляет кадры как есть; «Линейная», «Кубическая» и «Безье» добавляют всё более плавные переходы. Если не уверены — оставьте по умолчанию.',
+            tour_b_easing: 'Плавность задаёт, как движение ускоряется между кадрами, чтобы анимация выглядела менее механически. «Нет» удерживает кадр; «Линейная», «Кубическая», «Catmull-Rom» и квадратичные «Ease-In/Ease-Out» добавляют разные переходы. Если не уверены — оставьте по умолчанию.',
             tour_t_autorotate: 'Автоповорот',
             tour_b_autorotate: 'Автоповорот заставляет модель следовать своему рендер-трансформу — поворачиваться как надо в рамках, на сущностях и в мировых слотах, а не оставаться статичной. «Выкл» оставляет её неподвижной; «По горизонтали», «По вертикали» или «Оба» задают оси. Удобно для предметов в рамке или надетых.',
             tour_t_flags: 'Доп. флаги',
@@ -2897,8 +2901,15 @@
                   Math.trunc(nvertices/256)%256, 255);
         put(3, 0, Math.trunc(nframes/65536)%256, Math.trunc(nframes/256)%256,
                   nframes%256, ntextures);
+        // t[4].a bits: 7=version(1), 6=autoplay, 5..4=easing low 2 bits,
+        //   3..2=interpolation (legacy, shader-dead), 1..0=easing high 2 bits.
+        // Easing is a 4-bit per-ANIMATION index (0..15) split across the two free
+        // regions of this byte. The high bits live in 1..0, which older encoders
+        // ALWAYS wrote 0 — so any legacy PNG (easing 0..3) decodes byte-identically
+        // under the new 4-bit reader. Per-frame easing was rejected: the per-vertex
+        // frame data has no spare bits without a format break.
         put(4, 0, Math.trunc(dur/65536)%256, Math.trunc(dur/256)%256, dur%256,
-                  128|(cfg.autoplay?64:0)|(cfg.easing<<4)|(cfg.interpolation<<2));
+                  128|(cfg.autoplay?64:0)|((cfg.easing&3)<<4)|((cfg.interpolation&3)<<2)|((cfg.easing>>2)&3));
         put(5, 0, Math.trunc(vpH/256)%256, vpH%256, Math.trunc(vtH/256)%256, 255);
         // t[6].r bits: 7=noshadow, 6..5=autorotate, 4..2=visibility,
         //   1=hasStaticDisplay (step A1 gate), 0=colorbehavior high bit.
@@ -5703,6 +5714,8 @@
           <option :value="1">{{t('opt_linear')}}</option>
           <option :value="2">{{t('opt_cubic')}}</option>
           <option :value="3">{{t('opt_bezier')}}</option>
+          <option :value="4">{{t('opt_easein')}}</option>
+          <option :value="5">{{t('opt_easeout')}}</option>
         </select>
       </label>
       <!-- oc-tour-autorotate: tour anchor (issue #4) — on the autorotate select -->

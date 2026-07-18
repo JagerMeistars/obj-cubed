@@ -35,7 +35,9 @@ if (marker == ivec4(12,34,56,255)) {
     //4: duration, autoplay, easing
     float duration = max(t[4].r*65536 + t[4].g*256 + t[4].b, 1);
     bool autoplay = getb(t[4].a, 6);
-    ivec2 easing = ivec2(getb(t[4].a, 4, 2), getb(t[4].a, 2, 2));
+    // 4-bit per-animation easing index: low 2 bits at 4..5, high 2 bits at 0..1
+    // (legacy PNGs wrote 0 there, so 0..3 decode exactly as before).
+    int easing = getb(t[4].a, 4, 2) | (getb(t[4].a, 0, 2) << 2);
     //5: data heights
     int vph = t[5].r*256 + t[5].g;
     int vth = t[5].b*256 + t[7].b;
@@ -169,28 +171,20 @@ if (marker == ivec4(12,34,56,255)) {
             id = (id+nvertices) % nids;
             index = getvert(topleft, size.x, height+vph+vth, id);
             vec3 posoffset2 = getpos(topleft, size.x, height, index.x);
-            //interpolate
+            //interpolate: t'=ease(t) before the lerp; catmull-rom needs 4 points.
             transition = fract(time * nframes / duration);
-            switch (easing.x) { //easing
-                case 1: //linear
-                    posoffset = mix(posoffset, posoffset2, transition);
-                    break;
-                case 2: //in-out cubic
-                    transition = transition < 0.5 ? 4 * transition * transition * transition : 1 - pow(-2 * transition + 2, 3) * 0.5;
-                    posoffset = mix(posoffset, posoffset2, transition);
-                    break;
-                case 3: //4-point bezier
-                    //third point
-                    id = (id+nvertices) % nids;
-                    index = getvert(topleft, size.x, height+vph+vth, id);
-                    vec3 posoffset3 = getpos(topleft, size.x, height, index.x);
-                    //fourth point
-                    id = (id+nvertices) % nids;
-                    index = getvert(topleft, size.x, height+vph+vth, id);
-                    vec3 posoffset4 = getpos(topleft, size.x, height, index.x);
-                    //bezier
-                    posoffset = bezier(posoffset, posoffset2, posoffset3, posoffset4, transition);
-                    break;
+            if (easing == 3) { //catmull-rom (4-point spline through neighbours)
+                //third point
+                id = (id+nvertices) % nids;
+                index = getvert(topleft, size.x, height+vph+vth, id);
+                vec3 posoffset3 = getpos(topleft, size.x, height, index.x);
+                //fourth point
+                id = (id+nvertices) % nids;
+                index = getvert(topleft, size.x, height+vph+vth, id);
+                vec3 posoffset4 = getpos(topleft, size.x, height, index.x);
+                posoffset = bezier(posoffset, posoffset2, posoffset3, posoffset4, transition);
+            } else if (easing != 0) { //scalar easing (0 = hold, no blend)
+                posoffset = mix(posoffset, posoffset2, ease(easing, transition));
             }
         }
         transition = 0;
@@ -760,19 +754,18 @@ if (isCustom == 0) {
             // Frame interpolation (geometry morph): blend toward the next frame with the
             // same easing as the item path (objmc_main.glsl ~149-178). Armor used to hard-
             // step (only the integer afr) -> no smooth animation AND no easing (easing lives
-            // inside this mix). No-op for static armor (anf==1) / easing.x==0.
-            ivec2 aeasing = ivec2(getb(t[4].a, 4, 2), getb(t[4].a, 2, 2));
-            if (anf > 1 && aeasing.x > 0) {
+            // inside this mix). No-op for static armor (anf==1) / aeasing==0.
+            int aeasing = getb(t[4].a, 4, 2) | (getb(t[4].a, 0, 2) << 2);
+            if (anf > 1 && aeasing != 0) {
                 int avbase = (afk * 4 + ac) % anv;
                 float atr = fract(at * float(anf) / adur);
                 vec3 po2 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 1) % anf) * anv).x);
-                if (aeasing.x == 3) {
+                if (aeasing == 3) {
                     vec3 po3 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 2) % anf) * anv).x);
                     vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 3) % anf) * anv).x);
                     posoffset = bezier(posoffset, po2, po3, po4, atr);
                 } else {
-                    if (aeasing.x == 2) atr = atr < 0.5 ? 4.0 * atr * atr * atr : 1.0 - pow(-2.0 * atr + 2.0, 3.0) * 0.5;
-                    posoffset = mix(posoffset, po2, atr);
+                    posoffset = mix(posoffset, po2, ease(aeasing, atr));
                 }
             }
             // Undo the encoder's -0.5 Y vertical-origin re-anchor IN THE DECODED

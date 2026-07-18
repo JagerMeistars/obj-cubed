@@ -69,6 +69,17 @@ vec3 bezier(vec3 a, vec3 b, vec3 c, vec3 d, float t) {
     return bezb(b,b+(c-a)/6,c-(d-b)/6,c,t);
 }
 
+// easing t'=ease(mode,t), per-animation index from header t[4].a.
+// 0 step/hold, 1 linear, 2 ease-in-out-cubic, 3 catmull-rom (4pt, handled by
+// the caller), 4 ease-in-quad, 5 ease-out-quad. Unknown -> hold.
+float ease(int m, float t) {
+    if (m == 1) return t;
+    if (m == 2) return t < 0.5 ? 4.0*t*t*t : 1.0 - pow(-2.0*t + 2.0, 3.0)*0.5;
+    if (m == 4) return t*t;
+    if (m == 5) return 1.0 - (1.0-t)*(1.0-t);
+    return 0.0;
+}
+
 // ── Armor UV decode (MC 26.2+) ──────────────────────────────────────────────
 // On 26.2 entity geometry lives in shared vertex arenas with per-frame base
 // offsets, so gl_VertexID-derived indices are garbage. The humanoid armor
