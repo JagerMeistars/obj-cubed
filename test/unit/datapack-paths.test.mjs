@@ -75,13 +75,11 @@ describe('datapack correctness (review batch 2)', () => {
     }
   });
 
-  it('pack.mcmeta has a valid (min<=max) format range + pack_format', () => {
+  it('pack.mcmeta targets the Minecraft 26.3 data-pack format exactly', () => {
     const meta = JSON.parse(
       api.generateDatapackFiles('walk', 5, 'objcubed', 'equipment', 'mainhand').get('pack.mcmeta'));
-    expect(typeof meta.pack.pack_format).toBe('number');
-    expect(typeof meta.pack.min_format).toBe('number');
-    expect(typeof meta.pack.max_format).toBe('number');
-    expect(meta.pack.min_format).toBeLessThanOrEqual(meta.pack.max_format);
+    expect(meta.pack.min_format).toEqual([121, 0]);
+    expect(meta.pack.max_format).toEqual([121, 0]);
   });
 
   it('play restarts at frame 0 (no stale-offset resume); play_from still uses @s', () => {

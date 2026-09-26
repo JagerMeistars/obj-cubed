@@ -162,12 +162,50 @@ describe('A2/B encoder: t[14]/t[15] carry the q16 GUI pivot (block centre, not h
     expect(p14[3]).toBe(255);
     expect(p15[3]).toBe(255);
     // Hand scale stays OUT of t[14]/t[15] (it lives in model.json display now).
-    // Row-1 x=0..1 now hold the v2 dynamic slot-marker entries for ground and
-    // on_shelf (always dynamic: Sz sentinel 0 + lift flag 1); x=2..3 stay zeroed
-    // (no other dynamic slots in this export — the hand scales are uniform).
-    expect(pixel(res, 0, 1)).toEqual([0, 0, 1, 255]);
-    expect(pixel(res, 1, 1)).toEqual([0, 0, 1, 255]);
-    expect(pixel(res, 2, 1)).toEqual([0, 0, 0, 255]);
-    expect(pixel(res, 3, 1)).toEqual([0, 0, 0, 255]);
+    // v3 first-person entries precede the dropped/shelf entries. Their
+    // explicit hand bit replaces projection heuristics on Minecraft 26.3.
+    expect(pixel(res, 0, 1)).toEqual([0, 0, 2, 255]);
+    expect(pixel(res, 1, 1)).toEqual([0, 0, 2, 255]);
+    expect(pixel(res, 2, 1)).toEqual([0, 0, 1, 255]);
+    expect(pixel(res, 3, 1)).toEqual([0, 0, 1, 255]);
+    expect(pixel(res, 5, 1)).toEqual([8, 0, 2, 255]);
+  });
+});
+
+// Minecraft 26.3 uses the same near/far planes for the hand and world passes.
+// The exporter therefore has to carry context in the texture/model pair.
+describe('v3 explicit hand context', () => {
+  it('keeps hand identity and exact Z scale together in the encoded table', async () => {
+    const api = loadWith();
+    const cfg = baseCfg({ displaySlots: {
+      firstperson_righthand: { scale: [2, 2, 0.5] },
+    } });
+    const res = await api.buildOutput(cfg, [OBJ], '');
+    const right = pixel(res, 0, 1);
+    expect(right[2]).toBe(2); // hand bit, no dropped-item lift
+    expect((right[0] * 256 + right[1]) / 65535 * 4).toBeCloseTo(0.5, 4);
+    expect(pixel(res, 1, 1)).toEqual([0, 0, 2, 255]); // identity left hand still explicit
+    expect(pixel(res, 2, 1)[2]).toBe(1); // ground remains a world context
+    expect(pixel(res, 3, 1)[2]).toBe(1); // shelf remains a world context
+    expect(pixel(res, 5, 1)[2]).toBe(2); // v3 marker format
+  });
+
+  it('preserves all eight dynamic contexts without overwriting animation metadata', async () => {
+    const api = loadWith();
+    const slots = ['thirdperson_righthand', 'thirdperson_lefthand',
+      'firstperson_righthand', 'firstperson_lefthand', 'head', 'ground', 'fixed', 'on_shelf'];
+    const displaySlots = Object.fromEntries(slots.map(slot => [slot, { scale: [2, 2, 0.5] }]));
+    const res = await api.buildOutput(baseCfg({ displaySlots }), [OBJ], '');
+    const assignment = api.assignSlotMarkers(api.buildDisplayTransforms({ displaySlots }));
+    const flags = pixel(res, 5, 1);
+    expect(flags).toEqual([16, 0, 2, 255]); // eight entries; no texture animation
+    expect(pixel(res, 4, 1)).toEqual([0, 0, 0, 255]); // texture clock untouched
+    for (let i = 0; i < slots.length; i++) {
+      const entry = pixel(res, i < 4 ? i : i + 2, 1);
+      expect(assignment.ids.get(slots[i])).toBe(i + 1);
+      expect((entry[0] * 256 + entry[1]) / 65535 * 4).toBeCloseTo(0.5, 4);
+      expect(entry[2] & 2, slots[i]).toBe(slots[i].startsWith('firstperson') ? 2 : 0);
+      expect(entry[2] & 1, slots[i]).toBe(['ground', 'on_shelf'].includes(slots[i]) ? 1 : 0);
+    }
   });
 });

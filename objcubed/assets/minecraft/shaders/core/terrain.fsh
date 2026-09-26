@@ -1,119 +1,72 @@
-#version 150
+#version 330
+#extension GL_ARB_separate_shader_objects : require
 
-#moj_import <minecraft:fog.glsl>
-#moj_import <minecraft:globals.glsl>
-#moj_import <minecraft:chunksection.glsl>
-// (no minecraft:light.glsl: 26.2 terrain pipelines don't provide the Lighting
-// UBO it declares, and the BLOCK branch of objmc_light.glsl doesn't need it)
+#include <minecraft:fog.glsl>
+#include <minecraft:globals.glsl>
+#include <minecraft:terrainglobals.glsl>
+#include <minecraft:texture_sampling.glsl>
+#include <minecraft:oit.glsl>
 
 uniform sampler2D Sampler0;
 
-in float sphericalVertexDistance;
-in float cylindricalVertexDistance;
-in vec4 vertexColor;
+layout(location = 0) in float sphericalVertexDistance;
+layout(location = 1) in float cylindricalVertexDistance;
+layout(location = 2) in vec4 vertexColor;
+layout(location = 3) in vec4 lightColor;
+layout(location = 4) in vec2 texCoord;
+layout(location = 5) in vec2 texCoord2;
+layout(location = 6) in vec3 Pos;
+layout(location = 7) in float transition;
+layout(location = 8) flat in int isCustom;
+layout(location = 9) flat in int noshadow;
+layout(location = 10) in float chunkVisibility;
 
-in vec4 lightColor;
-in vec2 texCoord;
-in vec2 texCoord2;
-in vec3 Pos;
-in float transition;
+#ifndef OIT_ALPHA_ONLY
+layout(location = 0) out vec4 fragColor;
+#endif
 
-flat in int isCustom;
-flat in int noshadow;
-
-out vec4 fragColor;
-
-// (param renamed sampler -> source: the 26.2 shader compiler rejects `sampler`
-// as an identifier, matching vanilla 26.2's naming)
-vec4 sampleNearest(sampler2D source, vec2 uv, vec2 pixelSize, vec2 du, vec2 dv, vec2 texelScreenSize) {
-    // Convert our UV back up to texel coordinates and find out how far over we are from the center of each pixel
-    vec2 uvTexelCoords = uv / pixelSize;
-    vec2 texelCenter = round(uvTexelCoords) - 0.5f;
-    vec2 texelOffset = uvTexelCoords - texelCenter;
-
-    // Move our offset closer to the texel center based on texel size on screen
-    texelOffset = (texelOffset - 0.5f) * pixelSize / texelScreenSize + 0.5f;
-    texelOffset = clamp(texelOffset, 0.0f, 1.0f);
-
-    uv = (texelCenter + texelOffset) * pixelSize;
-    return textureGrad(source, uv, du, dv);
+#ifndef OIT_ALPHA_ONLY
+vec4 calculateFinalColor(vec4 color) {
+#ifdef OIT_ACCUMULATE
+    color = sampleColorForAccumulation(color);
+    vec4 fogColor = vec4(FogColor.rgb * color.a, FogColor.a);
+#else
+    vec4 fogColor = FogColor;
+#endif
+    return apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, fogColor);
 }
-
-vec4 sampleNearest(sampler2D source, vec2 uv, vec2 pixelSize) {
-    vec2 du = dFdx(uv);
-    vec2 dv = dFdy(uv);
-    vec2 texelScreenSize = sqrt(du * du + dv * dv);
-    return sampleNearest(source, uv, pixelSize, du, dv, texelScreenSize);
-}
-
-// Rotated Grid Super-Sampling
-vec4 sampleRGSS(sampler2D source, vec2 uv, vec2 pixelSize) {
-    vec2 du = dFdx(uv);
-    vec2 dv = dFdy(uv);
-
-    vec2 texelScreenSize = sqrt(du * du + dv * dv);
-    float maxTexelSize = max(texelScreenSize.x, texelScreenSize.y);
-
-    float minPixelSize = min(pixelSize.x, pixelSize.y);
-
-    float transitionStart = minPixelSize * 1.0;
-    float transitionEnd = minPixelSize * 2.0;
-    float blendFactor = smoothstep(transitionStart, transitionEnd, maxTexelSize);
-
-    float duLength = length(du);
-    float dvLength = length(dv);
-    float minDerivative = min(duLength, dvLength);
-    float maxDerivative = max(duLength, dvLength);
-
-    float effectiveDerivative = sqrt(minDerivative * maxDerivative);
-
-    float mipLevelExact = max(0.0, log2(effectiveDerivative / minPixelSize));
-
-    float mipLevelLow = floor(mipLevelExact);
-    float mipLevelHigh = mipLevelLow + 1.0;
-    float mipBlend = fract(mipLevelExact);
-
-    const vec2 offsets[4] = vec2[](
-    vec2(0.125, 0.375),
-    vec2(-0.125, -0.375),
-    vec2(0.375, -0.125),
-    vec2(-0.375, 0.125)
-    );
-
-    vec4 rgssColorLow = vec4(0.0);
-    vec4 rgssColorHigh = vec4(0.0);
-    for (int i = 0; i < 4; ++i) {
-        vec2 sampleUV = uv + offsets[i] * pixelSize;
-        rgssColorLow += textureLod(source, sampleUV, mipLevelLow);
-        rgssColorHigh += textureLod(source, sampleUV, mipLevelHigh);
-    }
-    rgssColorLow *= 0.25;
-    rgssColorHigh *= 0.25;
-
-    vec4 rgssColor = mix(rgssColorLow, rgssColorHigh, mipBlend);
-
-    vec4 nearestColor = sampleNearest(source, uv, pixelSize, du, dv, texelScreenSize);
-
-    return mix(nearestColor, rgssColor, blendFactor);
-}
+#endif
 
 vec4 sampleColor(vec2 uv) {
-    if (isCustom == 1)
+    if (isCustom == 1) {
         return texelFetch(Sampler0, ivec2(uv * textureSize(Sampler0, 0)), 0);
-    return UseRgss == 1 ? sampleRGSS(Sampler0, uv, 1.0f / TextureSize) : sampleNearest(Sampler0, uv, 1.0f / TextureSize);
+    }
+    return UseRgss == 1 ? sampleRGSS(Sampler0, uv, 1.0 / TextureSize) : sampleNearest(Sampler0, uv, 1.0 / TextureSize);
 }
 
 void main() {
-    vec4 color = mix(sampleColor(texCoord), sampleColor(texCoord2), transition);
-
-    //custom lighting
-    #define BLOCK
-    #moj_import<objmc_light.glsl>
-    
+    vec4 color = transition > 0.0 ? mix(sampleColor(texCoord), sampleColor(texCoord2), transition) : sampleColor(texCoord);
 #ifdef ALPHA_CUTOUT
-    if (color.a < ALPHA_CUTOUT) {
-        discard;
-    }
+    if (color.a < ALPHA_CUTOUT) discard;
 #endif
-    fragColor = apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
+
+    if (isCustom == 0) {
+        color *= vertexColor;
+#if !defined(EMISSIVE) && !defined(OIT_ALPHA_ONLY)
+        color *= lightColor;
+#endif
+    } else if (isCustom == 1) {
+        // The decoder supplies the tint and the deformed surface normal.
+        #define BLOCK
+        #include <minecraft:objmc_light.glsl>
+    }
+#ifndef OIT_ALPHA_ONLY
+    color = mix(FogColor * vec4(1.0, 1.0, 1.0, color.a), color, chunkVisibility);
+#endif
+
+#ifdef OIT_ALPHA_ONLY
+    executeAlphaOnlyPhase(gl_FragCoord.z, color.a);
+#else
+    fragColor = calculateFinalColor(color);
+#endif
 }

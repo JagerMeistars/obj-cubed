@@ -1,6 +1,16 @@
 //objmc
 //https://github.com/Godlander/objmc
 
+// Minecraft 26.3 compiles every backend with Vulkan semantics before
+// translating SPIR-V back to GLSL for OpenGL.
+#ifdef VULKAN
+#define OBJMC_VERTEX_ID gl_VertexIndex
+#else
+#define OBJMC_VERTEX_ID gl_VertexID
+#endif
+
+#include <minecraft:objmc_carrier.glsl>
+
 #define PI 3.1415926535897932
 
 ivec4 getmeta(ivec2 topleft, int offset) {
@@ -34,6 +44,15 @@ ivec2 getvert(ivec2 topleft, int w, int h, int index) {
         ((a.r*65536)+(a.g*256)+a.b),
         ((b.r*65536)+(b.g*256)+b.b)
     );
+}
+
+// All four vertices already reference the same encoded face. Read its opposite
+// UV corners from the texture rather than exchanging decoded per-vertex UVs.
+float oc_face_v_mid(ivec2 origin, int width, int vertexRows, int uvRows, int vertexID) {
+    int first = vertexID - vertexID % 4;
+    int uv0 = getvert(origin, width, vertexRows, first).y;
+    int uv2 = getvert(origin, width, vertexRows, first + 2).y;
+    return (getuv(origin, width, uvRows, uv0).y + getuv(origin, width, uvRows, uv2).y) * 0.5;
 }
 
 bool getb(int i, int b) {

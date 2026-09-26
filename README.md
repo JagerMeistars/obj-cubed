@@ -29,13 +29,25 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 ## Requirements
 
 - BlockBench 4.8.0+ (desktop variant — the custom PNG encoder needs Node.js)
-- Minecraft 26.1.2 – 26.2 — the bundled core shaders support both (26.2's reversed
-  depth buffer and relocated entity geometry are detected and handled in-shader)
-- Armor export additionally needs the entity equipment pipeline (included in the pack)
+- Minecraft **26.3**, resource-pack format **97.1**; generated datapacks use **121.0**.
+- The current renderer still requires **basic/ballot subgroup operations in the vertex stage**.
+  Support for subgroups in fragment or compute shaders alone is insufficient.
+- Armor export additionally needs the entity equipment pipeline (included in the pack).
 
-Core shaders are a vanilla resource-pack feature, but they are version-sensitive: the
-shaders are tuned for 26.1.2–26.2 and may need updating for other versions. Modded
-compatibility is not guaranteed.
+This is a **26.3 development candidate**, based on the published release `26.2` archive. Shader compilation
+and automated export tests do not replace an in-game rendering check. Constant ballot broadcasts pass Minecraft 26.3's
+OpenGL translation and NVIDIA driver checks. The bundled translator's ARB extension
+guard still fails on AMD OpenGL; an experimental OpenGL-only variant is described in
+[the compatibility tools](tools/opengl-compat/README.md). This is **not a universal Intel / Apple Silicon fix**; Apple
+MoltenVK still lacks the required vertex-stage subgroup support. A tested,
+subgroup-free data-transfer prototype and the remaining renderer work are described in
+[the portability investigation](docs/26.3_PORTABILITY_RU.md) and
+[the standalone prototype](tools/portable-carrier/README.md).
+
+Re-export models with this plugin for the new first-person context markers; 26.3's
+projection matrices no longer reliably distinguish held items from world items.
+Core shader overrides in this candidate target 26.3 only. Use release `26.2` for older
+Minecraft versions. Modded compatibility is not guaranteed.
 
 ## Installation
 
@@ -65,6 +77,24 @@ compatibility is not guaranteed.
    - **Display** — rotation/translation/scale per display slot, one tab each (the third-person left hand mirrors the right until unticked)
    - **Advanced** — easing, interpolation, color behavior, autorotate
 4. Click **Export** — saves a PNG (encoded model) and JSON (Minecraft model) to your chosen location
+
+### Animated textures
+
+A texture that is a **stack of frames** can play in game independently of the
+geometry animation (its clock is separate — both can run at once):
+
+- **Best path:** mark the texture animated **in Blockbench** (texture
+  properties). BB then shows a one-frame UV grid — just UV-map your model as
+  usual, no special rules.
+- **Plain strip:** a texture whose height is a whole multiple of its width is
+  treated as vertical square frames; UV-map onto the **top** frame.
+- Set **ticks per frame** and optional **cross-fade** (like `interpolate` in a
+  vanilla `.mcmeta`).
+- Works in hand, GUI, world and **on armor**. Inside an **atlas**, multiple
+  animated strips are supported (each with its own frame count; capacity scales
+  with texture width, up to 15) — the other textures stay static.
+- The GUI icon is pinned to frame 0 of both the geometry and the texture (MC
+  bakes inventory icons once, so a live clock would freeze a random frame).
 
 ### Datapack generation
 
@@ -249,3 +279,9 @@ When `colorbehavior = time/time/time` (set automatically when generating a datap
 ## License
 
 MIT License (c) 2022 Godlander. See [LICENSE](LICENSE).
+
+## Validation
+
+See [test/README.md](test/README.md) for export tests, offline pack validation and
+compiling the complete shader variant matrix against extracted vanilla 26.3 assets.
+The portable carrier prototype is a separate experiment and is not loaded by the pack.

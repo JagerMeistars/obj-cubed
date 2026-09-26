@@ -132,8 +132,8 @@ describe('resource pack export (#7)', () => {
     }
 
     // Slot marker v2: each slot json's U midpoint = px + 0.5 + id*0.035.
-    // With no custom display, dynamics are ground (id 1 -> 0.535) and shelf
-    // (id 2 -> 0.57); the plain/neutral json keeps 0.5 (id 0). The shader
+    // With no custom display, both hands occupy ids 1/2, ground id 3
+    // and shelf id 4; the plain/neutral json keeps 0.5 (id 0). The shader
     // reads the quad's U midpoint (shrink-invariant) to recover the id.
     const groundModel = JSON.parse(
       memfs.writes.get('/rp/assets/objcubed/models/item/cat_ground.json'));
@@ -141,13 +141,29 @@ describe('resource pack export (#7)', () => {
     const groundUv = groundModel.elements[0].faces.north.uv;
     const umidOf = (uv, tw) => ((uv[0] + uv[2]) / 2 * tw / 16) % 1; // uv = (px+m)*16/tw
     expect(umidOf(mainUv, 16)).toBeCloseTo(0.5, 5);
-    expect(umidOf(groundUv, 16)).toBeCloseTo(0.535, 5);
+    expect(umidOf(groundUv, 16)).toBeCloseTo(0.605, 5);
     // The neutral default fallback json exists and carries marker id 0.
     const defModel = JSON.parse(
       memfs.writes.get('/rp/assets/objcubed/models/item/cat_default.json'));
     expect(umidOf(defModel.elements[0].faces.north.uv, 16)).toBeCloseTo(0.5, 5);
     // and the ground carrier still sits +8 above the main one (element offset)
     expect(groundModel.elements[0].from[1]).toBe(model.elements[0].from[1] + 8);
+  });
+
+  it('exports both identity hand contexts with explicit markers and selector cases', async () => {
+    const { api, memfs } = setup();
+    await api.saveSingleOutput(RESULT, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+    });
+    const item = JSON.parse(memfs.writes.get('/rp/assets/minecraft/items/iron_ingot.json'));
+    const contexts = item.model.cases.find(c => c.when === 'cat').model;
+    for (const [slot, id] of [['firstperson_righthand', 1], ['firstperson_lefthand', 2]]) {
+      const ref = `objcubed:item/cat_${slot}`;
+      expect(contexts.cases.find(c => c.when === slot)?.model.model).toBe(ref);
+      const model = JSON.parse(memfs.writes.get(`/rp/assets/objcubed/models/item/cat_${slot}.json`));
+      const uv = model.elements[0].faces.north.uv;
+      expect((uv[0] + uv[2]) / 2).toBeCloseTo(0.5 + id * 0.035, 6);
+    }
   });
 
   it('a slot with a distinct Z scale gets a DYNAMIC marker id (U midpoint 0.5 + id*0.035)', async () => {
