@@ -20,6 +20,8 @@ let target = 'vulkan1.2';
 let crossCompiler;
 let driver;
 let glVersion = '4.5';
+let programFilter;
+let progress = false;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--compile') compile = true;
   else if (args[i] === '--vanilla') vanilla = args[++i];
@@ -29,6 +31,8 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--spirv-cross') crossCompiler = args[++i];
   else if (args[i] === '--driver') driver = args[++i];
   else if (args[i] === '--gl-version') glVersion = args[++i];
+  else if (args[i] === '--filter') programFilter = new RegExp(args[++i]);
+  else if (args[i] === '--progress') progress = true;
   else if (args[i] === '--pack') pack = path.resolve(args[++i]);
   else throw new Error(`Unknown option: ${args[i]}`);
 }
@@ -95,7 +99,10 @@ if (compile) {
   let driverDescription;
   const failures = [];
   try {
-    for (const program of shaderMatrix()) {
+    const programs = shaderMatrix().filter(program => !programFilter || programFilter.test(program.name));
+    assert(programs.length, 'No shader programs matched --filter');
+    for (const program of programs) {
+      if (progress) console.log(`Checking ${program.name}`);
       const inputs = ['vsh', 'fsh'].map((extension, index) => {
         const destination = path.join(scratch, `${program.name}.${index === 0 ? 'vert' : 'frag'}`);
         const source = expandShader(path.join(core, `${program.kind}.${extension}`), roots);

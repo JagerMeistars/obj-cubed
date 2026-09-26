@@ -38,5 +38,13 @@ export function shaderMatrix() {
       }
     }
   }
+  // Actual equipment combinations: the individual flags above do not cover
+  // their interaction in armorCutoutNoCull and its combined-foil pipeline.
+  for (const glint of [false, true]) {
+    programs.push({kind:'entity',name:`entity-armor${glint?'-glint':''}`,defines:[
+      'NO_OVERLAY','PER_FACE_LIGHTING','ALPHA_CUTOUT=0.1',...(glint?['GLINT']:[]),
+      'OIT_COEFF_COUNT=8','OIT_COEFF_ATTACHMENT_COUNT=2','OIT_WAVELET_RANK=2',
+    ]});
+  }
   return programs;
 }

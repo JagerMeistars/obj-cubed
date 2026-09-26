@@ -30,19 +30,27 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 
 - BlockBench 4.8.0+ (desktop variant — the custom PNG encoder needs Node.js)
 - Minecraft **26.3**, resource-pack format **97.1**; generated datapacks use **121.0**.
-- The current renderer still requires **basic/ballot subgroup operations in the vertex stage**.
-  Support for subgroups in fragment or compute shaders alone is insufficient.
-- Armor export additionally needs the entity equipment pipeline (included in the pack).
+- Two renderer variants are available: the original **subgroup** template in `objcubed/`,
+  and the new **experimental subgroup-free portable renderer**.
+- Armor export needs the included entity equipment pipeline.
 
-This is a **26.3 development candidate**, based on the published release `26.2` archive. Shader compilation
-and automated export tests do not replace an in-game rendering check. Constant ballot broadcasts pass Minecraft 26.3's
-OpenGL translation and NVIDIA driver checks. The bundled translator's ARB extension
-guard still fails on AMD OpenGL; an experimental OpenGL-only variant is described in
-[the compatibility tools](tools/opengl-compat/README.md). This is **not a universal Intel / Apple Silicon fix**; Apple
-MoltenVK still lacks the required vertex-stage subgroup support. A tested,
-subgroup-free data-transfer prototype and the remaining renderer work are described in
-[the portability investigation](docs/26.3_PORTABILITY_RU.md) and
-[the standalone prototype](tools/portable-carrier/README.md).
+This is a **26.3 development candidate**, based on the published release `26.2` archive.
+For Intel integrated graphics and Apple Silicon, use the
+[portable renderer and BVH conversion workflow](docs/PORTABLE_RENDERER_26.3_RU.md).
+It preserves geometry animation, texture animation, equipment, transforms, color controls,
+lighting and OIT through fragment reconstruction, with documented visual and performance
+approximations. It uses no subgroup, ballot, shuffle or 64-bit shader operations.
+
+The portable variant has been exercised in an isolated vanilla Minecraft 26.3 OpenGL
+client on **AMD Renoir**, including a 2,802-quad animated model. Numerical GPU checks
+also ran on NVIDIA GTX 1650. **Physical Intel and Apple M machines have not been tested**;
+shader compilation is not a hardware compatibility guarantee. See
+[validation results](docs/VALIDATION_26.3.md).
+
+The original template still requires basic/ballot subgroups in the vertex stage.
+Its [OpenGL compatibility variant](tools/opengl-compat/README.md) also uses subgroup
+operations and produced distorted geometry in the AMD game check. The portable
+renderer is a separate build; selecting the original template does not enable it.
 
 Re-export models with this plugin for the new first-person context markers; 26.3's
 projection matrices no longer reliably distinguish held items from world items.
@@ -210,7 +218,9 @@ a second model on the same base item coexists via custom_model_data.
 
 ## Performance
 
-objmc models add minimal overhead — mostly extra texture fetches. Performance scales linearly with face count. A 20K-face block model performs similarly to rendering ~3300 regular blocks without culling. Block models are significantly more performant than entity models.
+The original subgroup renderer adds mostly extra texture fetches. Performance scales linearly with face count. A 20K-face block model performs similarly to rendering ~3300 regular blocks without culling. Block models are significantly more performant than entity models.
+
+The portable renderer has a different cost: per-face reconstruction can be expensive even for small models. Opaque-item BVH conversion reduces the carrier count, but resolution, visible model size and animation still strongly affect frame time. See the portable validation report for measured limitations.
 
 High face counts (50K+) in a single chunk section can hit the UberGpuBuffer 2MB limit and crash the game. Use blockstate overrides to redirect high-poly block models if needed.
 
