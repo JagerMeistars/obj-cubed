@@ -1,49 +1,48 @@
-# Optional OpenGL compatibility pack
+# Optional fast OpenGL compatibility pack
 
-This **experimental** variant is for the **OpenGL renderer only** in vanilla Minecraft 26.3. Select OpenGL before enabling it. It must not be used with the Vulkan renderer, even when the graphics card supports Vulkan. The regular resource pack remains separate and unchanged.
-
-The variant requires vertex-stage `GL_ARB_shader_ballot` and `GL_ARB_gpu_shader_int64`. It is intended to work around Minecraft's bundled SPIRV-Cross fallback on OpenGL drivers such as the tested AMD Renoir driver. Intel graphics are unverified. Apple's OpenGL driver is unsupported. This still uses communication between vertex invocations; it does not make the renderer work on every old GPU.
-
-## Known functional limitation
-
-The exact helper passed the compiler/translation/link matrix on AMD Renoir and NVIDIA GTX 1650. A separate **raster-only** comparison also passed on both GPUs: 1,248 indexed draws and 3,432,384 covered pixels per GPU, with zero failed draws. This mode configures no transform feedback and uses neither rasterizer discard nor storage writes.
-
-The transform-feedback parity test passed on NVIDIA but **failed all 1,248 AMD test draws**. AMD executed duplicate instances of one vertex ID in distinct lanes; neither choosing the first nor the last matching ID can identify both invocations correctly. Transform feedback changes the tested driver's vertex reuse behavior. The raster-only success and this failure are both retained: the helper is not generally equivalent across all execution modes. No complete Minecraft session or Intel GPU has been verified.
+This experimental variant keeps the original vertex renderer in vanilla Minecraft 26.3. It requires vertex-stage `GL_ARB_shader_ballot`, `GL_ARB_gpu_shader_int64` and `GL_ARB_shader_draw_parameters`. Select **OpenGL**, not Vulkan. Intel hardware remains unverified; Apple's OpenGL implementation lacks the required functionality.
 
 ## Build
 
-From the repository root, provide the existing main resource-pack directory and a **new**, separate output directory whose parent already exists:
+Use a resource pack containing the 26.3 shaders and ordinary exported model assets. Each output directory must be new and separate from its input:
 
 ```sh
 mkdir -p work
-node tools/build-opengl-pack.mjs objcubed work/objcubed-opengl
+node tools/prepare-opengl-models.mjs my-resource-pack work/guarded-models
+node tools/build-opengl-pack.mjs work/guarded-models work/opengl-pack
 ```
 
-The generator copies all pack assets, replaces only the carrier helper and four vertex-shader extension requirements, and labels the result `[OPENGL ONLY]`. It adds `OPENGL-ONLY.txt` inside the generated pack. It rejects an existing output, input/output nesting, symlinked pack contents, and unexpected shader requirements. It does not modify the input pack or plugin.
+Preparation preserves original vertex/UV data and every animation frame, adds 16 invisible carrier faces at each end of an item instance, and updates its PNG tables and JSON models. It emits only marker rows with alpha 1–254; rows 0/255 are reserved in the data but omitted from JSON. Thus real faces use one blended material, including large exports and forced translucency. This can change ordering of rare faces that previously used a cutout material because their backpointer happened to have alpha 0 or 255.
 
-Use the generated pack above other resource packs replacing the same core shaders. Re-export models with the Minecraft 26.3 plugin so first-person contexts use the new explicit markers.
+Guards prevent the observed AMD instance-boundary loss. They add 32 submitted quads per encoded item instance, not per animation frame. Armor equipment textures and native armor meshes are unchanged. Preparation refuses unsupported carrier layouts, oversized output textures and repeated conversion. Keep the original export to rebuild or use another renderer.
 
-## Why a separate pack is necessary
+For a shader-only pack, run the second command directly on `objcubed`. Model assets still need preparation: an unguarded model can work in one scene and lose faces when batching changes. Do not use the portable BVH conversion with this renderer.
 
-Minecraft 26.3 compiles shaders to Vulkan 1.2 SPIR-V for both graphics backends. It then translates that SPIR-V to GLSL 330 for OpenGL. The bundled translator rejects the original quad/shuffle operations, and its modern subgroup fallback checks `GL_ARB_shader_int64` instead of the actual `GL_ARB_gpu_shader_int64` extension.
+## Carrier recovery
 
-Legacy ARB ballot operations take a different translation path which emits the correct OpenGL extension requirements. This helper finds its current invocation lane by broadcasting actual vertex IDs from active lanes, then retrieves the four lanes of that quad. Source indices are constants and reads occur before lane-specific selection. It does not infer the lane from `vertexID / 4`, so an unaligned vertex-arena base is not mistaken for the subgroup boundary.
+The preceding helper searched for its physical lane by vertex ID and read four adjacent lanes. AMD can execute duplicate vertex IDs, and hardware groups can cut through a face. Both assumptions caused actual Minecraft corruption.
 
-The helper still relies on a complete carrier face being present in one subgroup quad and on vertex IDs identifying the relevant invocation within the draw. The additional vertex-ID uniqueness assumption is stronger than the regular helper and is violated by the AMD transform-feedback test. ARB ballot masks support up to 64 lanes. Missing/inactive peers are not evidence of correctness; see the parity harness's explicit exclusions.
+The new item helper identifies an instance from the draw's base vertex, encoded face rank, draw ID and texture origin. All NORTH carriers of an exported item repeat the same four positions. It gathers corners from any carrier of that instance and restores the receiving face's UV offset. Grouped ballots avoid scanning every hardware lane. The main decoder receives the draw-local corner instead of using the arena-wide vertex ID modulo four.
 
-This path emits SPIR-V `Int64` and `SubgroupBallotKHR` capabilities. Minecraft 26.3 does not enable `shaderInt64` or `VK_EXT_shader_subgroup_ballot` when creating its Vulkan device. A successful SPIR-V compilation therefore does **not** make this pack compatible with the Vulkan renderer. `#ifdef VULKAN` cannot select between backends because ShaderC uses Vulkan semantics for both.
+Armor gathers repeated physical corners across the six faces of its native cube. Four independent corners allow affine recovery; sparse cases use standard humanoid box dimensions and a rigid bone pose. A two-point fallback also uses the packed normal, so it is approximate and can introduce small position differences. Custom nonuniform bone poses are not covered by that sparse fallback. The existing inventory reflection convention is retained.
 
-## Validate
+These operations still communicate between vertex invocations. OpenGL does not guarantee a particular vertex-to-group schedule. Guards and cube recovery are tested mitigations for the observed drivers, not proof for every older GPU.
 
-After extracting the official 26.3 client assets and installing the compiler tools described in [test/README.md](../../test/README.md):
+## Validation
+
+GPU tests compare returned values with independent CPU geometry, rather than using the former subgroup implementation as their reference:
+
+The Linux GPU runners require Node.js, a C compiler, `pkg-config`, libepoxy development files and an EGL OpenGL driver.
 
 ```sh
-npm run test:pack -- --pack work/objcubed-opengl
-npm run test:shaders -- --pack work/objcubed-opengl --vanilla /path/to/extracted-26.3-client --spirv-cross /path/to/spirv-cross --driver /path/to/egl-compile --gl-version 4.1
+node tools/render-tester/fast-carrier-check.mjs item
+node tools/render-tester/fast-carrier-check.mjs armor
+node tools/render-tester/coordinate-decode.mjs
+npm test
 ```
 
-`--pack` selects the generated directory; the default pack is never modified. The reported Vulkan target is the compiler input format, not permission to use this variant with Minecraft's Vulkan renderer. The EGL runner reports the actual driver/context version it receives.
+Set `__EGL_VENDOR_LIBRARY_FILENAMES` to select an installed EGL vendor. `--quick` reduces the carrier corpus. `--stress` additionally tests deliberately incomplete primitives and per-vertex divergence; missing peers in those cases are reported separately and can produce a nonzero exit status.
 
-The exact LWJGL 3.4.3 native library shipped with Minecraft also translated the representative full item shader pair, which compiled and linked on AMD Renoir and NVIDIA GTX 1650. No vanilla gameplay session, Intel GPU or Apple machine was available. Compilation, linking and isolated parity checks do not prove all in-game visual behavior or performance.
+Tests cover AMD Renoir/Mesa 26.1.6 and NVIDIA GTX 1650/610.43.03. Actual Minecraft checks additionally use isolated clients. See [the validation record](../../docs/FAST_OPENGL_26.3.md) for in-game evidence, performance measurements and remaining limits.
 
-The [carrier gather test](../render-tester/carrier-gather.md) checks the exact optional helper against the old quad operation on real GPUs. The separate [portable carrier experiment](../portable-carrier/README.md) researches a future path without subgroup access; it is not included in this pack.
+Minecraft compiles both backends through Vulkan SPIR-V. This helper uses the legacy ARB translation path, avoiding the bundled SPIRV-Cross subgroup fallback. The vanilla Vulkan device does not enable the required legacy capabilities; successful compilation is not Vulkan runtime compatibility. `#ifdef VULKAN` cannot distinguish Minecraft's selected renderer.

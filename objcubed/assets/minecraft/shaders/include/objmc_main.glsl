@@ -23,6 +23,10 @@ if (marker == ivec4(12,34,56,255)) {
     isCustom = 1;
     vec3 oc_pos[4]; vec2 oc_uv[4];
     oc_read_carrier(Pos, UV0, oc_pos, oc_uv);
+#ifdef OBJMC_CARRIER_EXPLICIT_CORNER
+    // Shared vertex arenas may start a model at any vertex offset.
+    corner = oc_carrier_corner;
+#endif
     int oc_uv_vertex_id = 0; // selected UV frame survives the visibility branch
     // Row 0: t[0..15]
     for (int i = 1; i < 16; i++) {

@@ -1,5 +1,7 @@
 # Validation record — 2026-09-26
 
+Current fast OpenGL work is documented in [FAST_OPENGL_26.3.md](FAST_OPENGL_26.3.md). The earlier renderer and failed helper results below are retained as history.
+
 This is a development candidate. The subgroup-free portable renderer has now been
 exercised in an isolated **vanilla Minecraft 26.3 OpenGL** client on AMD Renoir,
 Mesa 26.1.6. Numerical GPU checks also ran on NVIDIA GTX 1650, driver 610.43.03.

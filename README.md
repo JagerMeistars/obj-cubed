@@ -30,27 +30,27 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 
 - BlockBench 4.8.0+ (desktop variant — the custom PNG encoder needs Node.js)
 - Minecraft **26.3**, resource-pack format **97.1**; generated datapacks use **121.0**.
-- Two renderer variants are available: the original **subgroup** template in `objcubed/`,
-  and the new **experimental subgroup-free portable renderer**.
+- The original subgroup template remains in `objcubed/`.
+- The [fast OpenGL variant](tools/opengl-compat/README.md) uses legacy ARB operations,
+  prepared item carriers and native armor cube recovery.
 - Armor export needs the included entity equipment pipeline.
 
 This is a **26.3 development candidate**, based on the published release `26.2` archive.
-For Intel integrated graphics and Apple Silicon, use the
-[portable renderer and BVH conversion workflow](docs/PORTABLE_RENDERER_26.3_RU.md).
-It preserves geometry animation, texture animation, equipment, transforms, color controls,
-lighting and OIT through fragment reconstruction, with documented visual and performance
-approximations. It uses no subgroup, ballot, shuffle or 64-bit shader operations.
+The fast OpenGL variant preserves the original vertex decoder and animation paths.
+It fixes the observed AMD carrier corruption. Most of the measured heavy-scene delay
+remained with the decoder disabled. Its item preparation adds invisible carrier guards;
+sparse armor recovery is approximate. See the
+[current validation and limitations](docs/FAST_OPENGL_26.3.md).
 
-The portable variant has been exercised in an isolated vanilla Minecraft 26.3 OpenGL
-client on **AMD Renoir**, including a 2,802-quad animated model. Numerical GPU checks
-also ran on NVIDIA GTX 1650. **Physical Intel and Apple M machines have not been tested**;
-shader compilation is not a hardware compatibility guarantee. See
-[validation results](docs/VALIDATION_26.3.md).
+It requires vertex-stage ARB shader ballot, integer64 and draw-parameter extensions.
+**Intel hardware is unverified; Apple OpenGL is unsupported.** This is not a universal
+old-GPU fix. Minecraft's Vulkan backend cannot use this ARB variant.
 
-The original template still requires basic/ballot subgroups in the vertex stage.
-Its [OpenGL compatibility variant](tools/opengl-compat/README.md) also uses subgroup
-operations and produced distorted geometry in the AMD game check. The portable
-renderer is a separate build; selecting the original template does not enable it.
+The earlier [subgroup-free portable renderer](docs/PORTABLE_RENDERER_26.3_RU.md)
+remains an experiment. Its fragment reconstruction/BVH path is too expensive for
+large scenes in the reported game tests. Its converted assets require that renderer
+and must not be mixed with the fast OpenGL pack. Historical checks are retained in
+[the earlier validation record](docs/VALIDATION_26.3.md).
 
 Re-export models with this plugin for the new first-person context markers; 26.3's
 projection matrices no longer reliably distinguish held items from world items.

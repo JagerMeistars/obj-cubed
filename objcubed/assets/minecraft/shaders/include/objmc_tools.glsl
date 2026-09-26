@@ -18,14 +18,17 @@ ivec4 getmeta(ivec2 topleft, int offset) {
 }
 vec3 getpos(ivec2 topleft, int w, int h, int index) {
     int i = index*3;
-    vec4 x = texelFetch(Sampler0, topleft + ivec2((i  )%w,h+((i  )/w)), 0);
-    vec4 y = texelFetch(Sampler0, topleft + ivec2((i+1)%w,h+((i+1)/w)), 0);
-    vec4 z = texelFetch(Sampler0, topleft + ivec2((i+2)%w,h+((i+2)/w)), 0);
+    ivec3 x = ivec3(texelFetch(Sampler0, topleft + ivec2((i  )%w,h+((i  )/w)), 0).rgb * 255.0 + 0.5);
+    ivec3 y = ivec3(texelFetch(Sampler0, topleft + ivec2((i+1)%w,h+((i+1)/w)), 0).rgb * 255.0 + 0.5);
+    ivec3 z = ivec3(texelFetch(Sampler0, topleft + ivec2((i+2)%w,h+((i+2)/w)), 0).rgb * 255.0 + 0.5);
+    // Restore integer bytes before decoding the coordinate's 16 fractional bits.
+    // Every RGB24 value is exactly representable by a float; division by
+    // 65536 is exact and avoids accumulating normalized-channel rounding.
     return vec3(
-        (x.r*256)+(x.g)+(x.b/256),
-        (y.r*256)+(y.g)+(y.b/256),
-        (z.r*256)+(z.g)+(z.b/256)
-    )*(255./256.) - vec3(128);
+        x.r*65536 + x.g*256 + x.b - 8388608,
+        y.r*65536 + y.g*256 + y.b - 8388608,
+        z.r*65536 + z.g*256 + z.b - 8388608
+    ) / 65536.0;
 }
 vec2 getuv(ivec2 topleft, int w, int h, int index) {
     int i = index*2;

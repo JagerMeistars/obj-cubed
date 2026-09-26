@@ -1,163 +1,120 @@
-// Optional Minecraft 26.3 OPENGL-ONLY carrier. Do not use with Vulkan.
-// Uses legacy SPV_KHR_shader_ballot so bundled SPIRV-Cross emits correct ARB
-// extension names. Vanilla's Vulkan device does NOT enable its required features.
+// OpenGL carrier recovery for item instances and vanilla humanoid armor cubes.
+// Item contract: exporter emits identical NORTH carriers in encoded-face order.
+// Standard Minecraft material splitting is accounted for with per-class rank.
+// Define OBJMC_CARRIER_TERRAIN for terrain's separate alpha0/255 classes.
+// Prepare item assets to emit only blended markers and guard instance ends.
+// Unprepared mixed-class assets do not cover arbitrary forceTranslucent overrides.
+// Full peer transfer is exact for Position; donor UV remapping may differ by ulps.
+// Three peer reconstruction assumes the original carrier is a parallelogram.
+// Status 0 explicitly means insufficient peers; callers must not treat it as a
+// complete carrier. Group operations do not guarantee hardware scheduling.
+// Requires ARB_shader_ballot, ARB_gpu_shader_int64, ARB_shader_draw_parameters.
 #ifndef OBJMC_CARRIER_GLSL
 #define OBJMC_CARRIER_GLSL
-
-void oc_read_carrier(vec3 position, vec2 uv, out vec3 positions[4], out vec2 uvs[4]) {
-    positions[0] = position; positions[1] = position;
-    positions[2] = position; positions[3] = position;
-    uvs[0] = uv; uvs[1] = uv; uvs[2] = uv; uvs[3] = uv;
-    uint64_t activeMask = ballotARB(true);
-    uint ownLane = 0u;
-    // Recover the invocation lane without subgroup built-ins: their SPIRV-Cross
-    // emulation has the same incorrect extension guard as the modern ballot path.
-    // Compare actual vertex IDs; dividing a vertex ID by four is incorrect when
-    // the arena starts at an unaligned base vertex. Source indices stay constant
-    // and every active invocation executes the same reads before selecting data.
-#define OC_FIND_LANE(I) \
-    if ((activeMask & (uint64_t(1) << (I))) != uint64_t(0)) { \
-        int candidate = readInvocationARB(OBJMC_VERTEX_ID, (I)); \
-        if (candidate == OBJMC_VERTEX_ID) ownLane = (I); \
+#define OBJMC_CARRIER_EXPLICIT_CORNER
+int oc_carrier_corner=0;
+int oc_carrier_status=0;
+int oc_carrier_count=0;
+uint oc_carrier_neighbors=0u;
+#include <minecraft:objmc_armor_carrier.glsl>
+// Avoid GLSL400 findLSB in Minecraft's GLSL330 roundtrip.
+uint oc_first_lane(uint64_t mask) {
+    uint lo=uint(mask), hi=uint(mask>>32);
+    uint v=lo!=0u?lo:hi, lane=lo!=0u?0u:32u;
+    if((v&65535u)==0u){v>>=16;lane+=16u;}
+    if((v&255u)==0u){v>>=8;lane+=8u;}
+    if((v&15u)==0u){v>>=4;lane+=4u;}
+    if((v&3u)==0u){v>>=2;lane+=2u;}
+    if((v&1u)==0u)lane+=1u;
+    return lane;
+}
+// Standard exporter UV-offset texels use alpha = marker row modulo 256.
+// Minecraft preserves face order separately within each material class.
+int oc_item_face_rank(int faceID,int width) {
+    int row=faceID/width+2,col=faceID%width;
+    int cutBefore=2*(row/256)+min(row%256,1)-1;
+#ifdef OBJMC_CARRIER_TERRAIN
+    int residue=row&255;
+    if(residue==0)return (((row+255)/256)-1)*width+col;
+    if(residue==255)return (row/256)*width+col;
+#else
+    if((row&255)==0||(row&255)==255)return cutBefore*width+col;
+#endif
+    return (row-2-cutBefore)*width+col;
+}
+void oc_read_carrier(vec3 position,vec2 uv,out vec3 positions[4],out vec2 uvs[4]) {
+    oc_carrier_corner=(OBJMC_VERTEX_ID-gl_BaseVertexARB)&3;
+    int quadBase=OBJMC_VERTEX_ID-oc_carrier_corner;
+    ivec2 atlasSize=textureSize(Sampler0,0);
+    ivec2 ownPixel=ivec2(0),topLeft=ivec2(0);
+    vec2 relativeUV=uv;
+    int modelBase=quadBase;
+    bool itemCarrier=false;
+    ivec2 pixel=ivec2(uv*vec2(atlasSize));
+    if(all(greaterThanEqual(pixel,ivec2(0)))&&all(lessThan(pixel,atlasSize))) {
+        ivec4 offset=ivec4(texelFetch(Sampler0,pixel,0)*255.0+0.5);
+        ivec2 ownOffset=ivec2(offset.r*256+offset.g,offset.b*256+offset.a);
+        ivec2 origin=pixel-ownOffset;
+        if(all(greaterThanEqual(origin,ivec2(0)))&&all(lessThan(origin,atlasSize))) {
+            ivec4 marker=ivec4(texelFetch(Sampler0,origin,0)*255.0+0.5);
+            if(all(equal(marker,ivec4(12,34,56,255)))) {
+                itemCarrier=true;
+                ivec4 info=ivec4(texelFetch(Sampler0,origin+ivec2(1,0),0)*255.0+0.5);
+                int faceID=(ownOffset.y-2)*(info.r*256+info.g)+ownOffset.x;
+                int faceRank=oc_item_face_rank(faceID,info.r*256+info.g);
+                modelBase=quadBase-faceRank*4;
+                ownPixel=pixel;topLeft=origin;
+                relativeUV=uv-vec2(pixel)/vec2(atlasSize);
+            }
+        }
     }
-    OC_FIND_LANE(0u)
-    OC_FIND_LANE(1u)
-    OC_FIND_LANE(2u)
-    OC_FIND_LANE(3u)
-    OC_FIND_LANE(4u)
-    OC_FIND_LANE(5u)
-    OC_FIND_LANE(6u)
-    OC_FIND_LANE(7u)
-    OC_FIND_LANE(8u)
-    OC_FIND_LANE(9u)
-    OC_FIND_LANE(10u)
-    OC_FIND_LANE(11u)
-    OC_FIND_LANE(12u)
-    OC_FIND_LANE(13u)
-    OC_FIND_LANE(14u)
-    OC_FIND_LANE(15u)
-    OC_FIND_LANE(16u)
-    OC_FIND_LANE(17u)
-    OC_FIND_LANE(18u)
-    OC_FIND_LANE(19u)
-    OC_FIND_LANE(20u)
-    OC_FIND_LANE(21u)
-    OC_FIND_LANE(22u)
-    OC_FIND_LANE(23u)
-    OC_FIND_LANE(24u)
-    OC_FIND_LANE(25u)
-    OC_FIND_LANE(26u)
-    OC_FIND_LANE(27u)
-    OC_FIND_LANE(28u)
-    OC_FIND_LANE(29u)
-    OC_FIND_LANE(30u)
-    OC_FIND_LANE(31u)
-    OC_FIND_LANE(32u)
-    OC_FIND_LANE(33u)
-    OC_FIND_LANE(34u)
-    OC_FIND_LANE(35u)
-    OC_FIND_LANE(36u)
-    OC_FIND_LANE(37u)
-    OC_FIND_LANE(38u)
-    OC_FIND_LANE(39u)
-    OC_FIND_LANE(40u)
-    OC_FIND_LANE(41u)
-    OC_FIND_LANE(42u)
-    OC_FIND_LANE(43u)
-    OC_FIND_LANE(44u)
-    OC_FIND_LANE(45u)
-    OC_FIND_LANE(46u)
-    OC_FIND_LANE(47u)
-    OC_FIND_LANE(48u)
-    OC_FIND_LANE(49u)
-    OC_FIND_LANE(50u)
-    OC_FIND_LANE(51u)
-    OC_FIND_LANE(52u)
-    OC_FIND_LANE(53u)
-    OC_FIND_LANE(54u)
-    OC_FIND_LANE(55u)
-    OC_FIND_LANE(56u)
-    OC_FIND_LANE(57u)
-    OC_FIND_LANE(58u)
-    OC_FIND_LANE(59u)
-    OC_FIND_LANE(60u)
-    OC_FIND_LANE(61u)
-    OC_FIND_LANE(62u)
-    OC_FIND_LANE(63u)
-#undef OC_FIND_LANE
-    uint ownBase = ownLane & ~3u;
-#define OC_READ_LANE(I) \
-    if ((activeMask & (uint64_t(1) << (I))) != uint64_t(0)) { \
-        vec3 p = readInvocationARB(position, (I)); \
-        vec2 t = readInvocationARB(uv, (I)); \
-        if (((I) & ~3u) == ownBase) { \
-            positions[(I) & 3u] = p; uvs[(I) & 3u] = t; \
-        } \
+#ifdef OBJMC_CARRIER_ARMOR
+    // Match main's item-before-armor priority, including texture atlases.
+    if(!itemCarrier && all(equal(ivec4(texelFetch(Sampler0,ivec2(0),0)*255.0+0.5),ivec4(12,34,56,253)))) {
+        oc_read_armor_carrier(position,uv,positions,uvs);
+        return;
     }
-    OC_READ_LANE(0u)
-    OC_READ_LANE(1u)
-    OC_READ_LANE(2u)
-    OC_READ_LANE(3u)
-    OC_READ_LANE(4u)
-    OC_READ_LANE(5u)
-    OC_READ_LANE(6u)
-    OC_READ_LANE(7u)
-    OC_READ_LANE(8u)
-    OC_READ_LANE(9u)
-    OC_READ_LANE(10u)
-    OC_READ_LANE(11u)
-    OC_READ_LANE(12u)
-    OC_READ_LANE(13u)
-    OC_READ_LANE(14u)
-    OC_READ_LANE(15u)
-    OC_READ_LANE(16u)
-    OC_READ_LANE(17u)
-    OC_READ_LANE(18u)
-    OC_READ_LANE(19u)
-    OC_READ_LANE(20u)
-    OC_READ_LANE(21u)
-    OC_READ_LANE(22u)
-    OC_READ_LANE(23u)
-    OC_READ_LANE(24u)
-    OC_READ_LANE(25u)
-    OC_READ_LANE(26u)
-    OC_READ_LANE(27u)
-    OC_READ_LANE(28u)
-    OC_READ_LANE(29u)
-    OC_READ_LANE(30u)
-    OC_READ_LANE(31u)
-    OC_READ_LANE(32u)
-    OC_READ_LANE(33u)
-    OC_READ_LANE(34u)
-    OC_READ_LANE(35u)
-    OC_READ_LANE(36u)
-    OC_READ_LANE(37u)
-    OC_READ_LANE(38u)
-    OC_READ_LANE(39u)
-    OC_READ_LANE(40u)
-    OC_READ_LANE(41u)
-    OC_READ_LANE(42u)
-    OC_READ_LANE(43u)
-    OC_READ_LANE(44u)
-    OC_READ_LANE(45u)
-    OC_READ_LANE(46u)
-    OC_READ_LANE(47u)
-    OC_READ_LANE(48u)
-    OC_READ_LANE(49u)
-    OC_READ_LANE(50u)
-    OC_READ_LANE(51u)
-    OC_READ_LANE(52u)
-    OC_READ_LANE(53u)
-    OC_READ_LANE(54u)
-    OC_READ_LANE(55u)
-    OC_READ_LANE(56u)
-    OC_READ_LANE(57u)
-    OC_READ_LANE(58u)
-    OC_READ_LANE(59u)
-    OC_READ_LANE(60u)
-    OC_READ_LANE(61u)
-    OC_READ_LANE(62u)
-    OC_READ_LANE(63u)
-#undef OC_READ_LANE
+#endif
+    int draw=gl_DrawIDARB;
+    oc_carrier_status=0;oc_carrier_count=0;oc_carrier_neighbors=0u;
+    for(int i=0;i<4;i++){positions[i]=position;uvs[i]=uv;}
+    bool pending=true;
+    bool conflict=false;
+    while(pending) {
+        int chosenBase=readFirstInvocationARB(modelBase);
+        int chosenDraw=readFirstInvocationARB(draw);
+        ivec2 chosenTopLeft=readFirstInvocationARB(topLeft);
+        if(modelBase==chosenBase && draw==chosenDraw && all(equal(topLeft,chosenTopLeft))) {
+            // Active lanes share one model instance (one quad for armor). Each
+            // source index is uniform among the lanes executing the read.
+            for(int corner=0;corner<4;corner++) {
+                uint64_t peers=ballotARB(oc_carrier_corner==corner);
+                if(peers!=uint64_t(0)) {
+                    uint lane=oc_first_lane(peers);
+                    vec3 sourcePosition=readInvocationARB(position,lane);
+                    vec2 sourceUV=readInvocationARB(relativeUV,lane);
+                    uint64_t different=ballotARB(oc_carrier_corner==corner &&
+                        (any(notEqual(position,sourcePosition)) ||
+                         any(greaterThan(abs(relativeUV-sourceUV),vec2(0.000001)))));
+                    conflict=conflict || different!=uint64_t(0);
+                    positions[corner]=sourcePosition;
+                    uvs[corner]=sourceUV+vec2(ownPixel)/vec2(atlasSize);
+                    oc_carrier_neighbors|=1u<<uint(corner);
+                    oc_carrier_count++;
+                }
+            }
+            pending=false;
+        }
+    }
+    oc_carrier_status=conflict?3:oc_carrier_count==4?1:0;
+    if(!conflict&&oc_carrier_count==3) {
+        int missing=0;
+        for(int i=0;i<4;i++)if((oc_carrier_neighbors&(1u<<uint(i)))==0u)missing=i;
+        int prev=(missing+3)&3,next=(missing+1)&3,opposite=(missing+2)&3;
+        positions[missing]=(positions[prev]-positions[opposite])+positions[next];
+        uvs[missing]=(uvs[prev]-uvs[opposite])+uvs[next];
+        oc_carrier_status=4;
+    }
+    if(conflict)for(int i=0;i<4;i++){positions[i]=position;uvs[i]=uv;}
 }
 #endif

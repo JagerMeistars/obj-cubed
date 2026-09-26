@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const helper = fs.readFileSync(path.join(here, 'opengl-compat/objmc_carrier.glsl'), 'utf8');
+const armorHelper = fs.readFileSync(path.join(here, 'opengl-compat/objmc_armor_carrier.glsl'), 'utf8');
 const notice = `obj³ 26.3 — EXPERIMENTAL OPENGL-ONLY COMPATIBILITY PACK
 
 Select Minecraft's OpenGL renderer BEFORE enabling this pack.
@@ -13,15 +14,17 @@ Do not use this pack with the Vulkan renderer: vanilla Minecraft 26.3 does not
 activate the Vulkan features required by this legacy shader translation path.
 Use the regular obj³ resource pack when using Vulkan.
 
-This variant requires vertex-stage GL_ARB_shader_ballot and
-GL_ARB_gpu_shader_int64 support. AMD Renoir and NVIDIA GTX 1650 were tested.
-Intel graphics are unverified. Apple OpenGL is unsupported.
-Both tested drivers passed the ordinary-raster carrier comparison.
-The AMD transform-feedback parity test failed because duplicate vertex IDs cannot
-uniquely identify shader invocations. Compilation success is not functional
-verification; this remains an experimental candidate.
-It still uses communication between vertex invocations; it is not a universal
-replacement for subgroup access and does not support GPUs lacking these features.
+This variant requires vertex-stage GL_ARB_shader_ballot,
+GL_ARB_gpu_shader_int64 and GL_ARB_shader_draw_parameters support.
+AMD Renoir and NVIDIA GTX 1650 were tested. Intel graphics are unverified.
+Apple OpenGL is unsupported. This is not a universal replacement for subgroup
+access and cannot run on drivers lacking the required extensions.
+
+Prepare exported item assets with tools/prepare-opengl-models.mjs to add invisible
+carrier guards. Unprepared models can lose faces at model-instance boundaries.
+The original vertex decoder, animation and texture paths remain active.
+Armor uses physical cube corners; its sparse two-point fallback uses the packed
+normal and is approximate. The supported pose is vanilla humanoid armor.
 
 Enable this pack above other packs overriding the same core shaders. Re-export
 models with the 26.3 plugin for the explicit first-person context markers.
@@ -62,11 +65,16 @@ export function buildOpenGLPack(input, output) {
       if ([...shader.matchAll(directive)].length !== 1) throw new Error(`Expected exactly one ${from} requirement in ${relative}`);
       shader = shader.replace(directive, `#extension ${to} : require`);
     }
+    shader = shader.replace('#extension GL_ARB_shader_ballot : require',
+      '#extension GL_ARB_shader_ballot : require\n#extension GL_ARB_shader_draw_parameters : require' +
+      (kind === 'terrain' ? '\n#define OBJMC_CARRIER_TERRAIN' : '') +
+      (kind === 'item' || kind === 'entity' ? '\n#define OBJMC_CARRIER_ARMOR' : ''));
     patches.set(relative, shader);
   }
   metadata.pack.description = '[OPENGL ONLY] obj³ 26.3 EXPERIMENTAL — choose OpenGL renderer';
   patches.set('pack.mcmeta', JSON.stringify(metadata, null, 2) + '\n');
   patches.set('assets/minecraft/shaders/include/objmc_carrier.glsl', helper);
+  patches.set('assets/minecraft/shaders/include/objmc_armor_carrier.glsl', armorHelper);
   patches.set('OPENGL-ONLY.txt', notice);
   fs.mkdirSync(destination);
   try {
