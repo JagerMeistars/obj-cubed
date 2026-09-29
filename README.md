@@ -33,7 +33,6 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 - [Modeling, export and animation controls](docs/GUIDE_EN.md)
 - [Animal equipment and elytra bindings (RU)](docs/ANIMAL_EQUIPMENT_RU.md)
 - [Blockbench equipment templates (RU)](templates/animal-equipment/README-RU.md)
-- [IK animation (RU)](docs/IK_GUIDE_RU.md)
 - [26.3 release details and verification](docs/RELEASE_26.3.md)
 
 [Report a bug](https://github.com/JagerMeistars/obj-cubed/issues).
@@ -69,14 +68,17 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 - [Установка и обновление](docs/README_RU.md)
 - [Привязки экипировки мобов и элитр](docs/ANIMAL_EQUIPMENT_RU.md)
 - [Шаблоны экипировки для Blockbench](templates/animal-equipment/README-RU.md)
-- [IK-анимации](docs/IK_GUIDE_RU.md)
 - [Подробности релиза 26.3 и результаты проверок](docs/RELEASE_26.3.md)
 
 [Сообщить об ошибке](https://github.com/JagerMeistars/obj-cubed/issues).
 
 ---
 
+**[Godlander](https://github.com/Godlander)** — original [objmc](https://github.com/Godlander/objmc)
+concept, tool and core shaders / автор идеи, инструмента и core-шейдеров objmc,
+на которых основан objcubed.
+
 **[JagerMeistars](https://github.com/JagerMeistars)** — author of the objcubed
 Blockbench plugin / автор плагина objcubed для Blockbench.
-Based on [Godlander's objmc](https://github.com/Godlander/objmc).
+
 [Full credits](docs/GUIDE_EN.md#credits) · [MIT License](LICENSE).
