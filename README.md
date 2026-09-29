@@ -42,9 +42,9 @@ compatibility is not guaranteed.
 
 ## Installation
 
-1. Download [`objcubed.js`](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.js)
+1. Download [`objcubed.js`](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.js?v=0.9.5)
 2. In BlockBench: File > Plugins > Load Plugin from File > select `objcubed.js`
-3. Download [`objcubed.zip`](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.zip) and place it directly in your Minecraft `resourcepacks/` directory; enable the pack. The ZIP contains only resource-pack files and the license; install the plugin separately.
+3. Download [`objcubed.zip`](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.zip?v=0.9.5) and place it directly in your Minecraft `resourcepacks/` directory; enable the pack. The ZIP contains only resource-pack files and the license; install the plugin separately.
 
 ## Modeling conventions
 
