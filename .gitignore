@@ -2,6 +2,9 @@ _preview/
 _*.txt
 _*.js
 node_modules/
+dist/
+audit/
+logs/
 *.bak
 
 # tooling / session

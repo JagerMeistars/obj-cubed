@@ -1,0 +1,24 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+const directories=process.argv.slice(2).map(p=>path.resolve(p));
+if(directories.length!==2)throw Error('Usage: equipment-v2-results.mjs native-results animation-results');
+const hash=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const currentPlugin=hash('objcubed.js'),currentCatalog=hash('tools/equipment-carriers.json');
+const suites=directories.map(directory=>{
+ const manifest=JSON.parse(fs.readFileSync(path.join(directory,'manifest.json'),'utf8'));
+ const lines=fs.readFileSync(path.join(directory,'results.tsv'),'utf8').trim().split(/\r?\n/),header=lines.shift().split('\t');
+ const rows=lines.map(line=>Object.fromEntries(line.split('\t').map((v,i)=>[header[i],i===0?v:i===1?v==='true':Number(v)])));
+ const ids=new Set(rows.map(r=>r.id));
+ if(rows.length!==manifest.cases.length||ids.size!==rows.length||manifest.cases.some(c=>!ids.has(c.id)))throw Error('Incomplete/duplicate GPU results: '+directory);
+ const failed=rows.filter(r=>!r.passed);
+ if(failed.length)throw Error('GPU failures: '+JSON.stringify(failed));
+ if(manifest.pluginSHA256!==currentPlugin||manifest.catalogSHA256!==currentCatalog)throw Error('Results do not use current plugin/catalog: '+directory);
+ const nonempty=rows.filter(r=>r.expectedPixels>0);
+ const maxima=Object.fromEntries(['missing','extra','rgbMismatch','meanRGBError'].map(k=>[k,Math.max(...rows.map(r=>r[k]))]));
+ const details={directory,generatedAt:manifest.createdAt,resultsWrittenAt:fs.statSync(path.join(directory,'results.tsv')).mtime.toISOString(),cases:rows.length,passed:rows.length-failed.length,empty:rows.length-nonempty.length,minimumNonemptyReferencePixels:Math.min(...nonempty.map(r=>r.expectedPixels)),maxima,exactCoverageCases:rows.filter(r=>!r.missing&&!r.extra).length,exactRGBAOnCommonCoverageCases:rows.filter(r=>!r.missing&&!r.extra&&!r.meanRGBError).length,guardCases:manifest.cases.filter(c=>c.guard).length,emissionCases:manifest.cases.filter(c=>c.emission).length,animationCases:manifest.cases.filter(c=>c.geometry&&!c.emission).length,pluginSHA256:manifest.pluginSHA256,catalogSHA256:manifest.catalogSHA256,expandedShaderSHA256:manifest.sourceHashes,renderer:fs.readFileSync(path.join(directory,'runtime.txt'),'utf8').trim(),evidenceSHA256:Object.fromEntries(['manifest.json','results.tsv','cases.matrix.tsv','entity.vert','entity.frag'].map(f=>[f,hash(path.join(directory,f))]))};
+ fs.writeFileSync(path.join(directory,'summary.json'),JSON.stringify(details,null,2));return details;
+});
+if(suites[0].expandedShaderSHA256.vsh!==suites[1].expandedShaderSHA256.vsh||suites[0].expandedShaderSHA256.fsh!==suites[1].expandedShaderSHA256.fsh)throw Error('Suite shader sources differ');
+const result={createdAt:new Date().toISOString(),scope:'Independent hidden OpenGL raster correctness; not gameplay FPS or cross-vendor validation.',totalCases:suites.reduce((n,s)=>n+s.cases,0),passed:suites.reduce((n,s)=>n+s.passed,0),currentPluginSHA256:currentPlugin,v2ShaderSHA256:hash('objcubed/assets/minecraft/shaders/include/objmc_animal_v2.glsl'),suites};
+const output=path.join(directories[1],'combined-summary.json');fs.writeFileSync(output,JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));

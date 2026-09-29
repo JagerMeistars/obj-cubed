@@ -19,9 +19,15 @@ if (isCustom == 0) {
 #endif
 }
 //custom lighting
-else if (noshadow == 0) {
+else {
+    // Color behavior is independent of lighting, including emissive armor
+    // faces and the whole-model No Shadow option.
+#ifdef ENTITY
+    color *= overlayColor;
+#endif
+    if (noshadow == 0) {
     //normal from position derivatives
-    vec3 normal = normalize(cross(dFdx(Pos), dFdy(Pos)));
+    vec3 normal = normalize(cross(objmcPosDx, objmcPosDy));
 
     //block lighting
 #ifdef BLOCK
@@ -36,13 +42,10 @@ else if (noshadow == 0) {
     //flip normal z for gui (zx flip in vertex shader)
     if (isGUI == 1) normal.z *= -1;
 #if defined(PER_FACE_LIGHTING) || !defined(NO_CARDINAL_LIGHTING)
-    color *= minecraft_mix_light(Light0_Direction, Light1_Direction, normal, overlayColor);
-#else
-    // NO_CARDINAL_LIGHTING pipelines have no Lighting UBO: skip the
-    // directional relight, keep the overlay tint.
-    color *= overlayColor;
+    color *= minecraft_mix_light(Light0_Direction, Light1_Direction, normal, vec4(1.0));
 #endif
 #endif
 
     color *= lightColor;
+    }
 }

@@ -17,6 +17,8 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { loadObjcubed } = require('../helpers/load-plugin.cjs');
+const { loadColorPlugin } = require('../helpers/color-plugin.cjs');
+const fs = require('node:fs');
 
 const tourKeys = (dict) => Object.keys(dict).filter((k) => k.startsWith('tour')).sort();
 
@@ -112,4 +114,52 @@ describe('tour i18n parity (#4)', () => {
     expect(api.LANG.ru.tour_step).toContain('{i}');
     expect(api.LANG.ru.tour_step).toContain('{n}');
   });
+});
+
+it.each(['en', 'ru'])('keeps %s dialog instructions in translated help and bindings in the equipment summary', language => {
+  const plugin = loadColorPlugin({ language, persisted: { exportAsEquipment: true, equipmentTarget: 'camel_saddle' } });
+  const state = plugin.openDialog(), template = plugin.dialogOptions.component.template;
+  const dict = plugin.api.LANG[language];
+  const keys = [...template.matchAll(/\bt\('([^']+)'\)/g)].map(m => m[1]);
+  keys.push(...[...template.matchAll(/\bhelp\('([^']+)'\)/g)].map(m => 'help_' + m[1]));
+  for (const key of keys) expect(dict[key], key).toBeTruthy();
+  const equipment = template.slice(template.indexOf("{{t('animal_supported_parts')}}"),
+    template.indexOf('v-if="exportAsEquipment && !isHorseEquipment"'));
+  expect(equipment).toContain('{{animalPartLabels}}');
+  expect(equipment).toContain(':data-tip="animalBindingsHelp"');
+  expect(equipment).not.toContain('horseLayerCount');
+  expect(state.animalBindingsHelp).toContain(dict.help_animalBindings);
+  expect(state.animalBindingsHelp).toContain(dict.help_equipmentLayers);
+  expect(state.animalDatapackTarget).toBe(state.animalTargets.find(t => t.id === 'camel_saddle').label);
+  expect(state.animalPartLabels).toContain(language === 'ru' ? 'Левое ухо' : 'Left ear');
+  for (const tip of template.matchAll(/<span class="oc-help"[^>]*>/g)) {
+    expect(tip[0]).toContain('tabindex="0"');
+    expect(tip[0]).toContain(':aria-label=');
+  }
+  for (const removed of ['horse_equipment_note', 'datapack_info', 'player_note', 'open_display_note'])
+    expect(template).not.toContain(removed);
+});
+
+it('opens detailed help on keyboard focus as well as hover', () => {
+  const code = fs.readFileSync(new URL('../../objcubed.js', import.meta.url), 'utf8');
+  const start = code.indexOf('// Tooltip portal —'), end = code.indexOf('// Style the Export button', start);
+  const classes = new Set(), attributes = {}, handlers = {}, style = { setProperty() {} };
+  const tip = { id: '', style, setAttribute(k, v) { attributes[k] = v; },
+    classList: { add(k) { classes.add(k); }, remove(k) { classes.delete(k); } },
+    getBoundingClientRect() { return { width: 100, height: 50 }; } };
+  const target = { getAttribute() { return 'Detailed help'; }, setAttribute(k, v) { attributes[k] = v; },
+    getBoundingClientRect() { return { left: 100, top: 100, bottom: 120, width: 20 }; } };
+  const component = { $el: { contains() { return true; }, addEventListener(name, callback) { handlers[name] = callback; } } };
+  const document = { getElementById() { return null; }, createElement() { return tip; }, body: { appendChild() {} } };
+  new Function('document', 'window', 'UI_SCALE', code.slice(start, end))
+    .call(component, document, { innerWidth: 800 }, 1);
+  const event = { target: { closest() { return target; } } };
+  for (const [enter, leave] of [['focusin', 'focusout'], ['mouseover', 'mouseout']]) {
+    handlers[enter](event);
+    expect(tip.textContent).toBe('Detailed help');
+    expect(classes.has('visible')).toBe(true);
+    expect(attributes['aria-describedby']).toBe(tip.id);
+    handlers[leave](event);
+    expect(classes.has('visible')).toBe(false);
+  }
 });

@@ -1,0 +1,460 @@
+{
+  "meta": {
+    "format_version": "5.0",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "objcubed_happy_ghast_body",
+  "model_identifier": "",
+  "resolution": {
+    "width": 64,
+    "height": 64
+  },
+  "visible_box": [
+    4,
+    4,
+    0
+  ],
+  "variable_placeholders": "",
+  "elements": [
+    {
+      "uuid": "9e5cc123-3a71-5e5d-8abc-6820fddd499d",
+      "type": "cube",
+      "name": "Модель · harness 1",
+      "from": [
+        -32,
+        0.0480048,
+        -32
+      ],
+      "to": [
+        32,
+        64.0480048,
+        32
+      ],
+      "origin": [
+        0,
+        0.0480048,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            32,
+            0,
+            16,
+            16
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            32,
+            0,
+            48,
+            16
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            16,
+            16,
+            0,
+            32
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            32,
+            16,
+            16,
+            32
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            48,
+            16,
+            32,
+            32
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            64,
+            16,
+            48,
+            32
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 0,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "94fd62cd-ac33-5ff6-b793-9addaf760ab7",
+      "type": "cube",
+      "name": "Модель · goggles 1",
+      "from": [
+        -32.6,
+        49.44800471,
+        -32.60000009
+      ],
+      "to": [
+        32.6,
+        70.64800489,
+        -11.39999991
+      ],
+      "origin": [
+        0,
+        60.0480048,
+        -22
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            21,
+            32,
+            5,
+            37
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            21,
+            32,
+            37,
+            37
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            5,
+            37,
+            0,
+            42
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            21,
+            37,
+            5,
+            42
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            26,
+            37,
+            21,
+            42
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            42,
+            37,
+            26,
+            42
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 1,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    }
+  ],
+  "groups": [
+    {
+      "uuid": "884b02bd-9cdc-50f9-96b0-d72f1a7ea082",
+      "name": "Упряжь · harness",
+      "origin": [
+        0,
+        0.0480048,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "9e5cc123-3a71-5e5d-8abc-6820fddd499d"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "harness",
+      "objcubed_equipment_rest": {
+        "target": "happy_ghast_body",
+        "part": "harness",
+        "basis": [
+          4,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          4
+        ]
+      }
+    },
+    {
+      "uuid": "3359b14d-b6f5-5a43-81c5-d77c9984c521",
+      "name": "Очки · goggles",
+      "origin": [
+        0,
+        60.0480048,
+        -22
+      ],
+      "rotation": [
+        45.00010432,
+        0,
+        0
+      ],
+      "color": 1,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "94fd62cd-ac33-5ff6-b793-9addaf760ab7"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "goggles",
+      "objcubed_equipment_rest": {
+        "target": "happy_ghast_body",
+        "part": "goggles",
+        "basis": [
+          4,
+          0,
+          0,
+          0,
+          2.828422,
+          2.8284323,
+          0,
+          -2.8284323,
+          2.828422
+        ]
+      }
+    },
+    {
+      "uuid": "09fed996-b915-5643-908a-72dc6211c364",
+      "name": "ОРИЕНТИРЫ · не экспортируются",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": []
+    }
+  ],
+  "outliner": [
+    {
+      "uuid": "884b02bd-9cdc-50f9-96b0-d72f1a7ea082",
+      "isOpen": true,
+      "children": [
+        "9e5cc123-3a71-5e5d-8abc-6820fddd499d"
+      ]
+    },
+    {
+      "uuid": "3359b14d-b6f5-5a43-81c5-d77c9984c521",
+      "isOpen": true,
+      "children": [
+        "94fd62cd-ac33-5ff6-b793-9addaf760ab7"
+      ]
+    },
+    {
+      "uuid": "09fed996-b915-5643-908a-72dc6211c364",
+      "isOpen": false,
+      "children": []
+    }
+  ],
+  "animations": [],
+  "textures": [
+    {
+      "name": "happy_ghast_body.png",
+      "path": "",
+      "relative_path": "",
+      "id": "0",
+      "width": 64,
+      "height": 64,
+      "uv_width": 64,
+      "uv_height": 64,
+      "use_as_default": true,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "visible": true,
+      "internal": false,
+      "saved": true,
+      "uuid": "a07b28c1-6047-5a8e-9c73-a78618df405f",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACqUlEQVR4AeXBoY0dVgAF0dmnX8CYLNkqTF2Qi3IB5mFBacFVLPnEg0wCEhmsdBuIAt45L3/8+dc/DJVVsVTW9/cnS2VVLJVVsVRWxVJZX/7+xVJZFUtlHS53uNzhcg+VVbFUVsVSWRVLZVUslVWxVFbF8u2VVbFUVsU6XO5wucPlHhVLZVUsldX7k6WyKpbKqlgqq2KprIqlsiqWyjpc7nC5w+UeKqtiqayKpbIqlsqqWCqrYqmsiuXbK6tiqayKdbjc4XKHyz2+vz9ZKqv3J0tlVSyVVbFUVsVSWRVLZX1/f7JUVu9Plso6XO5wucPlHiqrYqmsiqWyKpbKqlgqq2KprIqlsiqWyqpYh8sdLne43KNiqayKpbIqlsqqWCqrYqmsiqWyKpbKqlgq63C5w+UOl3uorIqlsiqWyqpYKqtiqayKpbIqlsqqWCqrYh0ud7jc4XKPL3//Yvn2yuef3/jQM5bK6hlLZfWMpbJ6xlL58ekrHyqWb6+siuXbK6ti+fbKOlzucLnD5R4qq6Lig8qqWCqrYqmsiqWyKnqJDyqrYqmsiqWyKtbj889vrIr/2+ef3/jgP/Lbj09f+S8cLne43KNiqayKpbIqlsqqWCqrYqmsit96id9UVsVSWRVLZR0u9/jx6StLZfUSS2X1Ektl9RJLZfUSS2X1Ev+lw+UeKqtiqayKpbIqlsqqWCqrYqmsiqWyKpbKqliHyx0ud7jco2KprIqlsiqWyqpYKqtiqayKpbIqlsqqWCrrcLnD5Q6Xe6isiqWyKpbKqlgqq2KprIqlsiqWyqpYKqtiHS53uNzhco+KpbIqlsqqWCqrYqmsiqWyKpbKqlgqq2KprMPlDpc7XO6hsiqWyqpYKqtiqayKpbIqlsqqWCqrYqmsinW43OFyh8v9C+NvnJ3gxfeIAAAAAElFTkSuQmCC"
+    },
+    {
+      "name": "reference.png",
+      "path": "",
+      "relative_path": "",
+      "id": "1",
+      "width": 64,
+      "height": 64,
+      "uv_width": 64,
+      "uv_height": 64,
+      "use_as_default": false,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "visible": true,
+      "internal": false,
+      "saved": true,
+      "uuid": "c2355180-6559-5fa6-b410-43a0424512d5",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACNklEQVR4AeXBQZEYQRDEQN3EAhBCv43AuMXA9y0Onfnz5++//wyVVbFUVsVSWRVLZVUslVWxVFbFUlkVS2U9jnsc9zjuU1kVS2VVLJVVsVRWxVJZFUtlVSyVVbFUVsV6HPc47nHcV7FUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJX1OO5x3OO4T2VVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWRXrcdzjuMdxX8VSWRVLZVUslVWxVFbFUlkVS2VVLJVVsVTW47jHcY/jPpVVsVRWxVJZFUtlVSyVVbFUVsVSWRVLZVWsx3GP4x7HfRVLZVUslVWxVFbFUlkVS2VVLJVVsVRWxVJZj+Mexz2O+1RWxVJZFUtlVSyVVbFUVsVSWRVLZVUslVWxHsc9jnsc91UslVWxVFbFUlkVS2VVLJVVsVRWxVJZFUtlPY57HPc47lNZFUtlVSyVVbFUVsVSWRVLZVUslVWxVFbFehz3OO5x3FexVFbFUlkVS2VVLJVVsVRWxVJZFUtlVSyV9TjucdzjuE9lVSyVVbFUVsVSWRVLZVUslVWxVFbFUlkV63Hc47jHcV/FUlkVS2VVLJVVsVRWxVJZFUtlVSyVVbFU1uO4x3GP4z6VVbFUVsVSWRVLZVUslVWxVFbFUlkVS2VVrMdxj+Mex30VS2VVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWY/jHsc9jvtUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJVVsR7HPY57HPcLojeAGANl/QoAAAAASUVORK5CYII="
+    }
+  ],
+  "objcubed": {
+    "version": 1,
+    "settings": {
+      "exportAsEquipment": true,
+      "equipmentTarget": "happy_ghast_body",
+      "baseItem": "white_harness",
+      "cmdName": "custom_happy_ghast_body",
+      "scale": 1
+    },
+    "equipmentPartTags": {
+      "884b02bd-9cdc-50f9-96b0-d72f1a7ea082": "harness",
+      "3359b14d-b6f5-5a43-81c5-d77c9984c521": "goggles"
+    },
+    "equipmentRestTransforms": {
+      "884b02bd-9cdc-50f9-96b0-d72f1a7ea082": {
+        "target": "happy_ghast_body",
+        "part": "harness",
+        "basis": [
+          4,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          4
+        ]
+      },
+      "3359b14d-b6f5-5a43-81c5-d77c9984c521": {
+        "target": "happy_ghast_body",
+        "part": "goggles",
+        "basis": [
+          4,
+          0,
+          0,
+          0,
+          2.828422,
+          2.8284323,
+          0,
+          -2.8284323,
+          2.828422
+        ]
+      }
+    },
+    "template": {
+      "version": 2,
+      "target": "happy_ghast_body",
+      "title": "Упряжь счастливого гаста",
+      "nativePose": "rest",
+      "minimumPluginVersion": "0.9.3",
+      "nativePartMap": {
+        "884b02bd-9cdc-50f9-96b0-d72f1a7ea082": "root/harness",
+        "3359b14d-b6f5-5a43-81c5-d77c9984c521": "root/goggles"
+      },
+      "nativeCubeMap": {
+        "9e5cc123-3a71-5e5d-8abc-6820fddd499d": {
+          "path": "root/harness",
+          "index": 0
+        },
+        "94fd62cd-ac33-5ff6-b793-9addaf760ab7": {
+          "path": "root/goggles",
+          "index": 0
+        }
+      },
+      "sourceClientSha256": "4508d006323f24fa02876310c192d739af56516eb259000ac50f0909a68c9a2d"
+    }
+  }
+}

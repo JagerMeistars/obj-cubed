@@ -1,0 +1,1463 @@
+{
+  "meta": {
+    "format_version": "5.0",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "objcubed_strider_saddle",
+  "model_identifier": "",
+  "resolution": {
+    "width": 64,
+    "height": 128
+  },
+  "visible_box": [
+    4,
+    4,
+    0
+  ],
+  "variable_placeholders": "",
+  "elements": [
+    {
+      "uuid": "3dd99f7e-6d72-5c52-97be-47c45848efc3",
+      "type": "cube",
+      "name": "Модель · left_leg 1",
+      "from": [
+        2,
+        0,
+        -2
+      ],
+      "to": [
+        6,
+        16,
+        2
+      ],
+      "origin": [
+        4,
+        16,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            8,
+            55,
+            4,
+            59
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            8,
+            55,
+            12,
+            59
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            4,
+            59,
+            0,
+            75
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            8,
+            59,
+            4,
+            75
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            12,
+            59,
+            8,
+            75
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            16,
+            59,
+            12,
+            75
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 2,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "95726f92-c44a-544c-9fba-9d5de4c4d6de",
+      "type": "cube",
+      "name": "Модель · right_leg 1",
+      "from": [
+        -6,
+        0,
+        -2
+      ],
+      "to": [
+        -2,
+        16,
+        2
+      ],
+      "origin": [
+        -4,
+        16,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            8,
+            32,
+            4,
+            36
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            8,
+            32,
+            12,
+            36
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            4,
+            36,
+            0,
+            52
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            8,
+            36,
+            4,
+            52
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            12,
+            36,
+            8,
+            52
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            16,
+            36,
+            12,
+            52
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 1,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "673db6fc-16ce-50fc-b500-bdb08cf7611b",
+      "type": "cube",
+      "name": "Модель · body 1",
+      "from": [
+        -8,
+        14,
+        -8
+      ],
+      "to": [
+        8,
+        28,
+        8
+      ],
+      "origin": [
+        0,
+        22,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            32,
+            0,
+            16,
+            16
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            32,
+            0,
+            48,
+            16
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            16,
+            16,
+            0,
+            30
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            32,
+            16,
+            16,
+            30
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            48,
+            16,
+            32,
+            30
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            64,
+            16,
+            48,
+            30
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 0,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "6a88e719-8c06-5e28-b98b-ee6141aac440",
+      "type": "cube",
+      "name": "Ориентир · right_top_bristle 1",
+      "from": [
+        -19.99999933,
+        27,
+        -8
+      ],
+      "to": [
+        -8,
+        27,
+        7.99999904
+      ],
+      "origin": [
+        -8,
+        27,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            32,
+            33,
+            44,
+            49
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            56,
+            33,
+            44,
+            49
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            32,
+            49,
+            16,
+            49
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            44,
+            49,
+            32,
+            49
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            60,
+            49,
+            44,
+            49
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            72,
+            49,
+            60,
+            49
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "4041d395-ff70-5348-9db5-a118e0b72b60",
+      "type": "cube",
+      "name": "Ориентир · right_bottom_bristle 1",
+      "from": [
+        -19.99999958,
+        18,
+        -8
+      ],
+      "to": [
+        -8,
+        18,
+        8
+      ],
+      "origin": [
+        -8,
+        18,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            32,
+            65,
+            44,
+            81
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            56,
+            65,
+            44,
+            81
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            32,
+            81,
+            16,
+            81
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            44,
+            81,
+            32,
+            81
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            60,
+            81,
+            44,
+            81
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            72,
+            81,
+            60,
+            81
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "14eb17cb-1d94-52ab-8037-79e3c02477a6",
+      "type": "cube",
+      "name": "Ориентир · left_top_bristle 1",
+      "from": [
+        8,
+        28,
+        -8
+      ],
+      "to": [
+        20.0000004,
+        28,
+        8
+      ],
+      "origin": [
+        8,
+        28,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            44,
+            33,
+            32,
+            49
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            44,
+            33,
+            56,
+            49
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            32,
+            49,
+            16,
+            49
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            44,
+            49,
+            32,
+            49
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            60,
+            49,
+            44,
+            49
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            72,
+            49,
+            60,
+            49
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "92b19229-36a5-56be-b3ac-9bf62e1b73d2",
+      "type": "cube",
+      "name": "Ориентир · left_bottom_bristle 1",
+      "from": [
+        8,
+        19,
+        -8
+      ],
+      "to": [
+        19.99999912,
+        19,
+        7.99999904
+      ],
+      "origin": [
+        8,
+        19,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            44,
+            65,
+            32,
+            81
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            44,
+            65,
+            56,
+            81
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            32,
+            81,
+            16,
+            81
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            44,
+            81,
+            32,
+            81
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            60,
+            81,
+            44,
+            81
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            72,
+            81,
+            60,
+            81
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "7a59cc2a-d221-575c-9aae-c5aa7e54c2f7",
+      "type": "cube",
+      "name": "Ориентир · right_middle_bristle 1",
+      "from": [
+        -19.99999957,
+        23,
+        -8
+      ],
+      "to": [
+        -8,
+        23,
+        8
+      ],
+      "origin": [
+        -8,
+        23,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            32,
+            49,
+            44,
+            65
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            56,
+            49,
+            44,
+            65
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            32,
+            65,
+            16,
+            65
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            44,
+            65,
+            32,
+            65
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            60,
+            65,
+            44,
+            65
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            72,
+            65,
+            60,
+            65
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "19791d21-243a-5383-aec9-024baea0b703",
+      "type": "cube",
+      "name": "Ориентир · left_middle_bristle 1",
+      "from": [
+        8,
+        24,
+        -8
+      ],
+      "to": [
+        20.00000009,
+        24,
+        8
+      ],
+      "origin": [
+        8,
+        24,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            44,
+            49,
+            32,
+            65
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            44,
+            49,
+            56,
+            65
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            32,
+            65,
+            16,
+            65
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            44,
+            65,
+            32,
+            65
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            60,
+            65,
+            44,
+            65
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            72,
+            65,
+            60,
+            65
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    }
+  ],
+  "groups": [
+    {
+      "uuid": "316f8f71-7d6c-5d19-8002-ba0aa7900492",
+      "name": "Корпус · body",
+      "origin": [
+        0,
+        22,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "673db6fc-16ce-50fc-b500-bdb08cf7611b"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "body",
+      "objcubed_equipment_rest": {
+        "target": "strider_saddle",
+        "part": "body",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "uuid": "46a4590a-c9ea-5920-803d-e89e1125cc43",
+      "name": "Правая нога · right_leg",
+      "origin": [
+        -4,
+        16,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 1,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "95726f92-c44a-544c-9fba-9d5de4c4d6de"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "right_leg",
+      "objcubed_equipment_rest": {
+        "target": "strider_saddle",
+        "part": "right_leg",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "uuid": "c2a5c703-5579-5bb0-b211-fe58493f3151",
+      "name": "Левая нога · left_leg",
+      "origin": [
+        4,
+        16,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 2,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "3dd99f7e-6d72-5c52-97be-47c45848efc3"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "left_leg",
+      "objcubed_equipment_rest": {
+        "target": "strider_saddle",
+        "part": "left_leg",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "uuid": "e9eaee31-c28c-58a0-bf9f-f4a19c423e5c",
+      "name": "body/right_top_bristle",
+      "origin": [
+        -8,
+        27,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        46.68605692
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "6a88e719-8c06-5e28-b98b-ee6141aac440"
+      ]
+    },
+    {
+      "uuid": "a3bf0401-ad8f-5b17-a73f-74fa25e5bcf0",
+      "name": "body/right_bottom_bristle",
+      "origin": [
+        -8,
+        18,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        71.65696935
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "4041d395-ff70-5348-9db5-a118e0b72b60"
+      ]
+    },
+    {
+      "uuid": "13176f1b-27ed-5a75-b36d-0b05528f12d7",
+      "name": "body/left_top_bristle",
+      "origin": [
+        8,
+        28,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        -53.31394202
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "14eb17cb-1d94-52ab-8037-79e3c02477a6"
+      ]
+    },
+    {
+      "uuid": "2652f85a-1fd1-544c-99b1-9673c41463aa",
+      "name": "body/left_bottom_bristle",
+      "origin": [
+        8,
+        19,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        -68.34302588
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "92b19229-36a5-56be-b3ac-9bf62e1b73d2"
+      ]
+    },
+    {
+      "uuid": "139bf443-3f0e-5b86-8e3f-150c0a92d143",
+      "name": "body/right_middle_bristle",
+      "origin": [
+        -8,
+        23,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        66.73873809
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "7a59cc2a-d221-575c-9aae-c5aa7e54c2f7"
+      ]
+    },
+    {
+      "uuid": "0e6bde5a-e0ab-58f9-bd87-6cc724b90dd4",
+      "name": "body/left_middle_bristle",
+      "origin": [
+        8,
+        24,
+        -8
+      ],
+      "rotation": [
+        0,
+        0,
+        -63.26126153
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "19791d21-243a-5383-aec9-024baea0b703"
+      ]
+    },
+    {
+      "uuid": "675799ff-2e90-5c16-929f-5cb2ae40356e",
+      "name": "ОРИЕНТИРЫ · не экспортируются",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "e9eaee31-c28c-58a0-bf9f-f4a19c423e5c",
+        "a3bf0401-ad8f-5b17-a73f-74fa25e5bcf0",
+        "13176f1b-27ed-5a75-b36d-0b05528f12d7",
+        "2652f85a-1fd1-544c-99b1-9673c41463aa",
+        "139bf443-3f0e-5b86-8e3f-150c0a92d143",
+        "0e6bde5a-e0ab-58f9-bd87-6cc724b90dd4"
+      ]
+    }
+  ],
+  "outliner": [
+    {
+      "uuid": "316f8f71-7d6c-5d19-8002-ba0aa7900492",
+      "isOpen": true,
+      "children": [
+        "673db6fc-16ce-50fc-b500-bdb08cf7611b"
+      ]
+    },
+    {
+      "uuid": "46a4590a-c9ea-5920-803d-e89e1125cc43",
+      "isOpen": true,
+      "children": [
+        "95726f92-c44a-544c-9fba-9d5de4c4d6de"
+      ]
+    },
+    {
+      "uuid": "c2a5c703-5579-5bb0-b211-fe58493f3151",
+      "isOpen": true,
+      "children": [
+        "3dd99f7e-6d72-5c52-97be-47c45848efc3"
+      ]
+    },
+    {
+      "uuid": "675799ff-2e90-5c16-929f-5cb2ae40356e",
+      "isOpen": false,
+      "children": [
+        {
+          "uuid": "e9eaee31-c28c-58a0-bf9f-f4a19c423e5c",
+          "isOpen": false,
+          "children": [
+            "6a88e719-8c06-5e28-b98b-ee6141aac440"
+          ]
+        },
+        {
+          "uuid": "a3bf0401-ad8f-5b17-a73f-74fa25e5bcf0",
+          "isOpen": false,
+          "children": [
+            "4041d395-ff70-5348-9db5-a118e0b72b60"
+          ]
+        },
+        {
+          "uuid": "13176f1b-27ed-5a75-b36d-0b05528f12d7",
+          "isOpen": false,
+          "children": [
+            "14eb17cb-1d94-52ab-8037-79e3c02477a6"
+          ]
+        },
+        {
+          "uuid": "2652f85a-1fd1-544c-99b1-9673c41463aa",
+          "isOpen": false,
+          "children": [
+            "92b19229-36a5-56be-b3ac-9bf62e1b73d2"
+          ]
+        },
+        {
+          "uuid": "139bf443-3f0e-5b86-8e3f-150c0a92d143",
+          "isOpen": false,
+          "children": [
+            "7a59cc2a-d221-575c-9aae-c5aa7e54c2f7"
+          ]
+        },
+        {
+          "uuid": "0e6bde5a-e0ab-58f9-bd87-6cc724b90dd4",
+          "isOpen": false,
+          "children": [
+            "19791d21-243a-5383-aec9-024baea0b703"
+          ]
+        }
+      ]
+    }
+  ],
+  "animations": [],
+  "textures": [
+    {
+      "name": "strider_saddle.png",
+      "path": "",
+      "relative_path": "",
+      "id": "0",
+      "width": 64,
+      "height": 128,
+      "uv_width": 64,
+      "uv_height": 128,
+      "use_as_default": true,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "visible": true,
+      "internal": false,
+      "saved": true,
+      "uuid": "561dd77a-0e4c-5855-9344-e51f50d417a2",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAACACAYAAAC7gW9qAAAE/ElEQVR4AeXBIc6mZwFG4cOTN9+EjDlJk1agJrMLqmphP10EC6moQzRBsZNm1JhRR0Emvyj2DgJfnuv6w9//8c/fGCqrYqmsnz5/YamsiqWyKpbKqlgq689v/2KprIqlsg6XO1zucLlHZVUslVWxVFbFUlkVS2VVLJVVsfzTt6yKpbIq1uFyh8sdLvdULJVVsVRWn7+wVFbFUlkVS2VVLJVVsVRWxVJZh8sdLne43KOyKpbKqlgqq2KprIqlsiqWyqpY/ulbVsVSWRXrcLnD5Q6Xe376/IWlsvr8haWyKpbKqlgqq2KprIqlsn76/IWlsvr8haWyDpc7XO5wuUdlVSyVVbFUVsVSWRVLZVUslVWxVFbFUlkV63C5w+UOl3sqlsqqWCqrYqmsiqWyKpbKqlgqq2KprIqlsg6XO1zucLlHZVUslVWxVFbFUlkVS2VVLJVVsVRWxVJZFetwuecv71+s3l4s379Yvb1Yvn+xenuxfP9i9fZi+f7F6u3F8v2L1duL5fsXq7cXy/cvVm8v1uFyT8X64befWX2K9enDj6yKpbIqlsqqWCqrYqmsiqWyKpbKOlzucLnD5Z4ffvuZVbFU1odPf2N9+vAjq2KprIqlsiqWyqpYKqtiqayKdbjc4XKHyz0VS2VVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWYfLHS53uNyjsiqWyqpYfpBVsVRWxVJZFUtlVSyVVbFUVsU6XO5wucPlnoqlsiqWyqpYKqtiqayKpbIqlsqqWCqrYqmsw+UOlztc7vn04UdWxfKDrIqlsiqWyqpYKqtiqayKpbIqlsqqWIfLHS738F9+/foLy6+yvuF7/p88FUtlVayP38mqWCqrYqmsiqWyKpbKqlgqq2KprMPlDpd7fv36C8s/yv/y69dfWN/wPb9nj8qqWCqrYn38TlbFUlkVS2VVLJVVsVRWxVJZFetwucPlDpd7KpbKqlgqq2KprIqlsiqWyqpYKqtiqayKpbIOlztc7nC5R2VVLJVVsT5+J6tiqayKpbIqlsqqWCqrYqmsinW43OFyh8s9FUtlVSyVVbFUVsVSWRVLZVUslVWxVFbFUlmHyx0u93x891eW72T1LpbvZPXv+D17VFbFUlkVS2VVLJVVsVRWxVJZFUtlVSyVVbEOlztc7nC5p2KprIqlsiqWyqpYKqtiqayKpbIqlsqqWCrrcLnD5Q6Xe1RWxVJZFUtlVSyVVbFUVsVSWRVLZVUslVWxDpc7XO5wuadiqayKpbIqlsqqWCqrYqmsiqWyKpbKqlgq63C5w+UOl3tUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJVVsQ6XO1zucLmnYqmsiqWyKpbKqlgqq2KprIqlsiqWyqpYKutwucPlDpd7VFbFUlkVS2VVLJVVsVRWxVJZFUtlVSyVVbEOlztc7nC5p2KprIqlsiqWyqpYKqtiqayKpbIqlsqqWCrrcLnD5Q6Xe1RWxVJZFUtlVSyVVbFUVsVSWRVLZVUslVWxDpc7XO5wuadiqayKpbIqlsqqWCqrYqmsiqWyKpbKqlgq63C5w+UOl3tUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJVVsQ6XO1zucLmnYqmsiqWyKpbKqlgqq2KprIqlsiqWyqpYKutwucPlDpd7VFbFUlkVS2VVLJVVsVRWxVJZFUtlVSyVVbEOlztc7nC5/wA+vyYrXNIdYgAAAABJRU5ErkJggg=="
+    },
+    {
+      "name": "reference.png",
+      "path": "",
+      "relative_path": "",
+      "id": "1",
+      "width": 64,
+      "height": 128,
+      "uv_width": 64,
+      "uv_height": 128,
+      "use_as_default": false,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "visible": true,
+      "internal": false,
+      "saved": true,
+      "uuid": "80dec93a-f807-5bc2-aa34-4494e74df512",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAACACAYAAAC7gW9qAAAESElEQVR4AeXBQZEYQRDEQN3EAhBCv43AuMXA9y0Onfnz5++//wyVVbFUVsVSWRVLZVUslVWxVFbFUlkVS2U9jnsc9zjuU1kVS2VVLJVVsVRWxVJZFUtlVSyVVbFUVsV6HPc47nHcV7FUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJX1OO5x3OO4T2VVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWRXrcdzjuMdxX8VSWRVLZVUslVWxVFbFUlkVS2VVLJVVsVTW47jHcY/jPpVVsVRWxVJZFUtlVSyVVbFUVsVSWRVLZVWsx3GP4x7HfRVLZVUslVWxVFbFUlkVS2VVLJVVsVRWxVJZj+Mexz2O+1RWxVJZFUtlVSyVVbFUVsVSWRVLZVUslVWxHsc9jnsc91UslVWxVFbFUlkVS2VVLJVVsVRWxVJZFUtlPY57HPc47lNZFUtlVSyVVbFUVsVSWRVLZVUslVWxVFbFehz3OO5x3FexVFbFUlkVS2VVLJVVsVRWxVJZFUtlVSyV9TjucdzjuE9lVSyVVbFUVsVSWRVLZVUslVWxVFbFUlkV63Hc47jHcV/FUlkVS2VVLJVVsVRWxVJZFUtlVSyVVbFU1uO4x3GP4z6VVbFUVsVSWRVLZVUslVWxVFbFUlkVS2VVrMdxj+Mex30VS2VVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWY/jHsc9jvtUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJVVsR7HPY57HPdVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWRVLZT2Oexz3OO5TWRVLZVUslVWxVFbFUlkVS2VVLJVVsVRWxXoc9zjucdxXsVRWxVJZFUtlVSyVVbFUVsVSWRVLZVUslfU47nHc47hPZVUslVWxVFbFUlkVS2VVLJVVsVRWxVJZFetx3OO4x3FfxVJZFUtlVSyVVbFUVsVSWRVLZVUslVWxVNbjuMdxj+M+lVWxVFbFUlkVS2VVLJVVsVRWxVJZFUtlVazHcY/jHsd9FUtlVSyVVbFUVsVSWRVLZVUslVWxVFbFUlmP4x7HPY77VFbFUlkVS2VVLJVVsVRWxVJZFUtlVSyVVbEexz2Oexz3VSyVVbFUVsVSWRVLZVUslVWxVFbFUlkVS2U9jnsc9zjuU1kVS2VVLJVVsVRWxVJZFUtlVSyVVbFUVsV6HPc47nHcV7FUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJX1OO5x3OO4T2VVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWRXrcdzjuMdxX8VSWRVLZVUslVWxVFbFUlkVS2VVLJVVsVTW47jHcY/jPpVVsVRWxVJZFUtlVSyVVbFUVsVSWRVLZVWsx3GP4x7HfRVLZVUslVWxVFbFUlkVS2VVLJVVsVRWxVJZj+Mexz2O+1RWxVJZFUtlVSyVVbFUVsVSWRVLZVUslVWxHsc9jnsc9wsVuwDW0e13vwAAAABJRU5ErkJggg=="
+    }
+  ],
+  "objcubed": {
+    "version": 1,
+    "settings": {
+      "exportAsEquipment": true,
+      "equipmentTarget": "strider_saddle",
+      "baseItem": "saddle",
+      "cmdName": "custom_strider_saddle",
+      "scale": 1
+    },
+    "equipmentPartTags": {
+      "316f8f71-7d6c-5d19-8002-ba0aa7900492": "body",
+      "46a4590a-c9ea-5920-803d-e89e1125cc43": "right_leg",
+      "c2a5c703-5579-5bb0-b211-fe58493f3151": "left_leg"
+    },
+    "equipmentRestTransforms": {
+      "316f8f71-7d6c-5d19-8002-ba0aa7900492": {
+        "target": "strider_saddle",
+        "part": "body",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "46a4590a-c9ea-5920-803d-e89e1125cc43": {
+        "target": "strider_saddle",
+        "part": "right_leg",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "c2a5c703-5579-5bb0-b211-fe58493f3151": {
+        "target": "strider_saddle",
+        "part": "left_leg",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    "template": {
+      "version": 2,
+      "target": "strider_saddle",
+      "title": "Седло лавомерки",
+      "nativePose": "rest",
+      "minimumPluginVersion": "0.9.3",
+      "nativePartMap": {
+        "316f8f71-7d6c-5d19-8002-ba0aa7900492": "root/body",
+        "46a4590a-c9ea-5920-803d-e89e1125cc43": "root/right_leg",
+        "c2a5c703-5579-5bb0-b211-fe58493f3151": "root/left_leg",
+        "e9eaee31-c28c-58a0-bf9f-f4a19c423e5c": "root/body/right_top_bristle",
+        "a3bf0401-ad8f-5b17-a73f-74fa25e5bcf0": "root/body/right_bottom_bristle",
+        "13176f1b-27ed-5a75-b36d-0b05528f12d7": "root/body/left_top_bristle",
+        "2652f85a-1fd1-544c-99b1-9673c41463aa": "root/body/left_bottom_bristle",
+        "139bf443-3f0e-5b86-8e3f-150c0a92d143": "root/body/right_middle_bristle",
+        "0e6bde5a-e0ab-58f9-bd87-6cc724b90dd4": "root/body/left_middle_bristle"
+      },
+      "nativeCubeMap": {
+        "3dd99f7e-6d72-5c52-97be-47c45848efc3": {
+          "path": "root/left_leg",
+          "index": 0
+        },
+        "95726f92-c44a-544c-9fba-9d5de4c4d6de": {
+          "path": "root/right_leg",
+          "index": 0
+        },
+        "673db6fc-16ce-50fc-b500-bdb08cf7611b": {
+          "path": "root/body",
+          "index": 0
+        },
+        "6a88e719-8c06-5e28-b98b-ee6141aac440": {
+          "path": "root/body/right_top_bristle",
+          "index": 0
+        },
+        "4041d395-ff70-5348-9db5-a118e0b72b60": {
+          "path": "root/body/right_bottom_bristle",
+          "index": 0
+        },
+        "14eb17cb-1d94-52ab-8037-79e3c02477a6": {
+          "path": "root/body/left_top_bristle",
+          "index": 0
+        },
+        "92b19229-36a5-56be-b3ac-9bf62e1b73d2": {
+          "path": "root/body/left_bottom_bristle",
+          "index": 0
+        },
+        "7a59cc2a-d221-575c-9aae-c5aa7e54c2f7": {
+          "path": "root/body/right_middle_bristle",
+          "index": 0
+        },
+        "19791d21-243a-5383-aec9-024baea0b703": {
+          "path": "root/body/left_middle_bristle",
+          "index": 0
+        }
+      },
+      "sourceClientSha256": "4508d006323f24fa02876310c192d739af56516eb259000ac50f0909a68c9a2d"
+    }
+  }
+}

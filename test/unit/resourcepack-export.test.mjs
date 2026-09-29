@@ -40,6 +40,124 @@ const RESULT = {
 };
 
 describe('resource pack export (#7)', () => {
+  const givePath = '/rp/assets/minecraft/items/iron_ingot_give.txt';
+  const giveCommand = name => `give @s minecraft:iron_ingot[minecraft:custom_model_data={strings:["${name}"]}]`;
+  const exportModel = (api, cmdName = 'cat') => api.saveSingleOutput(RESULT, {}, {
+    resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false, cmdName,
+  });
+
+  it('keeps manual and earlier model commands when exporting another model on the same item', async () => {
+    const { api, memfs } = setup();
+    const manual = '# My custom commands\ngive @s minecraft:diamond 2\n';
+    memfs.writes.set(givePath, manual);
+    await exportModel(api, 'cat');
+    await exportModel(api, 'dog');
+    await exportModel(api, 'cat');
+    const text = memfs.writes.get(givePath);
+    expect(text.startsWith(manual)).toBe(true);
+    const lines = text.split(/\r?\n/);
+    expect(lines.filter(line => line === giveCommand('cat'))).toHaveLength(1);
+    expect(lines.filter(line => line === giveCommand('dog'))).toHaveLength(1);
+    const item = JSON.parse(memfs.writes.get('/rp/assets/minecraft/items/iron_ingot.json'));
+    expect(item.model.cases.map(c => c.when).sort()).toEqual(['cat', 'dog']);
+  });
+
+  it.each([
+    ['LF', '# Notes\ngive @s minecraft:stone 4\n'],
+    ['CRLF', '# Notes\r\ngive @s minecraft:stone 4\r\n'],
+    ['no final newline', '# Notes\r\ngive @s minecraft:stone 4'],
+  ])('preserves existing bytes and separates a new command with %s content', async (_label, existing) => {
+    const { api, memfs } = setup();
+    memfs.writes.set(givePath, existing);
+    await exportModel(api);
+    const text = memfs.writes.get(givePath);
+    expect(text.startsWith(existing)).toBe(true);
+    expect(text.split(/\r?\n/).filter(line => line === giveCommand('cat'))).toHaveLength(1);
+    expect(text.split(/\r?\n/)).toContain('give @s minecraft:stone 4');
+  });
+
+  it.each(['\n', '\r\n', ''])('does not rewrite an already present command (ending %j)', async eol => {
+    const { api, memfs } = setup();
+    const existing = '# Manual note\r\n' + giveCommand('cat') + eol;
+    memfs.writes.set(givePath, existing);
+    await exportModel(api);
+    expect(memfs.writes.get(givePath)).toBe(existing);
+  });
+
+  it('rejects an unreadable give file without overwriting its previous content', async () => {
+    const { api, memfs } = setup();
+    const existing = '# Important commands\ngive @s minecraft:stone\n';
+    memfs.writes.set(givePath, existing);
+    const read = memfs.readFileSync.bind(memfs);
+    memfs.readFileSync = (p, ...args) => {
+      if (p === givePath) throw Object.assign(new Error('give file read denied'), { code: 'EACCES' });
+      return read(p, ...args);
+    };
+    await expect(exportModel(api)).rejects.toThrow('give file read denied');
+    expect(memfs.writes.get(givePath)).toBe(existing);
+  });
+
+  it('keeps the previous give file if a write fails after writing partial bytes', async () => {
+    const { api, memfs } = setup();
+    const existing = '# Important commands\ngive @s minecraft:stone\n';
+    memfs.writes.set(givePath, existing);
+    const write = memfs.writeFileSync.bind(memfs);
+    memfs.writeFileSync = (p, content, ...args) => {
+      if (p === givePath || p.startsWith(givePath + '.')) {
+        write(p, 'partial');
+        throw Object.assign(new Error('give file disk full'), { code: 'ENOSPC' });
+      }
+      return write(p, content, ...args);
+    };
+    await expect(exportModel(api)).rejects.toThrow('give file disk full');
+    expect(memfs.writes.get(givePath)).toBe(existing);
+  });
+
+  it('keeps the previous give file when the final replacement is denied', async () => {
+    const { api, memfs } = setup();
+    const existing = '# Important commands\ngive @s minecraft:stone\n';
+    memfs.writes.set(givePath, existing);
+    const rename = memfs.renameSync.bind(memfs);
+    memfs.renameSync = (from, to) => {
+      if (to === givePath) throw Object.assign(new Error('give file replace denied'), { code: 'EACCES' });
+      return rename(from, to);
+    };
+    await expect(exportModel(api)).rejects.toThrow('give file replace denied');
+    expect(memfs.writes.get(givePath)).toBe(existing);
+  });
+
+  it('uses the vanilla 26.3 items atlas without registering item textures in blocks', async () => {
+    const { api, memfs } = setup();
+    await api.saveSingleOutput(RESULT, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+    });
+
+    // 26.3 assets/minecraft/atlases/items.json already discovers
+    // textures/item/*.png across namespaces. An item directory source in the
+    // blocks atlas duplicates both the vanilla items and this exported sprite.
+    const model = JSON.parse(memfs.writes.get('/rp/assets/objcubed/models/item/cat_default.json'));
+    expect(model.textures['0']).toBe('objcubed:item/cat');
+    expect(memfs.writes.has('/rp/assets/objcubed/textures/item/cat.png')).toBe(true);
+    expect([...memfs.writes.keys()].filter(p => p.includes('/atlases/'))).toEqual([]);
+  });
+
+  it.each([
+    '{ "sources": [{"type":"minecraft:single","resource":"custom:special"}], "owner":"user" }\n',
+    '{ "sources": [{"type":"minecraft:directory","source":"item","prefix":"item/"}] }\n',
+    'unfinished user atlas {\n',
+  ])('leaves existing atlas content byte-for-byte unchanged: %s', async existing => {
+    const { api, memfs } = setup();
+    const blocksPath = '/rp/assets/minecraft/atlases/blocks.json';
+    const itemsPath = '/rp/assets/minecraft/atlases/items.json';
+    memfs.writes.set(blocksPath, existing);
+    memfs.writes.set(itemsPath, existing);
+    await api.saveSingleOutput(RESULT, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+    });
+    expect(memfs.writes.get(blocksPath)).toBe(existing);
+    expect(memfs.writes.get(itemsPath)).toBe(existing);
+  });
+
   it('writes the full objcubed layout with no Blockbench.export', async () => {
     const { api, memfs, wasExportCalled } = setup();
 
@@ -132,8 +250,8 @@ describe('resource pack export (#7)', () => {
     }
 
     // Slot marker v2: each slot json's U midpoint = px + 0.5 + id*0.035.
-    // With no custom display, dynamics are ground (id 1 -> 0.535) and shelf
-    // (id 2 -> 0.57); the plain/neutral json keeps 0.5 (id 0). The shader
+    // With no custom display, both hands occupy ids 1/2, ground id 3
+    // and shelf id 4; the plain/neutral json keeps 0.5 (id 0). The shader
     // reads the quad's U midpoint (shrink-invariant) to recover the id.
     const groundModel = JSON.parse(
       memfs.writes.get('/rp/assets/objcubed/models/item/cat_ground.json'));
@@ -141,13 +259,29 @@ describe('resource pack export (#7)', () => {
     const groundUv = groundModel.elements[0].faces.north.uv;
     const umidOf = (uv, tw) => ((uv[0] + uv[2]) / 2 * tw / 16) % 1; // uv = (px+m)*16/tw
     expect(umidOf(mainUv, 16)).toBeCloseTo(0.5, 5);
-    expect(umidOf(groundUv, 16)).toBeCloseTo(0.535, 5);
+    expect(umidOf(groundUv, 16)).toBeCloseTo(0.605, 5);
     // The neutral default fallback json exists and carries marker id 0.
     const defModel = JSON.parse(
       memfs.writes.get('/rp/assets/objcubed/models/item/cat_default.json'));
     expect(umidOf(defModel.elements[0].faces.north.uv, 16)).toBeCloseTo(0.5, 5);
     // and the ground carrier still sits +8 above the main one (element offset)
     expect(groundModel.elements[0].from[1]).toBe(model.elements[0].from[1] + 8);
+  });
+
+  it('exports both identity hand contexts with explicit markers and selector cases', async () => {
+    const { api, memfs } = setup();
+    await api.saveSingleOutput(RESULT, {}, {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+    });
+    const item = JSON.parse(memfs.writes.get('/rp/assets/minecraft/items/iron_ingot.json'));
+    const contexts = item.model.cases.find(c => c.when === 'cat').model;
+    for (const [slot, id] of [['firstperson_righthand', 1], ['firstperson_lefthand', 2]]) {
+      const ref = `objcubed:item/cat_${slot}`;
+      expect(contexts.cases.find(c => c.when === slot)?.model.model).toBe(ref);
+      const model = JSON.parse(memfs.writes.get(`/rp/assets/objcubed/models/item/cat_${slot}.json`));
+      const uv = model.elements[0].faces.north.uv;
+      expect((uv[0] + uv[2]) / 2).toBeCloseTo(0.5 + id * 0.035, 6);
+    }
   });
 
   it('a slot with a distinct Z scale gets a DYNAMIC marker id (U midpoint 0.5 + id*0.035)', async () => {

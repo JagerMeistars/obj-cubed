@@ -1,0 +1,13 @@
+* text=auto
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.glsl text eol=lf
+*.vsh text eol=lf
+*.fsh text eol=lf
+*.json text eol=lf
+*.mcmeta text eol=lf
+*.md text eol=lf
+LICENSE text eol=lf
+*.png binary
+*.zip binary

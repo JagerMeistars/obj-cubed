@@ -84,6 +84,30 @@ function decodePacked(png) {
 }
 
 describe('equipment (armor) export — Approach C', () => {
+  it.each([
+    ['legacy', 'cat_chest', { equipmentSlot: 'chest' }],
+    ['piece', 'cat_chestplate', { selectedPieces: ['chestplate'] }],
+  ])('%s give export preserves manual commands and does not duplicate repeated exports', async (_mode, eqName, modeCfg) => {
+    const { api, memfs } = setup();
+    const givePath = `/rp/assets/minecraft/equipment/${eqName}_give.txt`;
+    const manual = '# My armor command\r\ngive @s minecraft:iron_chestplate';
+    memfs.writes.set(givePath, manual);
+    const result = makeResult(1);
+    result.faceGroups = ['body'];
+    const cfg = {
+      resourcePackDir: '/rp', baseItem: 'iron_ingot', generateDatapack: false,
+      exportAsEquipment: true, ...modeCfg,
+    };
+    await api.saveSingleOutput(result, {}, cfg);
+    const first = memfs.writes.get(givePath);
+    expect(first.startsWith(manual)).toBe(true);
+    const lines = first.split(/\r?\n/);
+    expect(lines).toContain('give @s minecraft:iron_chestplate');
+    expect(lines.filter(line => line.includes(`asset_id:"minecraft:${eqName}"`))).toHaveLength(1);
+    await api.saveSingleOutput(result, {}, cfg);
+    expect(memfs.writes.get(givePath)).toBe(first);
+  });
+
   it('legacy chest: four faces (N/S/W/E) per layer, box-packed onto the body box (marker 253)', async () => {
     const { api, memfs } = setup();
 
