@@ -1,3 +1,26 @@
+/*
+MIT License
+
+Copyright (c) 2022 Godlander
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 (function () {
     'use strict';
 
@@ -448,10 +471,12 @@
             section_advanced: 'Advanced',
             lbl_easing: "Frame transitions",
             lbl_autorotate: 'Autorotate',
-            opt_none: 'None',
+            opt_none: 'None (hold)',
             opt_linear: 'Linear',
-            opt_cubic: 'Cubic',
-            opt_bezier: 'Bezier',
+            opt_cubic: 'Cubic (in-out)',
+            opt_bezier: 'Catmull-Rom',
+            opt_easein: 'Ease in',
+            opt_easeout: 'Ease out',
             opt_off: 'Off',
             opt_horizontal: 'Horizontal',
             opt_vertical: 'Vertical',
@@ -546,7 +571,7 @@
             help_display_ground: "Position, rotation and size of a dropped item. Minecraft limits its height above the ground.",
             help_display_fixed: "Position, rotation and size in an item frame.",
             help_cb_general: "Click R, G or B to choose what that potion color channel controls: tint, animation frame, hue or a red flash. Modes on different channels combine. On worn equipment, dye color controls playback instead; these modes affect only its item view.",
-            help_easing: "Choose how the model moves between saved frames. None switches frames directly; the other modes blend them.",
+            help_easing: "Choose how the model moves between saved frames. None switches frames directly; Linear moves evenly; Cubic eases both ends; Catmull-Rom uses neighbouring frames; Ease in accelerates and Ease out slows down.",
             help_autorotate: "Make the model follow horizontal rotation, vertical rotation or both. Both is suitable for most models. Explicit display settings take precedence in world views.",
             help_noshadow: "Keep the entire model bright in the dark. To make only selected cubes or meshes glow, use right-click → obj³: Toggle Emissive instead. Neither option lights the surroundings.",
             help_flipuv: "Flip the texture from top to bottom. Use if it appears upside down in game.",
@@ -730,10 +755,12 @@
             section_advanced: 'Дополнительно',
             lbl_easing: "Переходы кадров",
             lbl_autorotate: 'Автоповорот',
-            opt_none: 'Нет',
+            opt_none: 'Нет (удержание)',
             opt_linear: 'Линейная',
             opt_cubic: 'Кубическая',
-            opt_bezier: 'Безье',
+            opt_bezier: 'Catmull-Rom',
+            opt_easein: 'Ускорение',
+            opt_easeout: 'Замедление',
             opt_off: 'Выкл',
             opt_horizontal: 'По горизонтали',
             opt_vertical: 'По вертикали',
@@ -827,7 +854,7 @@
             help_display_ground: "Положение, поворот и размер выпавшего предмета. Minecraft ограничивает его высоту над землёй.",
             help_display_fixed: "Положение, поворот и размер в рамке.",
             help_cb_general: "Нажмите R, G или B, чтобы выбрать действие канала цвета зелья: окраска, кадр анимации, оттенок или красная вспышка. Режимы разных каналов сочетаются. У надетой экипировки цвет красителя управляет воспроизведением; эти режимы меняют только вид предмета.",
-            help_easing: "Переходы между сохранёнными кадрами модели. «Нет» переключает кадры сразу; остальные режимы сглаживают движение между ними.",
+            help_easing: "Переходы между сохранёнными кадрами. «Нет» переключает их сразу; «Линейная» даёт равномерное движение; «Кубическая» сглаживает начало и конец; Catmull-Rom учитывает соседние кадры; «Ускорение» начинает медленно, «Замедление» заканчивает медленно.",
             help_autorotate: "Поворот модели по горизонтали, вертикали или обеим осям. «Оба» подходит для большинства моделей. Заданные настройки отображения имеют приоритет при показе в мире.",
             help_noshadow: "Вся модель остаётся яркой в темноте. Для свечения отдельных кубов или мешей используйте ПКМ → obj³: Переключить свечение. Оба варианта не освещают окружающий мир.",
             help_flipuv: "Переворот текстуры сверху вниз. Включите, если в игре текстура отображается вверх ногами.",
@@ -3160,8 +3187,15 @@
                   Math.trunc(nvertices/256)%256, 255);
         put(3, 0, Math.trunc(nframes/65536)%256, Math.trunc(nframes/256)%256,
                   nframes%256, ntextures);
+        // t[4].a bits: 7=version(1), 6=autoplay, 5..4=easing low 2 bits,
+        //   3..2=interpolation (legacy, shader-dead), 1..0=easing high 2 bits.
+        // Easing is a 4-bit per-ANIMATION index (0..15) split across the two free
+        // regions of this byte. The high bits live in 1..0, which older encoders
+        // ALWAYS wrote 0 — so any legacy PNG (easing 0..3) decodes byte-identically
+        // under the new 4-bit reader. Per-frame easing was rejected: the per-vertex
+        // frame data has no spare bits without a format break.
         put(4, 0, Math.trunc(dur/65536)%256, Math.trunc(dur/256)%256, dur%256,
-                  128|(cfg.autoplay?64:0)|(cfg.easing<<4)|(cfg.interpolation<<2));
+                  128|(cfg.autoplay?64:0)|((cfg.easing&3)<<4)|((cfg.interpolation&3)<<2)|((cfg.easing>>2)&3));
         put(5, 0, Math.trunc(vpH/256)%256, vpH%256, Math.trunc(vtH/256)%256, 255);
         // t[6].r bits: 7=noshadow, 6..5=autorotate, 4..2=visibility,
         //   1=hasStaticDisplay (step A1 gate), 0=colorbehavior high bit.
@@ -6047,6 +6081,8 @@
           <option :value="1">{{t('opt_linear')}}</option>
           <option :value="2">{{t('opt_cubic')}}</option>
           <option :value="3">{{t('opt_bezier')}}</option>
+          <option :value="4">{{t('opt_easein')}}</option>
+          <option :value="5">{{t('opt_easeout')}}</option>
         </select>
       </label>
       <!-- oc-tour-autorotate: tour anchor (issue #4) — on the autorotate select -->

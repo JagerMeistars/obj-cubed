@@ -81,8 +81,8 @@ for (const name of ['GPU_VERIFICATION_2026-09-28.md', 'LIVE_VERIFICATION_2026-09
   const file = path.join(root, 'docs', name);
   if (fs.existsSync(file)) files.push({name,bytes:documentContent(file)});
 }
-// The installable resource pack contains only resource-pack files.
-const entries = pack;
+// Keep the upstream license with the shaders; plugin and docs stay separate.
+const entries = [...pack, {name:'LICENSE',bytes:license}];
 const packZip = zip(entries);
 const provenance = Buffer.from(JSON.stringify({
   distribution:release, minecraft:'26.3', resourceFormat:[97,1], baselineCommit:baseline,

@@ -121,7 +121,7 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                     int ocAnimalVertex = ocAnimalBaseVertex + ocAnimalFrame * ocAnimalVertices;
                     ivec2 ocAnimalIndices = getvert(ivec2(0), ocAnimalSize.x, ocAnimalVertexRow, ocAnimalVertex);
                     vec3 ocAnimalDecoded = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow, ocAnimalIndices.x);
-                    int ocAnimalEasing = getb(ocAnimalMeta[4].a, 4, 2);
+                    int ocAnimalEasing = getb(ocAnimalMeta[4].a, 4, 2) | (getb(ocAnimalMeta[4].a, 0, 2) << 2);
                     if (ocAnimalFrames > 1 && ocAnimalEasing > 0) {
                         float blend = fract(ocAnimalClock);
                         vec3 next = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow,
@@ -136,8 +136,7 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                                     ocAnimalBaseVertex + ((ocAnimalFrame + 3) % ocAnimalFrames) * ocAnimalVertices).x);
                             ocAnimalDecoded = bezier(ocAnimalDecoded, next, next2, next3, blend);
                         } else {
-                            if (ocAnimalEasing == 2) blend = blend < 0.5 ? 4.0 * blend * blend * blend : 1.0 - pow(-2.0 * blend + 2.0, 3.0) * 0.5;
-                            ocAnimalDecoded = mix(ocAnimalDecoded, next, blend);
+                            ocAnimalDecoded = mix(ocAnimalDecoded, next, ease(ocAnimalEasing, blend));
                         }
                     }
                     // Export coordinates are relative to BB origin, in blocks.

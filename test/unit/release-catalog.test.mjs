@@ -39,7 +39,7 @@ describe('release embedded equipment catalog invariant', () => {
     expect(fs.existsSync(path.join(output, 'objcubed.zip'))).toBe(true);
     expect(fs.existsSync(path.join(output, 'objcubed.js'))).toBe(true);
     const manifest = JSON.parse(fs.readFileSync(path.join(output, 'provenance.json'), 'utf8'));
-    expect(manifest.resourcePack.files.map(file => file.path)).toEqual(['pack.mcmeta']);
+    expect(manifest.resourcePack.files.map(file => file.path)).toEqual(['pack.mcmeta', 'LICENSE']);
   });
 
   it('compares structure rather than JSON whitespace or object key order', () => {

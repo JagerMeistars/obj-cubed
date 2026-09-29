@@ -27,6 +27,8 @@ const scenarios=[
  {name:'strip2',frames:[3],geometryFrames:2,easing:1,atlas:false},
  {name:'atlas4',frames:[2,3,1],geometryFrames:4,easing:1,atlas:true},
  {name:'atlas4_flip_cubic_fade',frames:[2,3,4,5,1],geometryFrames:4,easing:3,atlas:true,flip:true,fade:true},
+ {name:'atlas4_ease_in',frames:[2,3,1],geometryFrames:4,easing:4,atlas:true},
+ {name:'atlas4_ease_out',frames:[2,3,1],geometryFrames:4,easing:5,atlas:true},
 ];
 function image(frames,material){
  const width=32,height=32*frames,data=Buffer.alloc(width*height*4),colors=[[230,55,85],[50,215,100],[65,90,230],[220,190,50],[170,75,205]];
@@ -81,7 +83,8 @@ function animated(frames,clock,easing){
  return frames[at].map((q,f)=>q.map((p,c)=>p.map((v,k)=>{
   const p1=frames[(at+1)%frames.length][f][c][k];
   if(easing===3){const p2=frames[(at+2)%frames.length][f][c][k],p3=frames[(at+3)%frames.length][f][c][k];return .5*(2*p1+(-v+p2)*t+(2*v-5*p1+4*p2-p3)*t*t+(-v+3*p1-3*p2+p3)*t*t*t);}
-  return v*(1-t)+p1*t;
+  const blend=easing===4?t*t:easing===5?1-(1-t)*(1-t):t;
+  return v*(1-blend)+p1*blend;
  })));
 }
 function shade(q){
