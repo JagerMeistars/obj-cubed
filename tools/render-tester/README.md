@@ -200,7 +200,7 @@ node tools/render-tester/equipment-v2-animation-fixtures.mjs "$output/equipment-
 node tools/render-tester/equipment-v2-results.mjs "$output/equipment-native" "$output/equipment-animation"
 ```
 
-The first matrix covers 224 native-pose cases, including rider-only camel reins; the second adds 2,632 animation,
+The first matrix covers 224 native-pose cases, including rider-only camel reins; the second adds 3,976 animation,
 atlas, pivot, emission and invalid-header cases. The second generator inherits
 the native/vanilla input paths from the first manifest. Expected geometry and
 material pixels come from source OBJ/images and native model matrices, not from

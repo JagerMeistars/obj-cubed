@@ -131,10 +131,10 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                             vec3 next2 = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow,
                                 getvert(ivec2(0), ocAnimalSize.x, ocAnimalVertexRow,
                                     ocAnimalBaseVertex + ((ocAnimalFrame + 2) % ocAnimalFrames) * ocAnimalVertices).x);
-                            vec3 next3 = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow,
+                            vec3 previous = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow,
                                 getvert(ivec2(0), ocAnimalSize.x, ocAnimalVertexRow,
-                                    ocAnimalBaseVertex + ((ocAnimalFrame + 3) % ocAnimalFrames) * ocAnimalVertices).x);
-                            ocAnimalDecoded = bezier(ocAnimalDecoded, next, next2, next3, blend);
+                                    ocAnimalBaseVertex + ((ocAnimalFrame + ocAnimalFrames - 1) % ocAnimalFrames) * ocAnimalVertices).x);
+                            ocAnimalDecoded = bezier(previous, ocAnimalDecoded, next, next2, blend);
                         } else {
                             ocAnimalDecoded = mix(ocAnimalDecoded, next, ease(ocAnimalEasing, blend));
                         }

@@ -27,6 +27,9 @@ const scenarios=[
  {name:'strip2',frames:[3],geometryFrames:2,easing:1,atlas:false},
  {name:'atlas4',frames:[2,3,1],geometryFrames:4,easing:1,atlas:true},
  {name:'atlas4_flip_cubic_fade',frames:[2,3,4,5,1],geometryFrames:4,easing:3,atlas:true,flip:true,fade:true},
+ {name:'strip2_catmull',frames:[3],geometryFrames:2,easing:3,atlas:false},
+ {name:'atlas3_catmull',frames:[2,3,1],geometryFrames:3,duration:12,easing:3,atlas:true},
+ {name:'atlas5_catmull',frames:[2,3,1],geometryFrames:5,duration:20,easing:3,atlas:true},
  {name:'atlas4_ease_in',frames:[2,3,1],geometryFrames:4,easing:4,atlas:true},
  {name:'atlas4_ease_out',frames:[2,3,1],geometryFrames:4,easing:5,atlas:true},
 ];
@@ -63,7 +66,7 @@ async function exported(target,binding,scenario,options={}){
    Texture:{all:images.map((im,i)=>({uuid:'t'+i,name:'material'+i,source:'data:'+i,img:{src:'data:'+i},uv_width:16,uv_height:16,frameCount:im.frames,display_height:32}))},
    Outliner:{root:[]},Blockbench:{export(){throw Error('Unexpected dialog');},pickDirectory(){return '/rp';}},Project:{name:'v2_animation',export_path:''},BarItems:{}}
  });
- const cfg={texIndex:0,nopow:false,scale:1,offset:[0,0,0],colorbehavior:['time','time','time'],duration:4,autoplay:true,easing:scenario.easing,interpolation:0,noshadow:!options.emission,autorotate:0,visibility:7,displaySlots:{},flipuv:!!scenario.flip,useAtlas:scenario.atlas,atlasTexIndices:images.map((_,i)=>i),texAnimEnabled:true,texFrametime:2,texFade:!!scenario.fade,resourcePackDir:'/rp',baseItem:'stick',generateDatapack:false,cmdName:'v2_'+target+'_'+binding+'_'+scenario.name,exportAsEquipment:true,equipmentTarget:target,selectedPieces:[]};
+ const cfg={texIndex:0,nopow:false,scale:1,offset:[0,0,0],colorbehavior:['time','time','time'],duration:scenario.duration??4,autoplay:true,easing:scenario.easing,interpolation:0,noshadow:!options.emission,autorotate:0,visibility:7,displaySlots:{},flipuv:!!scenario.flip,useAtlas:scenario.atlas,atlasTexIndices:images.map((_,i)=>i),texAnimEnabled:true,texFrametime:2,texFade:!!scenario.fade,resourcePackDir:'/rp',baseItem:'stick',generateDatapack:false,cmdName:'v2_'+target+'_'+binding+'_'+scenario.name,exportAsEquipment:true,equipmentTarget:target,selectedPieces:[]};
  const frames=Array.from({length:scenario.geometryFrames},(_,i)=>panels(Math.max(6,images.length*2),i));
  const result=await api.buildOutput(cfg,frames.map(q=>obj(q,images.length,options.emission)),'');
  result.faceToEquipmentBinding=Array.from({length:result.nfaces},()=>({part:binding,pivot,key:'fixture'}));
@@ -82,7 +85,7 @@ function animated(frames,clock,easing){
  const at=Math.floor(clock)%frames.length,t=clock-Math.floor(clock);
  return frames[at].map((q,f)=>q.map((p,c)=>p.map((v,k)=>{
   const p1=frames[(at+1)%frames.length][f][c][k];
-  if(easing===3){const p2=frames[(at+2)%frames.length][f][c][k],p3=frames[(at+3)%frames.length][f][c][k];return .5*(2*p1+(-v+p2)*t+(2*v-5*p1+4*p2-p3)*t*t+(-v+3*p1-3*p2+p3)*t*t*t);}
+  if(easing===3){const before=frames[(at+frames.length-1)%frames.length][f][c][k],after=frames[(at+2)%frames.length][f][c][k];return (2*t**3-3*t**2+1)*v+(t**3-2*t**2+t)*(p1-before)/2+(-2*t**3+3*t**2)*p1+(t**3-t**2)*(after-v)/2;}
   const blend=easing===4?t*t:easing===5?1-(1-t)*(1-t):t;
   return v*(1-blend)+p1*blend;
  })));
@@ -120,7 +123,7 @@ async function addSeries(target,binding,scenario,options={}){
  const clockCases=options.emission?[[0,'manual0']]:[...([0,.5,2,5,12].flatMap(t=>['manual0','manualLast','autoplay'].map(m=>[t,m]))),[.5,'overflow']];
  for(const[time,mode]of clockCases){
   const id=label+`-t${time}-${mode}`,directory=path.join(dir,id);fs.mkdirSync(directory,{recursive:true});
-  const clock=mode==='autoplay'?time*scenario.geometryFrames/4:mode==='manual0'?0:scenario.geometryFrames-1;
+  const clock=mode==='autoplay'?time*scenario.geometryFrames/(scenario.duration??4):mode==='manual0'?0:scenario.geometryFrames-1;
   const selectedFrames=[],textures=model.images.map((im,i)=>{
    const frame=Math.floor(time/2)%im.frames,next=(frame+1)%im.frames,mix=scenario.fade?(time%2)/2:0,data=Buffer.alloc(32*32*4);
    for(let p=0;p<data.length;p++)data[p]=Math.round(im.data[frame*data.length+p]*(1-mix)+im.data[next*data.length+p]*mix);
@@ -136,7 +139,7 @@ async function addSeries(target,binding,scenario,options={}){
     expected.push([textures[face%model.images.length],32,32,file,4,options.emission&&face%2===0?shade(q):1,0]);
    }
   }
-  const control=mode==='overflow'?99:mode==='manualLast'?(scenario.geometryFrames-1)*4/scenario.geometryFrames:0;
+  const control=mode==='overflow'?99:mode==='manualLast'?(scenario.geometryFrames-1)*(scenario.duration??4)/scenario.geometryFrames:0;
   const rgb=mode==='autoplay'?[255,255,255]:[128,0,control];
   cases.push({id,directory,time,rgb,expectedEmpty:false,actual,expected,target,binding,scenario:scenario.name,selectedFrames,geometry:{clock,frames:scenario.geometryFrames,easing:scenario.easing,pivot},emission:!!options.emission});
  }

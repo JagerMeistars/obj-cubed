@@ -190,6 +190,8 @@ if (marker == ivec4(12,34,56,255)) {
         posoffset = getpos(topleft, size.x, height, index.x);
         if (nframes > 1) {
             int nids = (nframes * nvertices);
+            int currentId = id;
+            ivec2 currentIndex = index;
             //next frame
             id = (id+nvertices) % nids;
             index = getvert(topleft, size.x, height+vph+vth, id);
@@ -201,11 +203,13 @@ if (marker == ivec4(12,34,56,255)) {
                 id = (id+nvertices) % nids;
                 index = getvert(topleft, size.x, height+vph+vth, id);
                 vec3 posoffset3 = getpos(topleft, size.x, height, index.x);
-                //fourth point
-                id = (id+nvertices) % nids;
+                //previous point: the spline segment runs from current to next.
+                id = (currentId+nids-nvertices) % nids;
                 index = getvert(topleft, size.x, height+vph+vth, id);
                 vec3 posoffset4 = getpos(topleft, size.x, height, index.x);
-                posoffset = bezier(posoffset, posoffset2, posoffset3, posoffset4, transition);
+                posoffset = bezier(posoffset4, posoffset, posoffset2, posoffset3, transition);
+                index = currentIndex;
+                id = currentId;
             } else if (easing != 0) { //scalar easing (0 = hold, no blend)
                 posoffset = mix(posoffset, posoffset2, ease(easing, transition));
             }
@@ -789,8 +793,8 @@ if (isCustom == 0) {
                 vec3 po2 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 1) % anf) * anv).x);
                 if (aeasing == 3) {
                     vec3 po3 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 2) % anf) * anv).x);
-                    vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 3) % anf) * anv).x);
-                    posoffset = bezier(posoffset, po2, po3, po4, atr);
+                    vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + anf - 1) % anf) * anv).x);
+                    posoffset = bezier(po4, posoffset, po2, po3, atr);
                 } else {
                     posoffset = mix(posoffset, po2, ease(aeasing, atr));
                 }

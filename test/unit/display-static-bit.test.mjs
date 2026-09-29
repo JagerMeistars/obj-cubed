@@ -33,15 +33,15 @@ function makeTex(w, h) {
   return { data, width: w, height: h };
 }
 
-function loadWith() {
+function loadWith(width = TW) {
   const mod = { exports: {} };
-  const tex = makeTex(TW, TH);
+  const tex = makeTex(width, TH);
   class FakeImage {
     set src(_v) { setTimeout(() => this.onload && this.onload(), 0); }
-    get naturalWidth() { return TW; } get naturalHeight() { return TH; }
-    get width() { return TW; } get height() { return TH; }
+    get naturalWidth() { return width; } get naturalHeight() { return TH; }
+    get width() { return width; } get height() { return TH; }
   }
-  const ctx = { drawImage() {}, getImageData() { return { data: tex.data, width: TW, height: TH }; } };
+  const ctx = { drawImage() {}, getImageData() { return { data: tex.data, width, height: TH }; } };
   const document = { createElement() { return { getContext() { return ctx; }, set width(_v) {}, set height(_v) {} }; } };
   const sandbox = {
     console, require, module: mod, exports: mod.exports,
@@ -175,6 +175,27 @@ describe('A2/B encoder: t[14]/t[15] carry the q16 GUI pivot (block centre, not h
 // Minecraft 26.3 uses the same near/far planes for the hand and world passes.
 // The exporter therefore has to carry context in the texture/model pair.
 describe('v3 explicit hand context', () => {
+  it('rejects widths that cannot hold every assigned display context', async () => {
+    const seven = Object.fromEntries(['thirdperson_righthand', 'thirdperson_lefthand', 'head']
+      .map(slot => [slot, { scale: [1, 1, 0.5] }]));
+    await expect(loadWith(8).buildOutput(baseCfg({ displaySlots: seven }), [OBJ], ''))
+      .rejects.toThrow(/at least 9px.*7 display contexts/i);
+    await expect(loadWith(9).buildOutput(baseCfg({ displaySlots: {
+      ...seven, fixed: { scale: [1, 1, 0.5] },
+    } }), [OBJ], '')).rejects.toThrow(/at least 10px.*8 display contexts/i);
+  });
+
+  it('keeps narrow textures when the complete display table fits', async () => {
+    for (const [width, slots] of [[8, ['head', 'fixed']],
+      [9, ['thirdperson_righthand', 'thirdperson_lefthand', 'head']],
+      [10, ['thirdperson_righthand', 'thirdperson_lefthand', 'head', 'fixed']]]) {
+      const displaySlots = Object.fromEntries(slots.map(slot => [slot, { scale: [1, 1, 0.5] }]));
+      const result = await loadWith(width).buildOutput(baseCfg({ displaySlots }), [OBJ], '');
+      expect(pixel(result, 5, 1)[0] >> 1).toBe(slots.length + 4);
+      expect(pixel(result, width - 1, 1)[2]).toBe(1); // shelf lift survives at the last column
+    }
+  });
+
   it('keeps hand identity and exact Z scale together in the encoded table', async () => {
     const api = loadWith();
     const cfg = baseCfg({ displaySlots: {
