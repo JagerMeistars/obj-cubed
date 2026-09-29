@@ -4,16 +4,17 @@
 
 ## English
 
-Bring your [Blockbench](https://www.blockbench.net/) models into vanilla Minecraft.
-Create custom items and equipment, add animations and glowing details, and export
-them directly from the editor. No mods required.
+Mesh models, 3D armor and first- and third-person animations in vanilla Minecraft.
+Create and export them directly from [Blockbench](https://www.blockbench.net/).
+No mods required.
 
 ### What you can make
 
-- Custom item and block models, including meshes.
-- Armor that follows the player's head, body and limbs.
+- Mesh models for items and blocks.
+- 3D armor that follows the player's head, body and limbs.
+- Model animations in your hands, visible in first and third person.
 - Animal armor, saddles, blankets, harnesses and elytra, with templates to start from.
-- Animated models and textures, including multiple animated textures in an atlas.
+- Animated textures, including multiple animated textures in an atlas.
 - Glowing details and models you can tint or animate with commands.
 
 The plugin has English and Russian interfaces. This release is for **Minecraft
@@ -39,16 +40,17 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 
 ## Русский
 
-Ваши модели из [Blockbench](https://www.blockbench.net/) — в vanilla Minecraft.
-Создавайте предметы и экипировку, добавляйте анимации и светящиеся детали,
-экспортируйте прямо из редактора. Моды не нужны.
+Меши, 3D-броня и анимации от первого и третьего лица в vanilla Minecraft.
+Создавайте и экспортируйте их прямо из [Blockbench](https://www.blockbench.net/).
+Моды не нужны.
 
 ### Что можно сделать
 
-- Свои модели предметов и блоков, в том числе из мешей.
-- Броню, которая двигается вместе с головой, телом и конечностями игрока.
+- Модели предметов и блоков из мешей.
+- 3D-броню, которая двигается вместе с головой, телом и конечностями игрока.
+- Анимации моделей в руках от первого и третьего лица.
 - Броню мобов, сёдла, попоны, упряжь и элитры; для начала есть готовые шаблоны.
-- Анимации моделей и текстур, включая несколько анимированных текстур в атласе.
+- Анимированные текстуры, включая несколько анимированных текстур в атласе.
 - Светящиеся детали, окрашивание моделей и управление анимацией через команды.
 
 Интерфейс плагина доступен на русском и английском. Эта версия предназначена для
