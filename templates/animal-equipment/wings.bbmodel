@@ -1,0 +1,427 @@
+{
+  "meta": {
+    "format_version": "5.0",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "objcubed_wings",
+  "model_identifier": "",
+  "resolution": {
+    "width": 64,
+    "height": 32
+  },
+  "visible_box": [
+    4,
+    4,
+    0
+  ],
+  "variable_placeholders": "",
+  "elements": [
+    {
+      "uuid": "d7b51eff-d0b0-5323-a795-151793fe5e35",
+      "type": "cube",
+      "name": "Ориентир · right_wing 1",
+      "from": [
+        -6.00000011,
+        2.999997,
+        -1.00000011
+      ],
+      "to": [
+        6.00000117,
+        25.00000014,
+        3.00000032
+      ],
+      "origin": [
+        -5,
+        24,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            24,
+            0,
+            34,
+            2
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            44,
+            0,
+            34,
+            2
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            22,
+            2,
+            24,
+            22
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            24,
+            2,
+            34,
+            22
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            34,
+            2,
+            36,
+            22
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            36,
+            2,
+            46,
+            22
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "9f44cb5d-619a-5185-8e1e-59f01fe0b61b",
+      "type": "cube",
+      "name": "Модель · left_wing 1",
+      "from": [
+        -6.00000117,
+        2.999997,
+        -1.00000011
+      ],
+      "to": [
+        6.00000011,
+        25.00000014,
+        3.00000032
+      ],
+      "origin": [
+        5,
+        24,
+        0
+      ],
+      "rotation": [
+        9.5e-7,
+        2.5e-7,
+        2.3e-7
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            34,
+            0,
+            24,
+            2
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            34,
+            0,
+            44,
+            2
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            24,
+            2,
+            22,
+            22
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            34,
+            2,
+            24,
+            22
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            36,
+            2,
+            34,
+            22
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            46,
+            2,
+            36,
+            22
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 0,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    }
+  ],
+  "groups": [
+    {
+      "uuid": "bb607254-3537-50d3-af40-f8dc69f82622",
+      "name": "Одно крыло → зеркальная пара · wings",
+      "origin": [
+        5,
+        24,
+        0
+      ],
+      "rotation": [
+        -14.99999934,
+        2.1e-7,
+        14.99999984
+      ],
+      "color": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "9f44cb5d-619a-5185-8e1e-59f01fe0b61b"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "wings",
+      "objcubed_equipment_rest": {
+        "target": "wings",
+        "part": "wings",
+        "basis": [
+          0.96592593,
+          0.25881907,
+          0,
+          -0.25000003,
+          0.93301284,
+          -0.25881907,
+          -0.06698731,
+          0.25000003,
+          0.96592593
+        ]
+      }
+    },
+    {
+      "uuid": "3e019c45-e8f8-5174-9a3f-5e5f8edfbb82",
+      "name": "right_wing",
+      "origin": [
+        -5,
+        24,
+        0
+      ],
+      "rotation": [
+        -14.99999934,
+        -2.1e-7,
+        -14.99999984
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "d7b51eff-d0b0-5323-a795-151793fe5e35"
+      ]
+    },
+    {
+      "uuid": "a3aece73-3716-5dcb-92e0-02cae58c3117",
+      "name": "ОРИЕНТИРЫ · не экспортируются",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "3e019c45-e8f8-5174-9a3f-5e5f8edfbb82"
+      ]
+    }
+  ],
+  "outliner": [
+    {
+      "uuid": "bb607254-3537-50d3-af40-f8dc69f82622",
+      "isOpen": true,
+      "children": [
+        "9f44cb5d-619a-5185-8e1e-59f01fe0b61b"
+      ]
+    },
+    {
+      "uuid": "a3aece73-3716-5dcb-92e0-02cae58c3117",
+      "isOpen": false,
+      "children": [
+        {
+          "uuid": "3e019c45-e8f8-5174-9a3f-5e5f8edfbb82",
+          "isOpen": false,
+          "children": [
+            "d7b51eff-d0b0-5323-a795-151793fe5e35"
+          ]
+        }
+      ]
+    }
+  ],
+  "animations": [],
+  "textures": [
+    {
+      "name": "wings.png",
+      "path": "",
+      "relative_path": "",
+      "id": "0",
+      "width": 64,
+      "height": 32,
+      "uv_width": 64,
+      "uv_height": 32,
+      "use_as_default": true,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "visible": true,
+      "internal": false,
+      "saved": true,
+      "uuid": "7a2ada9f-1444-5d0b-a33c-7d73c7d887ab",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAABkklEQVR4AeXBodEkBQAG0WZqb8yaVhgyuhAIEI+5QpENBtVmza6AGvcFcL+a937586+//2OorIqlsiqWyvrjn39ZKqtiqayK9ftvv7IqlsqqWCrr4OYefJEfrzdf4cfrzeX78+RnOLi5h8qqWCqrYqmsikuvNxeVVbFUVsVSWRWXPicXlVWxVFbFOri5g5s7uLlHxVJZFUtlVSyVi9/eXCqWyqpYKqtiqVx8nlwqlsqqWCrr4OYObu7g5h4qq2KprIqlsiouvd5cVFbFUlkVS2VVXPqcXFRWxVJZFevg5g5u7uDmHhVLZVUslVWxVC5+e3OpWCqrYqmsiqVy8XlyqVgqq2KprIObO7i5g5t7qKyKpbIqlsqquPR6c1FZFUtlVSyVVXHpc3JRWRVLZVWsg5t78EW+P08uPk9Wn5Pl82T1OVk+T1afk5/p4OYeFUtlVSyVVbFUVsVSWRVLZVUslVWxVFbFUlkHN3dwcwc391BZFUtlVSyVVbFUVsVSWRVLZVUslVWxVFbFOri5g5s7uLn/AYsQ3a4q0dS5AAAAAElFTkSuQmCC"
+    },
+    {
+      "name": "reference.png",
+      "path": "",
+      "relative_path": "",
+      "id": "1",
+      "width": 64,
+      "height": 32,
+      "uv_width": 64,
+      "uv_height": 32,
+      "use_as_default": false,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "visible": true,
+      "internal": false,
+      "saved": true,
+      "uuid": "9bafe810-2657-5056-8c84-c349af72c34a",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAABLUlEQVR4AeXBQZEYQRDEQN3EAhBCv43AuMXA9y0Onfnz5++//wyVVbFUVsVSWRVLZVUslVWxVFbFUlkVS2U9jnsc9zjuU1kVS2VVLJVVsVRWxVJZFUtlVSyVVbFUVsV6HPc47nHcV7FUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJX1OO5x3OO4T2VVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWRXrcdzjuMdxX8VSWRVLZVUslVWxVFbFUlkVS2VVLJVVsVTW47jHcY/jPpVVsVRWxVJZFUtlVSyVVbFUVsVSWRVLZVWsx3GP4x7HfRVLZVUslVWxVFbFUlkVS2VVLJVVsVRWxVJZj+Mexz2O+1RWxVJZFUtlVSyVVbFUVsVSWRVLZVUslVWxHsc9jnsc9wsWn7+5VwS1agAAAABJRU5ErkJggg=="
+    }
+  ],
+  "objcubed": {
+    "version": 1,
+    "settings": {
+      "exportAsEquipment": true,
+      "equipmentTarget": "wings",
+      "baseItem": "elytra",
+      "cmdName": "custom_wings",
+      "scale": 1
+    },
+    "equipmentPartTags": {
+      "bb607254-3537-50d3-af40-f8dc69f82622": "wings"
+    },
+    "equipmentRestTransforms": {
+      "bb607254-3537-50d3-af40-f8dc69f82622": {
+        "target": "wings",
+        "part": "wings",
+        "basis": [
+          0.96592593,
+          0.25881907,
+          0,
+          -0.25000003,
+          0.93301284,
+          -0.25881907,
+          -0.06698731,
+          0.25000003,
+          0.96592593
+        ]
+      }
+    },
+    "template": {
+      "version": 2,
+      "target": "wings",
+      "title": "Элитры",
+      "nativePose": "rest",
+      "minimumPluginVersion": "0.9.3",
+      "nativePartMap": {
+        "bb607254-3537-50d3-af40-f8dc69f82622": "root/left_wing",
+        "3e019c45-e8f8-5174-9a3f-5e5f8edfbb82": "root/right_wing"
+      },
+      "nativeCubeMap": {
+        "d7b51eff-d0b0-5323-a795-151793fe5e35": {
+          "path": "root/right_wing",
+          "index": 0
+        },
+        "9f44cb5d-619a-5185-8e1e-59f01fe0b61b": {
+          "path": "root/left_wing",
+          "index": 0
+        }
+      },
+      "sourceClientSha256": "4508d006323f24fa02876310c192d739af56516eb259000ac50f0909a68c9a2d"
+    }
+  }
+}

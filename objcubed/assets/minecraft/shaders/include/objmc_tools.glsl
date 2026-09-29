@@ -1,6 +1,16 @@
 //objmc
 //https://github.com/Godlander/objmc
 
+// Minecraft 26.3 compiles every backend with Vulkan semantics before
+// translating SPIR-V back to GLSL for OpenGL.
+#ifdef VULKAN
+#define OBJMC_VERTEX_ID gl_VertexIndex
+#else
+#define OBJMC_VERTEX_ID gl_VertexID
+#endif
+
+#include <minecraft:objmc_carrier.glsl>
+
 #define PI 3.1415926535897932
 
 ivec4 getmeta(ivec2 topleft, int offset) {
@@ -8,14 +18,17 @@ ivec4 getmeta(ivec2 topleft, int offset) {
 }
 vec3 getpos(ivec2 topleft, int w, int h, int index) {
     int i = index*3;
-    vec4 x = texelFetch(Sampler0, topleft + ivec2((i  )%w,h+((i  )/w)), 0);
-    vec4 y = texelFetch(Sampler0, topleft + ivec2((i+1)%w,h+((i+1)/w)), 0);
-    vec4 z = texelFetch(Sampler0, topleft + ivec2((i+2)%w,h+((i+2)/w)), 0);
+    ivec3 x = ivec3(texelFetch(Sampler0, topleft + ivec2((i  )%w,h+((i  )/w)), 0).rgb * 255.0 + 0.5);
+    ivec3 y = ivec3(texelFetch(Sampler0, topleft + ivec2((i+1)%w,h+((i+1)/w)), 0).rgb * 255.0 + 0.5);
+    ivec3 z = ivec3(texelFetch(Sampler0, topleft + ivec2((i+2)%w,h+((i+2)/w)), 0).rgb * 255.0 + 0.5);
+    // Restore integer bytes before decoding the coordinate's 16 fractional bits.
+    // Every RGB24 value is exactly representable by a float; division by
+    // 65536 is exact and avoids accumulating normalized-channel rounding.
     return vec3(
-        (x.r*256)+(x.g)+(x.b/256),
-        (y.r*256)+(y.g)+(y.b/256),
-        (z.r*256)+(z.g)+(z.b/256)
-    )*(255./256.) - vec3(128);
+        x.r*65536 + x.g*256 + x.b - 8388608,
+        y.r*65536 + y.g*256 + y.b - 8388608,
+        z.r*65536 + z.g*256 + z.b - 8388608
+    ) / 65536.0;
 }
 vec2 getuv(ivec2 topleft, int w, int h, int index) {
     int i = index*2;
@@ -34,6 +47,15 @@ ivec2 getvert(ivec2 topleft, int w, int h, int index) {
         ((a.r*65536)+(a.g*256)+a.b),
         ((b.r*65536)+(b.g*256)+b.b)
     );
+}
+
+// All four vertices already reference the same encoded face. Read its opposite
+// UV corners from the texture rather than exchanging decoded per-vertex UVs.
+float oc_face_v_mid(ivec2 origin, int width, int vertexRows, int uvRows, int vertexID) {
+    int first = vertexID - vertexID % 4;
+    int uv0 = getvert(origin, width, vertexRows, first).y;
+    int uv2 = getvert(origin, width, vertexRows, first + 2).y;
+    return (getuv(origin, width, uvRows, uv0).y + getuv(origin, width, uvRows, uv2).y) * 0.5;
 }
 
 bool getb(int i, int b) {

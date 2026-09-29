@@ -11,6 +11,80 @@ const { loadObjcubed } = require('../helpers/load-plugin.cjs');
 
 const api = loadObjcubed();
 
+// Execute the small scoreboard/tag subset used by stop, including nested
+// functions. The unchanged _apply_manual boundary records the frame it receives;
+// these are command-state tests, not a Minecraft runtime/performance benchmark.
+function simulateStop(files, { tags, score, gametime }) {
+  const state = { tags: new Set(tags), scores: new Map([['@s objcubed.walk', score]]), applied: [], checks: 0 };
+  function execute(line) {
+    if (!line || line.startsWith('#')) return;
+    let m;
+    if ((m = line.match(/^function (\S+):(\S+)$/))) {
+      if (m[2].endsWith('/_apply_manual')) {
+        state.applied.push(state.scores.get('@s objcubed.walk'));
+        return;
+      }
+      const path = `data/${m[1]}/function/${m[2]}.mcfunction`;
+      expect(files.has(path), path).toBe(true);
+      for (const command of files.get(path).split('\n')) execute(command);
+    } else if ((m = line.match(/^execute if entity @s\[tag=([^\]]+)\] run (.+)$/))) {
+      state.checks++;
+      if (state.tags.has(m[1])) execute(m[2]);
+    } else if ((m = line.match(/^execute store result score (\S+ \S+) run time query gametime$/))) {
+      state.scores.set(m[1], gametime);
+    } else if (line.startsWith('scoreboard objectives add ')) {
+      // Objective creation does not change existing scores.
+    } else if ((m = line.match(/^scoreboard players set (\S+ \S+) (-?\d+)$/))) {
+      state.scores.set(m[1], Number(m[2]));
+    } else if ((m = line.match(/^scoreboard players remove (\S+ \S+) (-?\d+)$/))) {
+      state.scores.set(m[1], state.scores.get(m[1]) - Number(m[2]));
+    } else if ((m = line.match(/^scoreboard players operation (\S+ \S+) (=|-=|%=) (\S+ \S+)$/))) {
+      const left = state.scores.get(m[1]);
+      const right = state.scores.get(m[3]);
+      const value = m[2] === '=' ? right : m[2] === '-=' ? left - right : ((left % right) + right) % right;
+      state.scores.set(m[1], value);
+    } else if ((m = line.match(/^tag @s remove (\S+)$/))) {
+      state.tags.delete(m[1]);
+    } else {
+      throw new Error(`Unsupported stop command: ${line}`);
+    }
+  }
+  execute('function stop_test:walk/stop');
+  return state;
+}
+
+describe('stop command semantics (PR #13)', () => {
+  const targets = [
+    ['item_display', null],
+    ...['equipment', 'player'].flatMap(target =>
+      ['mainhand', 'offhand', 'head', 'chest', 'legs', 'feet'].map(slot => [target, slot])),
+  ];
+  const scenarios = [
+    { name: 'manual frame stays unchanged', tags: [], score: 7, gametime: 101, frames: 10, expected: 7 },
+    { name: 'autoplay freezes current frame', tags: ['walk.auto'], score: 7, gametime: 101, frames: 10, expected: 4 },
+    { name: 'autoplay crosses a day boundary', tags: ['walk.auto'], score: 23998, gametime: 24000, frames: 10, expected: 2 },
+    { name: 'autoplay wraps a negative phase difference', tags: ['walk.auto'], score: 9, gametime: 0, frames: 10, expected: 1 },
+    { name: 'play once keeps the original last-frame behavior', tags: ['walk.once'], score: 32772, gametime: 5, frames: 10, expected: 9 },
+    { name: 'both tags preserve once-before-auto ordering', tags: ['walk.once', 'walk.auto'], score: 7, gametime: 101, frames: 10, expected: 2 },
+    { name: 'one-frame autoplay', tags: ['walk.auto'], score: 23, gametime: 24, frames: 1, expected: 0 },
+    { name: 'one-frame play once', tags: ['walk.once'], score: 32772, gametime: 5, frames: 1, expected: 0 },
+  ];
+  for (const [target, slot] of targets) {
+    it(`keeps frame/tag effects and applies once for ${target}/${slot ?? 'item'}`, () => {
+      for (const scenario of scenarios) {
+        const files = api.generateDatapackFiles('walk', scenario.frames, 'stop_test', target, slot);
+        const result = simulateStop(files, scenario);
+        expect(result.scores.get('@s objcubed.walk'), scenario.name).toBe(scenario.expected);
+        expect([...result.tags], scenario.name).toEqual([]);
+        expect(result.applied, scenario.name).toEqual([scenario.expected]);
+        expect(result.checks, scenario.name).toBe(2);
+        const stoppedAgain = simulateStop(files, { tags: [], score: scenario.expected, gametime: scenario.gametime + 3 });
+        expect(stoppedAgain.applied, `${scenario.name}: repeated stop`).toEqual([scenario.expected]);
+      }
+    });
+  }
+});
+
 describe('datapack function layout (#8)', () => {
   it('emits public funcs at <id>/ and internals at <id>/zzz/, no animations/ segment', () => {
     const files = api.generateDatapackFiles('walk', 5, 'objcubed', 'equipment', 'mainhand');
@@ -19,7 +93,7 @@ describe('datapack function layout (#8)', () => {
     for (const name of ['init', 'play', 'stop', 'set', 'play_from', 'play_once']) {
       expect(keys, name).toContain(`data/objcubed/function/walk/${name}.mcfunction`);
     }
-    for (const name of ['_apply_auto', '_apply_manual']) {
+    for (const name of ['_apply_auto', '_apply_manual', '_stop_once', '_stop_auto']) {
       expect(keys, name).toContain(`data/objcubed/function/walk/zzz/${name}.mcfunction`);
     }
     expect(keys).toContain('pack.mcmeta');
@@ -39,7 +113,7 @@ describe('datapack function layout (#8)', () => {
 
   // Referential closure: every internal `function objcubed:<p>` reference in any
   // file body must point at a generated key. Run for both target branches.
-  for (const target of ['equipment', 'player']) {
+  for (const target of ['equipment', 'player', 'item_display']) {
     it(`referential closure holds for target=${target}`, () => {
       const files = api.generateDatapackFiles('walk', 5, 'objcubed', target, 'mainhand');
       const keys = new Set([...files.keys()]);
@@ -75,13 +149,11 @@ describe('datapack correctness (review batch 2)', () => {
     }
   });
 
-  it('pack.mcmeta has a valid (min<=max) format range + pack_format', () => {
+  it('pack.mcmeta targets the Minecraft 26.3 data-pack format exactly', () => {
     const meta = JSON.parse(
       api.generateDatapackFiles('walk', 5, 'objcubed', 'equipment', 'mainhand').get('pack.mcmeta'));
-    expect(typeof meta.pack.pack_format).toBe('number');
-    expect(typeof meta.pack.min_format).toBe('number');
-    expect(typeof meta.pack.max_format).toBe('number');
-    expect(meta.pack.min_format).toBeLessThanOrEqual(meta.pack.max_format);
+    expect(meta.pack.min_format).toEqual([121, 0]);
+    expect(meta.pack.max_format).toEqual([121, 0]);
   });
 
   it('play restarts at frame 0 (no stale-offset resume); play_from still uses @s', () => {

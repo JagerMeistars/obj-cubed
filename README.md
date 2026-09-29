@@ -6,6 +6,8 @@ Forked from [Godlander's objmc](https://github.com/Godlander/objmc) — the orig
 
 **obj^3** replaces the Python script + CLI workflow with a single BlockBench plugin.
 
+**Minecraft 26.3 update (plugin 0.9.5):** supports 16 animal equipment/elytra targets and 50 attachment roles, including separate camel ears and rider-only reins. [Assembled Blockbench templates](templates/animal-equipment/) preserve native proportions, UVs and rest axes, so wolf armor no longer needs its −90° body rotation removed before export. Includes the earlier fixes for per-element emission, mixed color behaviors, animated atlases with Flip UV, and modern Blockbench frame metadata. Interface labels, help and the guide are revised in English and Russian; equipment lists its bindings with setup details under ?. Autorotate defaults to **Both**; saved settings are preserved. Re-exporting keeps existing `_give.txt` commands without duplicates. Animation stop checks each playback tag once ([JustJabka's #13](https://github.com/JagerMeistars/obj-cubed/pull/13)). See the [Russian installation guide](docs/README_RU.md), [equipment guide](docs/ANIMAL_EQUIPMENT_RU.md), [template verification](docs/TEMPLATE_VERIFICATION_2026-09-29.md), [texture/atlas checks](docs/TEXTURE_ANIMATION_VERIFICATION_2026-09-29.md), and [color/emissive checks](docs/EMISSIVE_COLOR_VERIFICATION_2026-09-29.md). Run `npm run build` for `dist/objcubed.js` and `dist/objcubed.zip`; `npm run build:templates` creates the separate template archive.
+
 ## How it works
 
 Model geometry (vertex positions, UVs, face indices) is encoded into a specially formatted PNG texture. A set of core shaders included in the resource pack reads this texture at render time, reconstructing the 3D mesh from the pixel data. The vanilla Minecraft renderer displays the result — no mods required.
@@ -14,6 +16,7 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 
 - **Direct BlockBench export** — File > Export as obj^3
 - **Armor / equipment export** — render a model as worn armor; one piece can span several body parts (a chestplate = torso + both arms), each following its own bone on the player/armor stand
+- **Animal armor, saddles and elytra** — native animated attachment roles, geometry/texture animation and per-face emission; assembled templates include rest-pose correction, six model faces per equipment layer
 - **Body-part tagging** — right-click a group to assign it a body part; tags persist in the `.bbmodel`
 - **Emissive faces** — right-click a cube/mesh to make it fullbright
 - **Keyframe animation baking** — BB animations are baked frame-by-frame into the encoded texture
@@ -21,7 +24,7 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 - **Armature & bone skinning** — weighted vertex skinning from BB Generic Model rigs
 - **Multi-texture atlas** — combine multiple textures into one atlas automatically (one animated strip per atlas keeps animating)
 - **Datapack generation** — animation control functions (play, stop, play_once, etc.) with GameTime sync
-- **Vanilla-exact display** — every display slot (right/left hand in first and third person, head, GUI, ground, item frame, shelf) has its own tab with rotation/translation/scale, and a model lands exactly where the same vanilla model would — rotations included
+- **Per-context display transforms** — every display slot (right/left hand in first and third person, head, GUI, ground, item frame, shelf) has its own tab with rotation/translation/scale.
 - **Presets** — multiple named export configurations saved per project
 - **Localized UI** — English and Russian, with an in-dialog guided tour of every control
 - **Custom PNG encoder** — bypasses browser alpha premultiplication to preserve exact RGB values
@@ -29,19 +32,19 @@ Model geometry (vertex positions, UVs, face indices) is encoded into a specially
 ## Requirements
 
 - BlockBench 4.8.0+ (desktop variant — the custom PNG encoder needs Node.js)
-- Minecraft 26.1.2 – 26.2 — the bundled core shaders support both (26.2's reversed
-  depth buffer and relocated entity geometry are detected and handled in-shader)
+- Minecraft 26.3 — resource format 97.1. For Minecraft 26.1.2–26.2,
+  use the corresponding earlier release.
 - Armor export additionally needs the entity equipment pipeline (included in the pack)
 
 Core shaders are a vanilla resource-pack feature, but they are version-sensitive: the
-shaders are tuned for 26.1.2–26.2 and may need updating for other versions. Modded
+shaders are adapted for 26.3 and may need updating for other versions. Modded
 compatibility is not guaranteed.
 
 ## Installation
 
-1. Download `objcubed.js`
+1. Download [`objcubed.js`](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.js?v=0.9.5)
 2. In BlockBench: File > Plugins > Load Plugin from File > select `objcubed.js`
-3. Copy the `objcubed/` resource pack folder to your Minecraft `resourcepacks/` directory
+3. Download [`objcubed.zip`](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.zip?v=0.9.5) and place it directly in your Minecraft `resourcepacks/` directory; enable the pack. The ZIP contains only resource-pack files and the license; install the plugin separately.
 
 ## Modeling conventions
 
@@ -74,7 +77,7 @@ When animation is enabled, you can generate a datapack for controlling animation
 - **stop** — freeze at current frame
 - **set** — freeze at a specific frame (set score before calling)
 - **play_from** — autoplay starting from frame N
-- **play_once** — play one cycle then freeze at last frame (shader-driven, no tick function needed)
+- **play_once** — play one cycle then freeze at last frame
 
 Target types: equipment entity, item_display, or player (via temporary armor stand).
 
@@ -154,7 +157,7 @@ a second model on the same base item coexists via custom_model_data.
     models/item/<name>_<slot>.json   — per-slot JSON models (ref objcubed:item/<name>)
   assets/minecraft/
     items/<baseItem>.json            — item override (custom_model_data select)
-    atlases/blocks.json              — stitches objcubed item textures into the atlas
+    items/<baseItem>_give.txt         — give commands, preserving existing entries
     equipment/<name>_<piece>.json            — armor definitions (equipment export only)
     textures/entity/equipment/<layer>/...    — per-face armor layer textures
     shaders/
@@ -205,10 +208,10 @@ When `colorbehavior = time/time/time` (set automatically when generating a datap
 
 ## Limitations (by design or not yet supported)
 
-- **Animated strips per atlas are texture-width-bound**: each strip costs two
-  header pixels, so a 16px-wide texture fits ~5 strips, 32px ~11, 64px+ the
-  hard cap of 15. Overflowing strips are exported static, with a warning that
-  says how many fit. All strips share one tick rate.
+- **Up to four animated strips per atlas**: available header space can reduce
+  this to three at 16px width with 7–8 dynamic display contexts. Extra strips
+  remain on frame zero with an export warning. All strips share the frame
+  duration and fade setting; each wraps at its own frame count (at most 255).
 - **Ground / shelf Y translation** is clamped by Minecraft itself; obj³
   compensates the base height internally, but a custom Y translation on these
   slots will not move the model.

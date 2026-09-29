@@ -3,7 +3,7 @@
 
 isCustom = 0;
 transition = 0;
-int corner = gl_VertexID % 4;
+int corner = OBJMC_VERTEX_ID % 4;
 ivec2 atlasSize = textureSize(Sampler0, 0);
 vec2 onepixel = 1./atlasSize;
 ivec2 uv = ivec2((UV0 * atlasSize));
@@ -21,6 +21,13 @@ ivec2 topleft = uv - uvoffset;
 ivec4 marker = ivec4(texelFetch(Sampler0, topleft, 0)*255.0+0.5);
 if (marker == ivec4(12,34,56,255)) {
     isCustom = 1;
+    vec3 oc_pos[4]; vec2 oc_uv[4];
+    oc_read_carrier(Pos, UV0, oc_pos, oc_uv);
+#ifdef OBJMC_CARRIER_EXPLICIT_CORNER
+    // Shared vertex arenas may start a model at any vertex offset.
+    corner = oc_carrier_corner;
+#endif
+    int oc_uv_vertex_id = 0; // selected UV frame survives the visibility branch
     // Row 0: t[0..15]
     for (int i = 1; i < 16; i++) {
         t[i] = getmeta(topleft, i);
@@ -70,12 +77,27 @@ if (marker == ivec4(12,34,56,255)) {
     // this branch on 26.2 (probed: the atlas bake bypasses it), so this gate
     // only reroutes the PiP draw.
     if (isGUI == 1 && abs(ProjMat[0][0]) > 0.010) isGUI = 0;
+    // 26.3 shares the world's near/far projection with first-person items.
+    // v3 exports carry context in the selected model's slot-marker flags;
+    // older PNGs keep the legacy heuristic until they are exported again.
+    ivec4 contextFlags = ivec4(texelFetch(Sampler0, topleft + ivec2(5, 1), 0) * 255.0 + 0.5);
     isHand = int(ishand(ProjMat));
+    if (contextFlags.b >= 2) {
+        isHand = 0;
+        float contextU = (oc_uv[0].x + oc_uv[2].x)
+                         * 0.5 * float(atlasSize.x);
+        int contextSlot = clamp(int(round((fract(contextU) - 0.5) / 0.035)), 0, 8);
+        if (contextSlot >= 1 && contextSlot <= ((contextFlags.r >> 1) & 15)) {
+            int contextX = contextSlot <= 4 ? contextSlot - 1 : 6 + 2 * contextFlags.g + contextSlot - 5;
+            ivec4 contextEntry = ivec4(texelFetch(Sampler0, topleft + ivec2(contextX, 1), 0) * 255.0 + 0.5);
+            isHand = int((contextEntry.b & 2) != 0 && isGUI == 0);
+        }
+    }
     if (((isGUI + isHand == 0) && visibility.x) || (bool(isHand) && visibility.y) || (bool(isGUI) && visibility.z)) {
         //colorbehavior
         overlayColor = vec4(1);
         vec3 directColor = vec3(1);
-        bool hasDirectColor = false;
+        vec4 hurtColor = vec4(1);
         if (colorbehavior == 73) { //all three channels = time, animation frames 0-8388607
             int cR = int(Color.r*255.0+0.5);
             int cG = int(Color.g*255.0+0.5);
@@ -96,7 +118,7 @@ if (marker == ivec4(12,34,56,255)) {
             vec2 thue = vec2(0, 255./256.);
             switch ((colorbehavior>>6)&7) { //first 3 bits, r
                 //direct color
-                case 0: directColor.r = Color.r; hasDirectColor = true; break;
+                case 0: directColor.r = Color.r; break;
                 //time
                 case 1: tcolor = tcolor*256 + int(Color.r*255); break;
                 //scale
@@ -104,11 +126,11 @@ if (marker == ivec4(12,34,56,255)) {
                 //hue
                 case 3: thue.x = Color.r*255; thue.y *= 256; break;
                 //hurt tint
-                case 4: if (Color.r != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+                case 4: if (Color.r != 0) hurtColor = vec4(1,0.7,0.7,1); break;
             }
             switch ((colorbehavior>>3)&7) { //second 3 bits, g
                 //direct color
-                case 0: directColor.g = Color.g; hasDirectColor = true; break;
+                case 0: directColor.g = Color.g; break;
                 //time
                 case 1: tcolor = tcolor*256 + int(Color.g*255); break;
                 //scale
@@ -116,11 +138,11 @@ if (marker == ivec4(12,34,56,255)) {
                 //hue
                 case 3: thue.x = thue.x*256 + Color.g*255; thue.y *= 256; break;
                 //hurt tint
-                case 4: if (Color.g != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+                case 4: if (Color.g != 0) hurtColor = vec4(1,0.7,0.7,1); break;
             }
             switch (colorbehavior&7) { //third 3 bits, b
                 //direct color
-                case 0: directColor.b = Color.b; hasDirectColor = true; break;
+                case 0: directColor.b = Color.b; break;
                 //time
                 case 1: tcolor = tcolor*256 + int(Color.b*255); break;
                 //scale
@@ -128,12 +150,13 @@ if (marker == ivec4(12,34,56,255)) {
                 //hue
                 case 3: thue.x = thue.x*256 + Color.b*255; thue.y *= 256; break;
                 //hurt tint
-                case 4: if (Color.b != 0) overlayColor = vec4(1,0.7,0.7,1); break;
+                case 4: if (Color.b != 0) hurtColor = vec4(1,0.7,0.7,1); break;
             }
             if (tscale.x > 0) scale = tscale.x/tscale.y;
             if (thue.x > 0) overlayColor = vec4(hrgb(thue.x/thue.y),1);
-            //apply direct color: tint the model via overlayColor
-            if (hasDirectColor) overlayColor = vec4(directColor, 1.0);
+            // Each channel keeps its selected role. Tint, hue and hurt compose;
+            // a direct channel must not erase the effects of the other channels.
+            overlayColor *= vec4(directColor, 1.0) * hurtColor;
         }
 #endif
         int frame;
@@ -167,6 +190,8 @@ if (marker == ivec4(12,34,56,255)) {
         posoffset = getpos(topleft, size.x, height, index.x);
         if (nframes > 1) {
             int nids = (nframes * nvertices);
+            int currentId = id;
+            ivec2 currentIndex = index;
             //next frame
             id = (id+nvertices) % nids;
             index = getvert(topleft, size.x, height+vph+vth, id);
@@ -178,17 +203,20 @@ if (marker == ivec4(12,34,56,255)) {
                 id = (id+nvertices) % nids;
                 index = getvert(topleft, size.x, height+vph+vth, id);
                 vec3 posoffset3 = getpos(topleft, size.x, height, index.x);
-                //fourth point
-                id = (id+nvertices) % nids;
+                //previous point: the spline segment runs from current to next.
+                id = (currentId+nids-nvertices) % nids;
                 index = getvert(topleft, size.x, height+vph+vth, id);
                 vec3 posoffset4 = getpos(topleft, size.x, height, index.x);
-                posoffset = bezier(posoffset, posoffset2, posoffset3, posoffset4, transition);
+                posoffset = bezier(posoffset4, posoffset, posoffset2, posoffset3, transition);
+                index = currentIndex;
+                id = currentId;
             } else if (easing != 0) { //scalar easing (0 = hold, no blend)
                 posoffset = mix(posoffset, posoffset2, ease(easing, transition));
             }
         }
         transition = 0;
         texCoord = getuv(topleft, size.x, height+vph, index.y);
+        oc_uv_vertex_id = id;
 //custom entity rotation
 #ifdef ENTITY
         posoffset *= scale;
@@ -238,8 +266,8 @@ if (marker == ivec4(12,34,56,255)) {
                 vec3(r02, r12, r22)
             );
             // sz = slotTextureSize = baked 1-block placeholder edge (corners 0->1).
-            float slotSize = distance(subgroupQuadBroadcast(Pos, 0),
-                                      subgroupQuadBroadcast(Pos, 1));
+            float slotSize = distance(oc_pos[0],
+                                      oc_pos[1]);
             // Rotate the GUI display about guiPivot, supplied by the export dialog
             // (GUI Pivot X/Y/Z, BB units -> blocks in the decoded frame). This lets
             // the user dial the exact pivot to match BB's model-centre rotation
@@ -257,7 +285,7 @@ if (marker == ivec4(12,34,56,255)) {
             // for the atlas pass):
             //   translate(slotCenter) * scale(sz,-sz,sz) * display.gui * translate(-0.5)
             // with sz = slotTextureSize = 16*guiScale. The subgroup anchor (corner 2,
-            // read at line `Pos = subgroupQuadBroadcast(Pos,2)+posoffset`) is the baked
+            // read at line `Pos = oc_pos[2]+posoffset`) is the baked
             // placeholder corner 2, so it ALREADY carries translate(slotCenter) and
             // scale(sz,-sz,sz). We only owe the per-vertex offset from that anchor.
             //
@@ -296,9 +324,9 @@ if (marker == ivec4(12,34,56,255)) {
             // at scale 1, so each baked edge length IS display.scale on that axis. Apply
             // scale in model space then the orthonormal rotation. Translation still rides
             // the baked anchor (corner 2); the hand pose still rides gl_Position's ModelView.
-            vec3 hp0 = subgroupQuadBroadcast(Pos, 0);
-            vec3 hex = hp0 - subgroupQuadBroadcast(Pos, 1);
-            vec3 hey = hp0 - subgroupQuadBroadcast(Pos, 3);
+            vec3 hp0 = oc_pos[0];
+            vec3 hex = hp0 - oc_pos[1];
+            vec3 hey = hp0 - oc_pos[3];
             float hsx = length(hex), hsy = length(hey);
             vec3 hux = normalize(hex);
             vec3 huy = normalize(hey - dot(hey, hux) * hux);
@@ -319,10 +347,10 @@ if (marker == ivec4(12,34,56,255)) {
             // firstperson matches the same vanilla model exactly, rotations included;
             // an extra -0.5 fold sat every hand slot half a block low).
             ivec4 hflags = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
-            float humid = (subgroupQuadBroadcast(UV0.x, 0) + subgroupQuadBroadcast(UV0.x, 2))
+            float humid = (oc_uv[0].x + oc_uv[2].x)
                           * 0.5 * float(atlasSize.x);
             float handsz = min(hsx, hsy);
-            if (hflags.b == 1) {
+            if (hflags.b >= 1) {
                 int hslot = clamp(int(round((fract(humid) - 0.5) / 0.035)), 0, 8);
                 if (hslot >= 1) {
                     int hdynx = (hslot <= 4) ? (hslot - 1) : (6 + 2*hflags.g + (hslot - 5));
@@ -344,9 +372,9 @@ if (marker == ivec4(12,34,56,255)) {
             // reached the model at all — and the centre re-anchor below must
             // rotate/scale with the display to match vanilla.
             //normal estimated rotation calculation from The Der Discohund
-            vec3 vPos0 = subgroupQuadBroadcast(Pos, 0);
-            vec3 vPos1 = subgroupQuadBroadcast(Pos, 1);
-            vec3 vPos2 = subgroupQuadBroadcast(Pos, 3);
+            vec3 vPos0 = oc_pos[0];
+            vec3 vPos1 = oc_pos[1];
+            vec3 vPos2 = oc_pos[3];
             // Baked carrier edges carry display ROTATION *and* SCALE (MC 26.1.2 bakes
             // display into the vertices). The 1-block placeholder edge is 1.0 in block
             // units at scale 1, so each baked edge length IS display.scale on that axis.
@@ -373,15 +401,15 @@ if (marker == ivec4(12,34,56,255)) {
             // pixels: ids 1..4 at row-1 x=0..3, ids 5..8 AFTER the atlas bands.
             // Legacy exports (no v2 flag at x=5.b) keep the old 0.65-mid rule.
             ivec4 vflags = ivec4(texelFetch(Sampler0, topleft + ivec2(5,1), 0) * 255.0 + 0.5);
-            float umid = (subgroupQuadBroadcast(UV0.x, 0) + subgroupQuadBroadcast(UV0.x, 2))
+            float umid = (oc_uv[0].x + oc_uv[2].x)
                          * 0.5 * float(atlasSize.x);
             float mfrac = fract(umid);
-            int slotid = (vflags.b == 1)
+            int slotid = (vflags.b >= 1)
                 ? clamp(int(round((mfrac - 0.5) / 0.035)), 0, 8)
                 : ((mfrac > 0.575) ? -1 : 0);
             vec3 slotlift = (slotid == -1) ? vec3(0.0, 0.5, 0.0) : vec3(0.0); // legacy ground rule
             float slotsz = min(sx, sy);
-            if (vflags.b == 1 && slotid >= 1) {
+            if (vflags.b >= 1 && slotid >= 1) {
                 int dynx = (slotid <= 4) ? (slotid - 1) : (6 + 2*vflags.g + (slotid - 5));
                 ivec4 dyn = ivec4(texelFetch(Sampler0, topleft + ivec2(dynx, 1), 0) * 255.0 + 0.5);
                 float szq = float(dyn.r*256 + dyn.g) / 65535.0 * 4.0;
@@ -396,7 +424,7 @@ if (marker == ivec4(12,34,56,255)) {
     }
 #endif
     //final pos and uv
-    Pos = subgroupQuadBroadcast(Pos, 2) + posoffset;
+    Pos = oc_pos[2] + posoffset;
     //per-corner jitter so faces with identical uv begin/end still render
     vec2 uvjit = vec2(onepixel.x*0.0001*corner, onepixel.y*0.0001*((corner+1)%4));
     //texCoord*size is the per-frame uv (in pixels) inside one frame region.
@@ -427,12 +455,13 @@ if (marker == ivec4(12,34,56,255)) {
         if (nbands > 0) {
             ivec4 m4 = ivec4(texelFetch(Sampler0, topleft + ivec2(4,1), 0) * 255.0 + 0.5);
             float ft = max(float(m4.r*65536 + m4.g*256 + m4.b), 1.0);
-            // Band test on the QUAD'S V MIDPOINT (subgroup corners 0+2), not the
+            // Band test on the QUAD'S V MIDPOINT (encoded corners 0+2), not the
             // per-vertex row: a face mapped exactly onto one frame has corners ON
             // both band edges, and a per-vertex test tears the quad (some corners
             // step to the next frame, others stay) — smeared UVs on animated faces.
-            float vmid = (subgroupQuadBroadcast(texCoord.y, 0) + subgroupQuadBroadcast(texCoord.y, 2))
-                         * 0.5 * float(size.y);
+            float vmid = oc_face_v_mid(topleft, size.x, headerheight+size.y*ntextures+vph+vth,
+                                        headerheight+size.y*ntextures+vph, oc_uv_vertex_id)
+                         * float(size.y);
             float dy = 0.0, dy2 = 0.0;
             bool inBand = false;
             for (int b = 0; b < nbands; b++) {
@@ -502,9 +531,9 @@ if (marker == ivec4(12,34,56,255)) {
     //     1.0
     // ));
 
-    // ---- A3: anchor (subgroupQuadBroadcast Pos[2]) only ----
+    // ---- A3: anchor (cached carrier Pos[2]) only ----
     // RANGE_HINT = 32. Decode: (byte/255)*64 - 32.
-    // vec3 dbg_anchor = subgroupQuadBroadcast(Pos - posoffset, 2);
+    // vec3 dbg_anchor = oc_pos[2];
     // OC_DBG_COLOR(vec4(
     //     clamp((dbg_anchor.x + 32.0) / 64.0, 0.0, 1.0),
     //     clamp((dbg_anchor.y + 32.0) / 64.0, 0.0, 1.0),
@@ -536,6 +565,8 @@ if (isCustom == 0) {
     // Legacy support removed: re-export old armor with the current plugin.
     if (am.rgb == ivec3(12,34,56) && am.a == 253) {
         isCustom = 1;
+        vec3 oc_pos[4]; vec2 oc_uv[4];
+        oc_read_carrier(Pos, UV0, oc_pos, oc_uv);
         // The dye tint on driven armor is the datapack CONTROL WORD (a small
         // frame/phase int ≈ black), not a color — it's decoded below, but the
         // wrapping vsh already baked Color into the vertex color, rendering the
@@ -596,7 +627,7 @@ if (isCustom == 0) {
         int nboxes = max(t[8].a, 1);
         int amod = nboxes * 24;                 // 6 faces * 4 corners per box
         // MC 26.2 moved entity geometry into shared vertex arenas with
-        // per-frame base offsets — gl_VertexID-derived indices became garbage
+        // per-frame base offsets — OBJMC_VERTEX_ID-derived indices became garbage
         // (armor cubes scattered and jumped between frames). Everything is
         // derived from the humanoid UV LAYOUT instead on 26.2+, which is
         // version-gated in-shader: 26.2 also introduced the reversed depth
@@ -607,28 +638,28 @@ if (isCustom == 0) {
         vec3 a0; vec3 a1; vec3 a2; vec3 a3;
         if (!arev) {
             // 26.1.x: vertex order is submission order, 24 verts per box.
-            int aid = gl_VertexID % amod;
+            int aid = OBJMC_VERTEX_ID % amod;
             int aface = aid / 4;
             abody = aface / 6;
             ac = aid % 4;
             f6 = aface % 6;
-            a0 = subgroupQuadBroadcast(Pos, 0);
-            a1 = subgroupQuadBroadcast(Pos, 1);
-            a2 = subgroupQuadBroadcast(Pos, 2);
-            a3 = subgroupQuadBroadcast(Pos, 3);
+            a0 = oc_pos[0];
+            a1 = oc_pos[1];
+            a2 = oc_pos[2];
+            a3 = oc_pos[3];
         } else {
             // 26.2+: identify the face by its UV rect in the fixed humanoid
             // 64x32 layout; corner roles by UV-corner quadrant (emission-order
             // equivalents c0=TR c1=TL c2=BL c3=BR in uv space); side (left
             // limbs are X-mirrored -> reversed winding) via the Normal.
-            vec3 P0 = subgroupQuadBroadcast(Pos, 0);
-            vec3 P1 = subgroupQuadBroadcast(Pos, 1);
-            vec3 P2 = subgroupQuadBroadcast(Pos, 2);
-            vec3 P3 = subgroupQuadBroadcast(Pos, 3);
-            vec2 T0 = subgroupQuadBroadcast(UV0, 0);
-            vec2 T1 = subgroupQuadBroadcast(UV0, 1);
-            vec2 T2 = subgroupQuadBroadcast(UV0, 2);
-            vec2 T3 = subgroupQuadBroadcast(UV0, 3);
+            vec3 P0 = oc_pos[0];
+            vec3 P1 = oc_pos[1];
+            vec3 P2 = oc_pos[2];
+            vec3 P3 = oc_pos[3];
+            vec2 T0 = oc_uv[0];
+            vec2 T1 = oc_uv[1];
+            vec2 T2 = oc_uv[2];
+            vec2 T3 = oc_uv[3];
             vec2 qmid = (min(min(T0,T1),min(T2,T3)) + max(max(T0,T1),max(T2,T3))) * 0.5;
             ivec2 pf = oc_armor_uvface(qmid * vec2(64.0, 32.0));
             f6 = pf.y;
@@ -762,8 +793,8 @@ if (isCustom == 0) {
                 vec3 po2 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 1) % anf) * anv).x);
                 if (aeasing == 3) {
                     vec3 po3 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 2) % anf) * anv).x);
-                    vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 3) % anf) * anv).x);
-                    posoffset = bezier(posoffset, po2, po3, po4, atr);
+                    vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + anf - 1) % anf) * anv).x);
+                    posoffset = bezier(po4, posoffset, po2, po3, atr);
                 } else {
                     posoffset = mix(posoffset, po2, ease(aeasing, atr));
                 }
@@ -803,8 +834,8 @@ if (isCustom == 0) {
                     ivec4 am4 = ivec4(texelFetch(Sampler0, ao + ivec2(4,1), 0)*255.0+0.5);
                     float aft = max(float(am4.r*65536 + am4.g*256 + am4.b), 1.0);
                     float atexTime = GameTime * 24000.0;
-                    float avmid = (subgroupQuadBroadcast(auv.y, 0) + subgroupQuadBroadcast(auv.y, 2))
-                                  * 0.5 * float(as.y);
+                    float avmid = oc_face_v_mid(ao, as.x, ah+avph+avth, ah+avph, avid)
+                                  * float(as.y);
                     float ady = 0.0, ady2 = 0.0;
                     bool aInBand = false;
                     for (int b = 0; b < anb; b++) {
@@ -890,7 +921,7 @@ if (isCustom == 0) {
 #endif
 //debug
 //else {
-//    posoffset = vec3(gl_VertexID % 4 - 2, gl_VertexID % 4 / 2 * 2, -(gl_VertexID % 4) + 2 * 2);
+//    posoffset = vec3(OBJMC_VERTEX_ID % 4 - 2, OBJMC_VERTEX_ID % 4 / 2 * 2, -(OBJMC_VERTEX_ID % 4) + 2 * 2);
 //    Pos += posoffset;
 //    vertexColor = vec4(1.0,0.0,0.0,1.0);
 //}

@@ -1,0 +1,21 @@
+import java.nio.*;
+import java.nio.file.*;
+import java.util.*;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.opengl.GL;
+import static org.lwjgl.opengl.GL33C.*;
+import static org.lwjgl.util.shaderc.Shaderc.*;
+
+/** Native baked horse carriers against source geometry transformed on CPU. */
+public class HorseEquipmentCheck extends WindowsRasterCheck {
+ public static void main(String[] args)throws Exception{
+  Path root=Path.of(args[0]);armor=true;if(!GLFW.glfwInit())throw new Exception("GLFW init");GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE,GLFW.GLFW_FALSE);GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR,3);GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR,3);GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE,GLFW.GLFW_OPENGL_CORE_PROFILE);long win=GLFW.glfwCreateWindow(W,H,"obj3 horse geometry test",0,0);if(win==0)throw new Exception("GLFW window");GLFW.glfwMakeContextCurrent(win);GL.createCapabilities();String gpu=glGetString(GL_RENDERER)+" | "+glGetString(GL_VERSION);System.out.println(gpu);
+  int direct=program(translated(root.resolve("entity.vert"),shaderc_vertex_shader),translated(root.resolve("entity.frag"),shaderc_fragment_shader));
+  int ref=program("#version 330\nlayout(location=0) in vec3 Position;layout(location=2) in vec2 UV0;layout(std140) uniform Projection{mat4 ProjMat;};layout(std140) uniform DynamicTransforms{mat4 ModelViewMat;mat4 TextureMat;vec4 ColorModulator;vec3 ModelOffset;};out vec2 uv;void main(){gl_Position=ProjMat*ModelViewMat*vec4(Position,1);uv=UV0;}","#version 330\nuniform sampler2D Sampler0;in vec2 uv;out vec4 color;void main(){color=texture(Sampler0,uv);}");
+  fbo=glGenFramebuffers();glBindFramebuffer(GL_FRAMEBUFFER,fbo);colorTarget=glGenTextures();glBindTexture(GL_TEXTURE_2D,colorTarget);glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,W,H,0,GL_RGBA,GL_UNSIGNED_BYTE,(ByteBuffer)null);glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,colorTarget,0);depthTarget=glGenRenderbuffers();glBindRenderbuffer(GL_RENDERBUFFER,depthTarget);glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT24,W,H);glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,depthTarget);if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)throw new Exception("FBO incomplete");glViewport(0,0,W,H);glEnable(GL_DEPTH_TEST);glDepthFunc(GL_GREATER);glDisable(GL_CULL_FACE);glDisable(GL_BLEND);glDisable(GL_DITHER);
+  List<String> reports=new ArrayList<>();reports.add("id\tpassed\texpectedPixels\tmissing\textra\trgbMismatch\tmeanRGBError");int failures=0;
+  for(String line:Files.readAllLines(root.resolve("cases.tsv"))){String[] m=line.split("\t");Path dir=Path.of(m[1]);int tex=texture(dir.resolve("texture.rgba"),Integer.parseInt(m[2]),Integer.parseInt(m[3])),rt=texture(dir.resolve("reference.rgba"),32,32);int[] mesh=geometry(dir.resolve("carrier.f32"),Integer.parseInt(m[4]),0,8),nativeMesh=geometry(dir.resolve("reference.f32"),Integer.parseInt(m[5]),0,8);uniforms(direct,0);byte[] a=draw(direct,tex,mesh);uniforms(ref,0);byte[] b=draw(ref,rt,nativeMesh);png(dir.resolve("actual-render.png"),a);png(dir.resolve("expected-render.png"),b);int area=0,missing=0,extra=0,rgb=0,common=0;long error=0;for(int i=0;i<a.length;i+=4){boolean aa=(a[i+3]&255)>0,bb=(b[i+3]&255)>0;if(bb)area++;if(bb&&!aa)missing++;if(aa&&!bb)extra++;if(aa&&bb){common++;int d=0;for(int k=0;k<3;k++){int v=Math.abs((a[i+k]&255)-(b[i+k]&255));error+=v;d=Math.max(d,v);}if(d>2)rgb++;}}boolean pass=area>100&&missing+extra<=Math.max(10,area*.002)&&rgb<=Math.max(30,area*.005);if(!pass)failures++;String report=String.format(Locale.ROOT,"%s\t%s\t%d\t%d\t%d\t%d\t%.6f",m[0],pass,area,missing,extra,rgb,error/(double)Math.max(1,common*3));reports.add(report);System.out.println(report);glDeleteTextures(tex);glDeleteTextures(rt);for(int u:ubos)glDeleteBuffers(u);ubos.clear();for(int[] geo:new int[][]{mesh,nativeMesh}){glDeleteVertexArrays(geo[0]);glDeleteBuffers(geo[1]);glDeleteBuffers(geo[2]);}}
+  Files.write(root.resolve("results.tsv"),reports);Files.writeString(root.resolve("runtime.txt"),"UTC "+java.time.Instant.now()+"\n"+gpu+"\nFailed="+failures+"\nHidden GL geometry oracle, no Minecraft gameplay/FPS guarantee.\n");GLFW.glfwDestroyWindow(win);GLFW.glfwTerminate();if(failures>0)System.exit(1);
+ }
+}

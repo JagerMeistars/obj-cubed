@@ -169,10 +169,10 @@ describe('tex-anim #9: header + per-region frame baking', () => {
     expect(h.ntextures).toBe(1);
     expect(h.sizeY).toBe(H);
     // Row-1 animation pixels stay zeroed (RGB=0) as before #9 — EXCEPT x=5:
-    // r bits 1..4 = dynamic slot-marker count (ground+shelf are always dynamic
-    // -> 2 -> r=4), b = the v2 version flag.
+    // r bits 1..4 = dynamic slot-marker count (both hands + ground + shelf
+    // -> 4 -> r=8), b = 2 for v3 explicit context markers.
     expect(h.rd(4, 1)).toEqual([0, 0, 0, 255]);
-    expect(h.rd(5, 1)).toEqual([4, 0, 1, 255]);
+    expect(h.rd(5, 1)).toEqual([8, 0, 2, 255]);
 
     // Independently rebuild the EXACT pre-#9 buffer from the same decoded header
     // and source strip, then compare byte-for-byte against the produced buffer.

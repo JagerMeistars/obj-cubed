@@ -327,7 +327,7 @@ describe('atlas texture animation (strip inside a stitched atlas)', () => {
     const { tw, rawBuf } = res;
     const rd = (x, y) => { const i = (y * tw + x) * 4; return [rawBuf[i], rawBuf[i + 1], rawBuf[i + 2], rawBuf[i + 3]]; };
     expect(rd(5, 1)[1]).toBe(2);                          // band COUNT
-    expect(rd(5, 1)[2]).toBe(1);                          // v2 flag
+    expect(rd(5, 1)[2]).toBe(2);                          // v3 flag
     // band 0: strip A at atlas rows [0,32): frame0 stored band y0 = 0+32-16 = 16
     expect(rd(6, 1)[0] * 256 + rd(6, 1)[1]).toBe(16);     // y0
     expect(rd(6, 1)[2] * 256 + rd(7, 1)[0]).toBe(16);     // frameH
@@ -354,11 +354,11 @@ describe('atlas texture animation (strip inside a stitched atlas)', () => {
     const [hi, lo, flags] = rd(0, 1);                     // dynamic entry for id 1
     expect((hi * 256 + lo) / 65535 * 4).toBeCloseTo(0.5, 3); // q16 Sz over 0..4
     expect(flags & 1).toBe(0);                            // no dropped-item lift
-    expect(rd(5, 1)[2]).toBe(1);                          // v2 flag present
+    expect(rd(5, 1)[2]).toBe(2);                          // v3 flag present
   });
 
   it('shader has the v2 slot-marker decode (id from U midpoint, dyn Sz table)', () => {
-    expect(GLSL).toMatch(/vflags\.b == 1/);               // v2 gate
+    expect(GLSL).toMatch(/vflags\.b >= 1/);               // v2/v3 gate
     expect(GLSL).toMatch(/mfrac - 0\.5\) \/ 0\.035/);     // id decode (ids 0..8)
     expect(GLSL).toMatch(/6 \+ 2\*vflags\.g \+ \(slotid - 5\)/); // ids 5..8 after the bands
     expect(GLSL).toMatch(/handsz/);                       // hand path uses it too

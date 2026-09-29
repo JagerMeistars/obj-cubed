@@ -1,27 +1,24 @@
 #version 450
-#extension GL_KHR_shader_subgroup_quad: enable
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
 
-// 26.2 validates shader-declared uniforms against the pipeline: variants with
-// NO_CARDINAL_LIGHTING (energy_swirl, eyes, ...) do not provide the Lighting
-// UBO, so light.glsl (which declares it) must be compiled out there — same
-// guard vanilla 26.2 uses.
 #if defined(PER_FACE_LIGHTING) || !defined(NO_CARDINAL_LIGHTING)
-#moj_import <minecraft:light.glsl>
+#include <minecraft:light.glsl>
 #endif
-#moj_import <minecraft:fog.glsl>
-#moj_import <minecraft:dynamictransforms.glsl>
-#moj_import <minecraft:projection.glsl>
-#moj_import <minecraft:globals.glsl>
+#include <minecraft:fog.glsl>
+#include <minecraft:globals.glsl>
+#include <minecraft:projection.glsl>
+#include <minecraft:sample_lightmap.glsl>
+#include <minecraft:dynamictransforms.glsl>
 
-in vec3 Position;
-in vec4 Color;
-in vec2 UV0;
-in ivec2 UV1;
-in ivec2 UV2;
-in vec3 Normal;
+layout(location = 0) in vec3 Position;
+layout(location = 1) in vec4 Color;
+layout(location = 2) in vec2 UV0;
+layout(location = 3) in ivec2 UV1;
+layout(location = 4) in ivec2 UV2;
+layout(location = 5) in vec3 Normal;
 
 uniform sampler2D Sampler0;
-// OIT (26.3): the alpha-only phase provides neither overlay nor lightmap sampler.
 #if !defined(NO_OVERLAY) && !defined(OIT_ALPHA_ONLY)
 uniform sampler2D Sampler1;
 #endif
@@ -29,37 +26,48 @@ uniform sampler2D Sampler1;
 uniform sampler2D Sampler2;
 #endif
 
-out float sphericalVertexDistance;
-out float cylindricalVertexDistance;
+layout(location = 0) out float sphericalVertexDistance;
+layout(location = 1) out float cylindricalVertexDistance;
 #ifdef PER_FACE_LIGHTING
-out vec4 vertexPerFaceColorBack;
-out vec4 vertexPerFaceColorFront;
+layout(location = 2) out vec4 vertexPerFaceColorBack;
+layout(location = 3) out vec4 vertexPerFaceColorFront;
 #else
-out vec4 vertexColor;
+layout(location = 2) out vec4 vertexColor;
+#endif
+layout(location = 4) out vec4 lightColor;
+layout(location = 5) out vec4 overlayColor;
+layout(location = 6) out vec2 texCoord;
+layout(location = 7) out vec2 texCoord2;
+layout(location = 8) out vec3 Pos;
+layout(location = 9) out float transition;
+layout(location = 10) flat out int isCustom;
+layout(location = 11) flat out int isGUI;
+layout(location = 12) flat out int isHand;
+layout(location = 13) flat out int noshadow;
+#ifdef GLINT
+layout(location = 14) out vec2 texCoordGlint;
 #endif
 
-out vec4 lightColor;
-out vec4 overlayColor;
-out vec2 texCoord;
-// texCoord2 is written by objmc_main.glsl's animated-texture path (issue #9).
-// entity.fsh deliberately ignores it (entity frames hard-step, no GPU fade),
-// but the varying must be declared so the shared include compiles here.
-out vec2 texCoord2;
-out vec3 Pos;
-out float transition;
+#include <minecraft:objmc_tools.glsl>
 
-flat out int isCustom;
-flat out int isGUI;
-flat out int isHand;
-flat out int noshadow;
-
-#moj_import <objmc_tools.glsl>
+// Read appended equipment descriptors as IEEE-754 little-endian bytes.
+// Integer assembly also works on GLSL 330 without shader packing extensions.
+float oc_animal_scalar(ivec2 coordinate) {
+    uvec4 bytes = uvec4(texelFetch(Sampler0, coordinate, 0) * 255.0 + 0.5);
+    return uintBitsToFloat(bytes.r | (bytes.g << 8u) | (bytes.b << 16u) | (bytes.a << 24u));
+}
 
 void main() {
     Pos = Position;
     texCoord = UV0;
-    lightColor = vec4(1);
-    overlayColor = vec4(1);
+    texCoord2 = UV0;
+    transition = 0.0;
+    isCustom = 0;
+    noshadow = 0;
+    lightColor = vec4(1.0);
+    isGUI = 0;
+    isHand = 0;
+    overlayColor = vec4(1.0);
 #if !defined(NO_OVERLAY) && !defined(OIT_ALPHA_ONLY)
     overlayColor = texelFetch(Sampler1, UV1, 0);
 #endif
@@ -73,19 +81,28 @@ void main() {
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, Normal, Color);
 #endif
 #if !defined(EMISSIVE) && !defined(OIT_ALPHA_ONLY)
-    lightColor = texture(Sampler2, vec2(UV2 / 16) / vec2(textureSize(Sampler2, 0)));
+    lightColor = sample_lightmap(Sampler2, UV2);
 #endif
 #ifdef APPLY_TEXTURE_MATRIX
     texCoord = (TextureMat * vec4(UV0, 0.0, 1.0)).xy;
+    texCoord2 = texCoord;
+#endif
+#ifdef GLINT
+    texCoordGlint = (TextureMat * vec4(UV0, 0.0, 1.0)).xy;
 #endif
 
-    //objmc
     #define ENTITY
-    #moj_import <objmc_main.glsl>
+    // Animal equipment has its own native 64x64 carrier layout. Dispatch it
+    // before the item-atlas/humanoid decoder; ordinary entity textures retain
+    // the existing path unless the complete marker matches.
+    ivec4 ocEquipmentMarker = ivec4(texelFetch(Sampler0, ivec2(0), 0) * 255.0 + 0.5);
+    if (ocEquipmentMarker == ivec4(12, 34, 56, 252)) {
+        #include <minecraft:objmc_animal.glsl>
+    } else {
+        #include <minecraft:objmc_main.glsl>
+    }
 
     gl_Position = ProjMat * ModelViewMat * vec4(Pos, 1.0);
-
     sphericalVertexDistance = fog_spherical_distance(Pos);
     cylindricalVertexDistance = fog_cylindrical_distance(Pos);
-
 }

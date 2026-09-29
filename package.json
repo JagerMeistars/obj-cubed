@@ -6,7 +6,9 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:pack": "node test/validate-pack.mjs"
+    "test:pack": "node test/validate-pack.mjs",
+    "build": "node tools/build-release.mjs",
+    "build:templates": "node tools/build-animal-equipment-templates.mjs"
   },
   "devDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.62.2",

@@ -1,0 +1,1722 @@
+{
+  "meta": {
+    "format_version": "5.0",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "objcubed_wolf_body",
+  "model_identifier": "",
+  "resolution": {
+    "width": 64,
+    "height": 32
+  },
+  "visible_box": [
+    4,
+    4,
+    0
+  ],
+  "variable_placeholders": "",
+  "elements": [
+    {
+      "uuid": "def9513b-7249-50ec-9bdc-00e45b18875b",
+      "type": "cube",
+      "name": "Модель · real_head 1",
+      "from": [
+        -3.2,
+        7.3,
+        -9.2
+      ],
+      "to": [
+        3.2,
+        13.7,
+        -4.8
+      ],
+      "origin": [
+        -1,
+        10.5,
+        -7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            10,
+            0,
+            4,
+            4
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            10,
+            0,
+            16,
+            4
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            4,
+            4,
+            0,
+            10
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            10,
+            4,
+            4,
+            10
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            14,
+            4,
+            10,
+            10
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            20,
+            4,
+            14,
+            10
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 1,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "ee00e588-639d-55b3-8a0c-7c40c9983043",
+      "type": "cube",
+      "name": "Модель · real_head 2",
+      "from": [
+        -3.2,
+        13.3,
+        -7.2
+      ],
+      "to": [
+        -0.8,
+        15.7,
+        -5.8
+      ],
+      "origin": [
+        -1,
+        10.5,
+        -7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            19,
+            14,
+            17,
+            15
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            19,
+            14,
+            21,
+            15
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            17,
+            15,
+            16,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            19,
+            15,
+            17,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            20,
+            15,
+            19,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            22,
+            15,
+            20,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 1,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "8f94c74c-2827-5f29-9606-330936fb00b4",
+      "type": "cube",
+      "name": "Модель · real_head 3",
+      "from": [
+        0.8,
+        13.3,
+        -7.2
+      ],
+      "to": [
+        3.2,
+        15.7,
+        -5.8
+      ],
+      "origin": [
+        -1,
+        10.5,
+        -7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            19,
+            14,
+            17,
+            15
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            19,
+            14,
+            21,
+            15
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            17,
+            15,
+            16,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            19,
+            15,
+            17,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            20,
+            15,
+            19,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            22,
+            15,
+            20,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 1,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "dc0861c8-5eca-5a25-9dca-e57613ed1a91",
+      "type": "cube",
+      "name": "Модель · real_head 4",
+      "from": [
+        -1.7,
+        7.3009999,
+        -12.2
+      ],
+      "to": [
+        1.7,
+        10.701,
+        -7.8
+      ],
+      "origin": [
+        -1,
+        10.5,
+        -7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            7,
+            10,
+            4,
+            14
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            7,
+            10,
+            10,
+            14
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            4,
+            14,
+            0,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            7,
+            14,
+            4,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            11,
+            14,
+            7,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            14,
+            14,
+            11,
+            17
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 1,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "144013d4-8d40-5d27-8826-b826b130b20a",
+      "type": "cube",
+      "name": "Модель · right_front_leg 1",
+      "from": [
+        -2.7,
+        -0.2,
+        -5.2
+      ],
+      "to": [
+        -0.3,
+        8.2,
+        -2.8
+      ],
+      "origin": [
+        -2.5,
+        8,
+        -4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            2,
+            18,
+            4,
+            20
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            6,
+            18,
+            4,
+            20
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            0,
+            20,
+            2,
+            28
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            2,
+            20,
+            4,
+            28
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            4,
+            20,
+            6,
+            28
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            6,
+            20,
+            8,
+            28
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 3,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "8c9b4671-d12c-5ec0-8d05-f747e48c1d20",
+      "type": "cube",
+      "name": "Ориентир · right_hind_leg 1",
+      "from": [
+        -2.7,
+        -0.2,
+        5.8
+      ],
+      "to": [
+        -0.3,
+        8.2,
+        8.2
+      ],
+      "origin": [
+        -2.5,
+        8,
+        7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            2,
+            18,
+            4,
+            20
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            6,
+            18,
+            4,
+            20
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            0,
+            20,
+            2,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            2,
+            20,
+            4,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            4,
+            20,
+            6,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            6,
+            20,
+            8,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "69c52489-71b7-50fe-8876-df2472228292",
+      "type": "cube",
+      "name": "Модель · upper_body 1",
+      "from": [
+        -4.19999981,
+        6.80000019,
+        -6.19999981
+      ],
+      "to": [
+        4.19999969,
+        13.19999981,
+        1.19999975
+      ],
+      "origin": [
+        -1,
+        10,
+        -3
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            36,
+            0,
+            28,
+            7
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            36,
+            0,
+            44,
+            7
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            28,
+            7,
+            21,
+            13
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            36,
+            7,
+            28,
+            13
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            43,
+            7,
+            36,
+            13
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            51,
+            7,
+            43,
+            13
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 2,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "739fbc9e-4713-5d0e-9660-07ebd92fe236",
+      "type": "cube",
+      "name": "Модель · real_tail 1",
+      "from": [
+        -1.19999998,
+        3.80000051,
+        6.80000007
+      ],
+      "to": [
+        1.19999978,
+        12.19999999,
+        9.19999993
+      ],
+      "origin": [
+        -1,
+        12,
+        8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            13,
+            18,
+            11,
+            20
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            13,
+            18,
+            15,
+            20
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            11,
+            20,
+            9,
+            28
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            13,
+            20,
+            11,
+            28
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            15,
+            20,
+            13,
+            28
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            17,
+            20,
+            15,
+            28
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 4,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "a30f86bf-377c-5c79-833c-8c75563baf54",
+      "type": "cube",
+      "name": "Ориентир · left_hind_leg 1",
+      "from": [
+        0.3,
+        -0.2,
+        5.8
+      ],
+      "to": [
+        2.7,
+        8.2,
+        8.2
+      ],
+      "origin": [
+        0.5,
+        8,
+        7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            4,
+            18,
+            2,
+            20
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            4,
+            18,
+            6,
+            20
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            2,
+            20,
+            0,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            4,
+            20,
+            2,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            6,
+            20,
+            4,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            8,
+            20,
+            6,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "1ea64aa3-b49c-55eb-960b-6a41abc4f8d0",
+      "type": "cube",
+      "name": "Модель · body 1",
+      "from": [
+        -3.19999981,
+        2.80000043,
+        -1.19999981
+      ],
+      "to": [
+        3.19999981,
+        12.19999987,
+        5.19999981
+      ],
+      "origin": [
+        0,
+        10,
+        2
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            30,
+            14,
+            24,
+            20
+          ],
+          "rotation": 180,
+          "texture": 0,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            30,
+            14,
+            36,
+            20
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            24,
+            20,
+            18,
+            29
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            30,
+            20,
+            24,
+            29
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            36,
+            20,
+            30,
+            29
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            42,
+            20,
+            36,
+            29
+          ],
+          "rotation": 0,
+          "texture": 0,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "color": 0,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    },
+    {
+      "uuid": "d073df09-f93f-5b87-b3c7-a2e09a8c95c6",
+      "type": "cube",
+      "name": "Ориентир · left_front_leg 1",
+      "from": [
+        0.3,
+        -0.2,
+        -5.2
+      ],
+      "to": [
+        2.7,
+        8.2,
+        -2.8
+      ],
+      "origin": [
+        0.5,
+        8,
+        -4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            4,
+            18,
+            2,
+            20
+          ],
+          "rotation": 180,
+          "texture": 1,
+          "tint": -1
+        },
+        "down": {
+          "uv": [
+            4,
+            18,
+            6,
+            20
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "west": {
+          "uv": [
+            2,
+            20,
+            0,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "north": {
+          "uv": [
+            4,
+            20,
+            2,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "east": {
+          "uv": [
+            6,
+            20,
+            4,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        },
+        "south": {
+          "uv": [
+            8,
+            20,
+            6,
+            28
+          ],
+          "rotation": 0,
+          "texture": 1,
+          "tint": -1
+        }
+      },
+      "box_uv": false,
+      "shade": true,
+      "inflate": 0,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "color": 7,
+      "autouv": 0,
+      "render_order": "default",
+      "light_emission": 0
+    }
+  ],
+  "groups": [
+    {
+      "uuid": "f2bf2850-861b-5dee-814f-dd053ff3e4d6",
+      "name": "Корпус · body",
+      "origin": [
+        0,
+        10,
+        2
+      ],
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "color": 0,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "1ea64aa3-b49c-55eb-960b-6a41abc4f8d0"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "body",
+      "objcubed_equipment_rest": {
+        "target": "wolf_body",
+        "part": "body",
+        "basis": [
+          0.99999994,
+          0,
+          0,
+          0,
+          0,
+          -0.99999994,
+          0,
+          0.99999994,
+          0
+        ]
+      }
+    },
+    {
+      "uuid": "43b93f2b-662b-5a7f-b090-2ae0a91615f9",
+      "name": "Голова · head",
+      "origin": [
+        -1,
+        10.5,
+        -7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 1,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "def9513b-7249-50ec-9bdc-00e45b18875b",
+        "ee00e588-639d-55b3-8a0c-7c40c9983043",
+        "8f94c74c-2827-5f29-9606-330936fb00b4",
+        "dc0861c8-5eca-5a25-9dca-e57613ed1a91"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "head",
+      "objcubed_equipment_rest": {
+        "target": "wolf_body",
+        "part": "head",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "uuid": "b8b9293e-349d-58a9-b80c-e40863ea2227",
+      "name": "Грудь · upper_body",
+      "origin": [
+        -1,
+        10,
+        -3
+      ],
+      "rotation": [
+        -90,
+        0,
+        0
+      ],
+      "color": 2,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "69c52489-71b7-50fe-8876-df2472228292"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "upper_body",
+      "objcubed_equipment_rest": {
+        "target": "wolf_body",
+        "part": "upper_body",
+        "basis": [
+          0.99999994,
+          0,
+          0,
+          0,
+          0,
+          -0.99999994,
+          0,
+          0.99999994,
+          0
+        ]
+      }
+    },
+    {
+      "uuid": "d6c7316e-0f4b-512a-b5aa-122baef6eaaa",
+      "name": "Одна нога → повтор на четырёх · legs",
+      "origin": [
+        -2.5,
+        8,
+        -4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 3,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "144013d4-8d40-5d27-8826-b826b130b20a"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "legs",
+      "objcubed_equipment_rest": {
+        "target": "wolf_body",
+        "part": "legs",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "uuid": "76569d2a-22a2-5c71-bb79-454dfd997b77",
+      "name": "Хвост · tail",
+      "origin": [
+        -1,
+        12,
+        8
+      ],
+      "rotation": [
+        -14.32394524,
+        0,
+        0
+      ],
+      "color": 4,
+      "export": true,
+      "locked": false,
+      "visibility": true,
+      "isOpen": true,
+      "children": [
+        "739fbc9e-4713-5d0e-9660-07ebd92fe236"
+      ],
+      "reset": false,
+      "shade": true,
+      "mirror_uv": false,
+      "autouv": 0,
+      "objcubed_equipment_part": "tail",
+      "objcubed_equipment_rest": {
+        "target": "wolf_body",
+        "part": "tail",
+        "basis": [
+          0.9999999,
+          0,
+          0,
+          0,
+          0.96891236,
+          -0.24740395,
+          0,
+          0.24740395,
+          0.96891236
+        ]
+      }
+    },
+    {
+      "uuid": "6b79f4f5-dfa9-5d79-9dab-fc0ad9d3d819",
+      "name": "right_hind_leg",
+      "origin": [
+        -2.5,
+        8,
+        7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "8c9b4671-d12c-5ec0-8d05-f747e48c1d20"
+      ]
+    },
+    {
+      "uuid": "072df6b4-5baf-518f-b374-4e0810b0239f",
+      "name": "left_hind_leg",
+      "origin": [
+        0.5,
+        8,
+        7
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "a30f86bf-377c-5c79-833c-8c75563baf54"
+      ]
+    },
+    {
+      "uuid": "c278e2b4-86de-5349-9151-9b8b2ad93f20",
+      "name": "left_front_leg",
+      "origin": [
+        0.5,
+        8,
+        -4
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": 7,
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "d073df09-f93f-5b87-b3c7-a2e09a8c95c6"
+      ]
+    },
+    {
+      "uuid": "0a54b8ab-5ff8-5b98-b7e4-4c25196d18f9",
+      "name": "ОРИЕНТИРЫ · не экспортируются",
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "export": false,
+      "locked": true,
+      "visibility": true,
+      "isOpen": false,
+      "children": [
+        "6b79f4f5-dfa9-5d79-9dab-fc0ad9d3d819",
+        "072df6b4-5baf-518f-b374-4e0810b0239f",
+        "c278e2b4-86de-5349-9151-9b8b2ad93f20"
+      ]
+    }
+  ],
+  "outliner": [
+    {
+      "uuid": "f2bf2850-861b-5dee-814f-dd053ff3e4d6",
+      "isOpen": true,
+      "children": [
+        "1ea64aa3-b49c-55eb-960b-6a41abc4f8d0"
+      ]
+    },
+    {
+      "uuid": "43b93f2b-662b-5a7f-b090-2ae0a91615f9",
+      "isOpen": true,
+      "children": [
+        "def9513b-7249-50ec-9bdc-00e45b18875b",
+        "ee00e588-639d-55b3-8a0c-7c40c9983043",
+        "8f94c74c-2827-5f29-9606-330936fb00b4",
+        "dc0861c8-5eca-5a25-9dca-e57613ed1a91"
+      ]
+    },
+    {
+      "uuid": "b8b9293e-349d-58a9-b80c-e40863ea2227",
+      "isOpen": true,
+      "children": [
+        "69c52489-71b7-50fe-8876-df2472228292"
+      ]
+    },
+    {
+      "uuid": "d6c7316e-0f4b-512a-b5aa-122baef6eaaa",
+      "isOpen": true,
+      "children": [
+        "144013d4-8d40-5d27-8826-b826b130b20a"
+      ]
+    },
+    {
+      "uuid": "76569d2a-22a2-5c71-bb79-454dfd997b77",
+      "isOpen": true,
+      "children": [
+        "739fbc9e-4713-5d0e-9660-07ebd92fe236"
+      ]
+    },
+    {
+      "uuid": "0a54b8ab-5ff8-5b98-b7e4-4c25196d18f9",
+      "isOpen": false,
+      "children": [
+        {
+          "uuid": "6b79f4f5-dfa9-5d79-9dab-fc0ad9d3d819",
+          "isOpen": false,
+          "children": [
+            "8c9b4671-d12c-5ec0-8d05-f747e48c1d20"
+          ]
+        },
+        {
+          "uuid": "072df6b4-5baf-518f-b374-4e0810b0239f",
+          "isOpen": false,
+          "children": [
+            "a30f86bf-377c-5c79-833c-8c75563baf54"
+          ]
+        },
+        {
+          "uuid": "c278e2b4-86de-5349-9151-9b8b2ad93f20",
+          "isOpen": false,
+          "children": [
+            "d073df09-f93f-5b87-b3c7-a2e09a8c95c6"
+          ]
+        }
+      ]
+    }
+  ],
+  "animations": [],
+  "textures": [
+    {
+      "name": "wolf_body.png",
+      "path": "",
+      "relative_path": "",
+      "id": "0",
+      "width": 64,
+      "height": 32,
+      "uv_width": 64,
+      "uv_height": 32,
+      "use_as_default": true,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "visible": true,
+      "internal": false,
+      "saved": true,
+      "uuid": "959f6600-d115-5d2c-b99e-265d37e1af34",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAACf0lEQVR4AeXBMWtdBQCG4TeH03uRDL53qYOTFLJKkC5SKBlcWucu7vlR+QEO2QRbBMEi1KlDcA2U4tDBgORbMiQZIufCgY/SRdoI4TzPzk+//HZDObg5piWhqbSXO89oKi0J7Z/P/qAloam0JLRvvviBloSm0pLQVNrAwg0s3MDCjQc3x7QkNJWWhHbgMe1lntFU2pu/Q1NpSWgqLQlNpSWhqbQktIGFG1i4kVvw5vI5My/lU3pz+ZzmpcwerJ/yX41JaCotCU2lJaH5lXgpsyQ0lZaEptKS0FRaEmZZB5WWhKbSBhZuPNkc0g5ujvmQk80hE5WWndDkbhlYuFGl5W1oKhOVSRKaSktCLsNMpSWhqbQkNJWWhKYycy1JaCotCW3kFjxYP2XmWlrWobmWlnVorqVlHZpr+Rjj/vkRLXzY/vkRkyRMTjaHzPbPj5gl4WRzyOzFxRUtF1c0713RvuX/NfCR9s+PeN/++RF3xZiEptKS0FQmKpO8DU1lojLJuzOaSktC88v7tCQ0lZaEptKS0FTaeLI5pKm07ISm0k42hzSVu2Rk9ucNW96w9fUO79t7/QqV2enDR9x1Aws3+tfnbMlWErZ+Z8vHG/Zev2JLScLs/q8/s6ecPnzEi4srJnl3RlNpSWgq7cd3ZzSVyZPdFZMkNJWWhKbSktAGFm5g4QYWbkxCU2lJSMJMpSUhCbm4YqLSktBUWhKaSkvCJNcrJiotCU2lJaGptIGFG1i4gYUbfbyhJaGpnH33PbPThKYi4L0rJkloKi0JTaUloalM3F0xSUJTaUloKi0JbeQTebK7YpLrFc3dFS3XK5q7K1quVzR3V9ymgYUbWLh/ATfCILcqTz0HAAAAAElFTkSuQmCC"
+    },
+    {
+      "name": "reference.png",
+      "path": "",
+      "relative_path": "",
+      "id": "1",
+      "width": 64,
+      "height": 32,
+      "uv_width": 64,
+      "uv_height": 32,
+      "use_as_default": false,
+      "render_mode": "default",
+      "render_sides": "auto",
+      "visible": true,
+      "internal": false,
+      "saved": true,
+      "uuid": "d7b67cc6-8cb7-5d2d-ba1e-9b313d41044c",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAABLUlEQVR4AeXBQZEYQRDEQN3EAhBCv43AuMXA9y0Onfnz5++//wyVVbFUVsVSWRVLZVUslVWxVFbFUlkVS2U9jnsc9zjuU1kVS2VVLJVVsVRWxVJZFUtlVSyVVbFUVsV6HPc47nHcV7FUVsVSWRVLZVUslVWxVFbFUlkVS2VVLJX1OO5x3OO4T2VVLJVVsVRWxVJZFUtlVSyVVbFUVsVSWRXrcdzjuMdxX8VSWRVLZVUslVWxVFbFUlkVS2VVLJVVsVTW47jHcY/jPpVVsVRWxVJZFUtlVSyVVbFUVsVSWRVLZVWsx3GP4x7HfRVLZVUslVWxVFbFUlkVS2VVLJVVsVRWxVJZj+Mexz2O+1RWxVJZFUtlVSyVVbFUVsVSWRVLZVUslVWxHsc9jnsc9wsWn7+5VwS1agAAAABJRU5ErkJggg=="
+    }
+  ],
+  "objcubed": {
+    "version": 1,
+    "settings": {
+      "exportAsEquipment": true,
+      "equipmentTarget": "wolf_body",
+      "baseItem": "wolf_armor",
+      "cmdName": "custom_wolf_body",
+      "scale": 1
+    },
+    "equipmentPartTags": {
+      "f2bf2850-861b-5dee-814f-dd053ff3e4d6": "body",
+      "43b93f2b-662b-5a7f-b090-2ae0a91615f9": "head",
+      "b8b9293e-349d-58a9-b80c-e40863ea2227": "upper_body",
+      "d6c7316e-0f4b-512a-b5aa-122baef6eaaa": "legs",
+      "76569d2a-22a2-5c71-bb79-454dfd997b77": "tail"
+    },
+    "equipmentRestTransforms": {
+      "f2bf2850-861b-5dee-814f-dd053ff3e4d6": {
+        "target": "wolf_body",
+        "part": "body",
+        "basis": [
+          0.99999994,
+          0,
+          0,
+          0,
+          0,
+          -0.99999994,
+          0,
+          0.99999994,
+          0
+        ]
+      },
+      "43b93f2b-662b-5a7f-b090-2ae0a91615f9": {
+        "target": "wolf_body",
+        "part": "head",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "b8b9293e-349d-58a9-b80c-e40863ea2227": {
+        "target": "wolf_body",
+        "part": "upper_body",
+        "basis": [
+          0.99999994,
+          0,
+          0,
+          0,
+          0,
+          -0.99999994,
+          0,
+          0.99999994,
+          0
+        ]
+      },
+      "d6c7316e-0f4b-512a-b5aa-122baef6eaaa": {
+        "target": "wolf_body",
+        "part": "legs",
+        "basis": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "76569d2a-22a2-5c71-bb79-454dfd997b77": {
+        "target": "wolf_body",
+        "part": "tail",
+        "basis": [
+          0.9999999,
+          0,
+          0,
+          0,
+          0.96891236,
+          -0.24740395,
+          0,
+          0.24740395,
+          0.96891236
+        ]
+      }
+    },
+    "template": {
+      "version": 2,
+      "target": "wolf_body",
+      "title": "Волчья броня",
+      "nativePose": "rest",
+      "minimumPluginVersion": "0.9.3",
+      "nativePartMap": {
+        "f2bf2850-861b-5dee-814f-dd053ff3e4d6": "root/body",
+        "43b93f2b-662b-5a7f-b090-2ae0a91615f9": "root/head/real_head",
+        "b8b9293e-349d-58a9-b80c-e40863ea2227": "root/upper_body",
+        "d6c7316e-0f4b-512a-b5aa-122baef6eaaa": "root/right_front_leg",
+        "76569d2a-22a2-5c71-bb79-454dfd997b77": "root/tail/real_tail",
+        "6b79f4f5-dfa9-5d79-9dab-fc0ad9d3d819": "root/right_hind_leg",
+        "072df6b4-5baf-518f-b374-4e0810b0239f": "root/left_hind_leg",
+        "c278e2b4-86de-5349-9151-9b8b2ad93f20": "root/left_front_leg"
+      },
+      "nativeCubeMap": {
+        "def9513b-7249-50ec-9bdc-00e45b18875b": {
+          "path": "root/head/real_head",
+          "index": 0
+        },
+        "ee00e588-639d-55b3-8a0c-7c40c9983043": {
+          "path": "root/head/real_head",
+          "index": 1
+        },
+        "8f94c74c-2827-5f29-9606-330936fb00b4": {
+          "path": "root/head/real_head",
+          "index": 2
+        },
+        "dc0861c8-5eca-5a25-9dca-e57613ed1a91": {
+          "path": "root/head/real_head",
+          "index": 3
+        },
+        "144013d4-8d40-5d27-8826-b826b130b20a": {
+          "path": "root/right_front_leg",
+          "index": 0
+        },
+        "8c9b4671-d12c-5ec0-8d05-f747e48c1d20": {
+          "path": "root/right_hind_leg",
+          "index": 0
+        },
+        "69c52489-71b7-50fe-8876-df2472228292": {
+          "path": "root/upper_body",
+          "index": 0
+        },
+        "739fbc9e-4713-5d0e-9660-07ebd92fe236": {
+          "path": "root/tail/real_tail",
+          "index": 0
+        },
+        "a30f86bf-377c-5c79-833c-8c75563baf54": {
+          "path": "root/left_hind_leg",
+          "index": 0
+        },
+        "1ea64aa3-b49c-55eb-960b-6a41abc4f8d0": {
+          "path": "root/body",
+          "index": 0
+        },
+        "d073df09-f93f-5b87-b3c7-a2e09a8c95c6": {
+          "path": "root/left_front_leg",
+          "index": 0
+        }
+      },
+      "sourceClientSha256": "4508d006323f24fa02876310c192d739af56516eb259000ac50f0909a68c9a2d"
+    }
+  }
+}

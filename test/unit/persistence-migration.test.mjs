@@ -17,7 +17,47 @@ function load(project) {
   return { api, project: context.Project };
 }
 
+// Capture the real dialog component without a DOM, Vue, or a Blockbench launch.
+// Stop initialization at the Action/Dialog constructors so unrelated editor
+// integration never executes, then run the actual data/persistence overlay.
+function dialogState(project) {
+  let registration, action, component;
+  const captured = new Error('captured editor constructor');
+  const { api } = loadObjcubedWithContext({ globals: {
+    Project: project,
+    Texture: { all: [{ name: 'test', source: '' }] },
+    Animation: { all: [] },
+    Outliner: { root: [] },
+    BBPlugin: { register(_id, options) { registration = options; } },
+    Action: class { constructor(_id, options) { action = options; throw captured; } },
+    Dialog: class { constructor(options) { component = options.component; throw captured; } },
+  } });
+  expect(() => registration.onload()).toThrow(captured);
+  expect(() => action.click()).toThrow(captured);
+  return { api, component, state: component.data() };
+}
+
 describe('persistence: flat settings + old-preset migration (B3)', () => {
+  it('defaults fresh projects to both autorotate axes (enum value 3)', () => {
+    const { state, component, api } = dialogState({ name: 'fresh' });
+    expect(state.autorotate).toBe(3);
+    expect(component.template).toMatch(/<option\s+:value="3">\{\{t\('opt_both'\)\}\}<\/option>/);
+    expect([...api.PERSISTABLE_FIELDS]).toContain('autorotate');
+  });
+
+  it.each([0, 1, 2, 3])('preserves explicit autorotate %i from saved projects', autorotate => {
+    const { state } = dialogState({ name: 'saved', objcubed_data: { version: 1, settings: { autorotate } } });
+    expect(state.autorotate).toBe(autorotate);
+  });
+
+  it('keeps the autorotate choice when migrating an old active preset', () => {
+    const { state } = dialogState({ name: 'legacy', objcubed_data: {
+      version: 1, activePresetIndex: 1,
+      presets: [{ name: 'a', settings: { autorotate: 3 } }, { name: 'b', settings: { autorotate: 0 } }],
+    } });
+    expect(state.autorotate).toBe(0);
+  });
+
   it('migrates an old presets[] blob into root.settings and drops legacy keys', () => {
     const { api, project } = load({
       objcubed_data: {
