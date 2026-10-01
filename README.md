@@ -1,4 +1,4 @@
-# objcubed
+<h1 align="center"><img src="objcubed.png" alt="objcubed" width="560"></h1>
 
 [English](#english) · [Русский](#русский)
 
