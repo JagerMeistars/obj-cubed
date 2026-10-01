@@ -22,7 +22,21 @@ ivec4 marker = ivec4(texelFetch(Sampler0, topleft, 0)*255.0+0.5);
 if (marker == ivec4(12,34,56,255)) {
     isCustom = 1;
     vec3 oc_pos[4]; vec2 oc_uv[4];
+#ifdef OC_REPEATED_ITEM_CARRIER
+    ivec4 meshSize = getmeta(topleft, 1);
+    if (!oc_read_mesh_carrier(Pos, UV0, topleft, uvoffset, meshSize.r*256+meshSize.g, oc_pos, oc_uv)) {
+        // A flat marker only reports the provoking vertex. Smooth zero/one
+        // flags reject fragments when ANY corner failed, including corners1/3.
+        ocCarrierFailure = 1.0;
+        // Missing geometry is still missing: discard it rather than joining
+        // decoded vertices to an undeformed carrier corner.
+        gl_Position = ProjMat * ModelViewMat * vec4(Pos, 1);
+        isCustom = 4;
+        return;
+    }
+#else
     oc_read_carrier(Pos, UV0, oc_pos, oc_uv);
+#endif
 #ifdef OBJMC_CARRIER_EXPLICIT_CORNER
     // Shared vertex arenas may start a model at any vertex offset.
     corner = oc_carrier_corner;
@@ -159,17 +173,17 @@ if (marker == ivec4(12,34,56,255)) {
             overlayColor *= vec4(directColor, 1.0) * hurtColor;
         }
 #endif
-        int frame;
+        float animationPhase;
         if (autoplay && tcolor >= 32768) {
             // play_once: tcolor bit 15 = flag, lower 15 bits = start gametime % 24000
             int start = tcolor - 32768;
             int elapsed = (int(time) % 24000 - start + 24000) % 24000;
-            frame = min(elapsed, nframes - 1);
-            // keep interpolation during animation, disable when frozen at last frame
-            time = (elapsed >= nframes - 1) ? float(frame) : float(elapsed) + fract(time);
+            // Derive both frame and blend from one value: adding the partial tick
+            // can round into the next frame even when int(time) rounded down.
+            animationPhase = min(float(elapsed) + fract(time), float(nframes - 1));
         } else {
             time = autoplay ? time + duration - mod(tcolor, duration) : tcolor;
-            frame = int(time * nframes / duration) % nframes;
+            animationPhase = time * float(nframes) / duration;
         }
 #ifdef ENTITY
         // GUI icons are baked ONCE into MC's gui item atlas at an arbitrary
@@ -177,8 +191,9 @@ if (marker == ivec4(12,34,56,255)) {
         // current on each resource reload. Pin the icon to frame 0 (time 0
         // also zeroes the interpolation mix below; texTime 0 likewise pins the
         // TEXTURE-animation clock to its first frame).
-        if (isGUI == 1) { frame = 0; time = 0.0; texTime = 0.0; }
+        if (isGUI == 1) { animationPhase = 0.0; time = 0.0; texTime = 0.0; }
 #endif
+        int frame = int(animationPhase) % nframes;
         //relative vertex id from unique face uv
         int id = (((uvoffset.y-2) * size.x) + uvoffset.x) * 4 + corner;
         id += frame * nvertices;
@@ -197,7 +212,7 @@ if (marker == ivec4(12,34,56,255)) {
             index = getvert(topleft, size.x, height+vph+vth, id);
             vec3 posoffset2 = getpos(topleft, size.x, height, index.x);
             //interpolate: t'=ease(t) before the lerp; catmull-rom needs 4 points.
-            transition = fract(time * nframes / duration);
+            transition = fract(animationPhase);
             if (easing == 3) { //catmull-rom (4-point spline through neighbours)
                 //third point
                 id = (id+nvertices) % nids;

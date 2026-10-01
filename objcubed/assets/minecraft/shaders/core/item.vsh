@@ -45,8 +45,18 @@ layout(location = 14) out vec2 texCoordGlint;
 #endif
 
 #include <minecraft:objmc_tools.glsl>
+#define OC_REPEATED_ITEM_CARRIER
+#ifdef VULKAN
+#define OBJMC_INSTANCE_ID gl_InstanceIndex
+#else
+#define OBJMC_INSTANCE_ID gl_InstanceID
+#endif
+#include <minecraft:objmc_mesh_carrier.glsl>
+
+layout(location = 15) out float ocCarrierFailure;
 
 void main() {
+    ocCarrierFailure = 0.0;
     Pos = Position;
     texCoord = UV0;
     texCoord2 = UV0;

@@ -27,6 +27,7 @@ layout(location = 10) flat in int isCustom;
 layout(location = 11) flat in int isGUI;
 layout(location = 12) flat in int isHand;
 layout(location = 13) flat in int noshadow;
+layout(location = 15) in float ocCarrierFailure;
 #ifdef GLINT
 layout(location = 14) in vec2 texCoordGlint;
 #endif
@@ -56,6 +57,11 @@ void main() {
     // are required for defined geometric derivatives on tiny triangles.
     vec3 objmcPosDx = dFdx(Pos);
     vec3 objmcPosDy = dFdy(Pos);
+    // Reject a failed corner even when it is not the provoking vertex. The
+    // derivatives cover edges where its interpolated weight rounds to zero.
+    float ocFailureDx = dFdx(ocCarrierFailure);
+    float ocFailureDy = dFdy(ocCarrierFailure);
+    if (ocCarrierFailure != 0.0 || ocFailureDx != 0.0 || ocFailureDy != 0.0 || isCustom == 4) discard;
     // Debug probes still participate in all OIT passes.
     vec4 color = isCustom == 2 ? vec4(overlayColor.rgb, 1.0)
         : transition > 0.0 ? mix(texture(Sampler0, texCoord), texture(Sampler0, texCoord2), transition)
