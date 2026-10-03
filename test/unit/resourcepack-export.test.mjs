@@ -370,3 +370,47 @@ describe('resource pack export (#7)', () => {
     for (const r of refs) expect(r.startsWith('custom/')).toBe(false);
   });
 });
+
+
+describe('file export and selected display contexts', () => {
+  it('writes just PNG and default JSON into the chosen folder, with a custom texture reference', async () => {
+    const { api, memfs } = setup();
+    await api.saveSingleOutput(RESULT, {}, {outputMode:'files', filesOutputDir:'/loose', resourcePackDir:'/untouched', selectedContexts:[], textureResource:'custom:models/cat'});
+    expect([...memfs.writes.keys()].sort()).toEqual(['/loose/cat.png','/loose/cat_default.json']);
+    expect([...memfs.dirs]).toEqual(['/loose']);
+    const model = JSON.parse(memfs.writes.get('/loose/cat_default.json'));
+    expect(model.textures).toEqual({'0':'custom:models/cat', particle:'custom:models/cat'});
+    expect(model.elements).toEqual(RESULT.elements);
+  });
+
+  it('writes only selected variants and updates the selector without losing other models', async () => {
+    const { api, memfs } = setup();
+    const cfg = {resourcePackDir:'/rp', baseItem:'iron_ingot', selectedContexts:[]};
+    await api.saveSingleOutput(RESULT, {}, {...cfg, cmdName:'dog'});
+    await api.saveSingleOutput(RESULT, {}, {...cfg, selectedContexts:['fixed'], cmdName:'cat'});
+    const files = [...memfs.writes.keys()].filter(p => p.includes('/models/'));
+    expect(files.sort()).toEqual(['/rp/assets/objcubed/models/item/cat_default.json','/rp/assets/objcubed/models/item/cat_fixed.json','/rp/assets/objcubed/models/item/dog_default.json']);
+    const selector = JSON.parse(memfs.writes.get('/rp/assets/minecraft/items/iron_ingot.json'));
+    const cat = selector.model.cases.find(c => c.when === 'cat').model;
+    expect(cat.cases.map(c => c.when)).toEqual(['fixed']);
+    expect(cat.fallback.model).toBe('objcubed:item/cat_default');
+    const dog = selector.model.cases.find(c => c.when === 'dog').model;
+    expect(dog).toMatchObject({type:'minecraft:model', model:'objcubed:item/dog_default'});
+  });
+
+  it('keeps hand slot calibration when exporting loose selected variants', async () => {
+    const { api, memfs } = setup();
+    await api.saveSingleOutput(RESULT, {}, {outputMode:'files', filesOutputDir:'/loose', selectedContexts:['firstperson_righthand']});
+    expect([...memfs.writes.keys()].sort()).toEqual(['/loose/cat.png','/loose/cat_default.json','/loose/cat_firstperson_righthand.json']);
+    const hand = JSON.parse(memfs.writes.get('/loose/cat_firstperson_righthand.json'));
+    expect(hand.elements[0].faces.north.uv).not.toEqual(RESULT.elements[0].faces.north.uv);
+    expect(hand.textures['0']).toBe('objcubed:item/cat');
+  });
+
+  it.each([{generateDatapack:true},{exportAsEquipment:true},{textureResource:'bad:../cat'},{textureResource:'bad:cat.png'}])('rejects incompatible/invalid file output before writing %j', async extra => {
+    const { api, memfs } = setup();
+    await expect(api.saveSingleOutput(RESULT, {}, {outputMode:'files', filesOutputDir:'/loose', ...extra})).rejects.toThrow();
+    expect(memfs.writes.size).toBe(0);
+    expect(memfs.dirs.size).toBe(0);
+  });
+});

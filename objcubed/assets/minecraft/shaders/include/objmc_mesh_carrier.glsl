@@ -1,12 +1,20 @@
 // Candidate for repeated, identical flat item carriers only. Armor and terrain
 // retain their own decoder. Membership comes from the model's vertex-buffer
 // base, sprite origin and instance, never from consecutive subgroup lanes.
+#define OBJMC_CARRIER_EXPLICIT_CORNER
+int oc_carrier_corner;
+
 bool oc_read_mesh_carrier(vec3 position, vec2 uv, ivec2 origin, ivec2 offset,
                          int width, out vec3 points[4], out vec2 texels[4]) {
     int face = (offset.y - 2) * width + offset.x;
-    ivec4 key = ivec4(OBJMC_VERTEX_ID / 4 - face, origin, OBJMC_INSTANCE_ID);
-    int corner = OBJMC_VERTEX_ID % 4;
     vec2 atlas = vec2(textureSize(Sampler0, 0));
+    // Arena bases need not be divisible by four. UV margins identify the
+    // actual corner: left U <= .58, right U >= .70 for slot markers 0..8.
+    vec2 margin = fract(uv * atlas);
+    int corner = margin.x > 0.64 ? (margin.y > 0.5 ? 2 : 3)
+                               : (margin.y > 0.5 ? 1 : 0);
+    oc_carrier_corner = corner;
+    ivec4 key = ivec4(OBJMC_VERTEX_ID - corner - face * 4, origin, OBJMC_INSTANCE_ID);
     uvec4 mask = subgroupBallot(true);
     uint found = 0u;
     for (int i = 0; i < 4; ++i) { points[i] = position; texels[i] = uv; }
