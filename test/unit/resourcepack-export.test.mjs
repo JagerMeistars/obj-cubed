@@ -13,14 +13,14 @@ const nodePath = require('node:path');
 // Force posix-style joins so the asserted keys match regardless of host OS.
 const posixPath = { ...nodePath, ...nodePath.posix };
 
-function setup() {
+function setup(pickDirectory = () => '/rp') {
   const memfs = makeMemFs();
   let exportCalled = false;
   const { api } = loadObjcubedWithContext({
     globals: {
       Blockbench: {
         export() { exportCalled = true; throw new Error('dialog opened'); },
-        pickDirectory() { return '/rp'; },
+        pickDirectory,
       },
       Project: { name: 'cat', export_path: '' },
       BarItems: {},
@@ -373,12 +373,21 @@ describe('resource pack export (#7)', () => {
 
 
 describe('file export and selected display contexts', () => {
+  it('cancels without writing when the second destination picker is cancelled', async () => {
+    let picks = 0;
+    const { api, memfs } = setup(() => ++picks === 1 ? '/models' : null);
+    await expect(api.saveSingleOutput(RESULT, {}, {outputMode:'files', selectedContexts:[]})).rejects.toThrow('__cancelled__');
+    expect(picks).toBe(2);
+    expect(memfs.writes.size).toBe(0);
+    expect(memfs.dirs.size).toBe(0);
+  });
+
   it('writes just PNG and default JSON into the chosen folder, with a custom texture reference', async () => {
     const { api, memfs } = setup();
-    await api.saveSingleOutput(RESULT, {}, {outputMode:'files', filesOutputDir:'/loose', resourcePackDir:'/untouched', selectedContexts:[], textureResource:'custom:models/cat'});
-    expect([...memfs.writes.keys()].sort()).toEqual(['/loose/cat.png','/loose/cat_default.json']);
-    expect([...memfs.dirs]).toEqual(['/loose']);
-    const model = JSON.parse(memfs.writes.get('/loose/cat_default.json'));
+    await api.saveSingleOutput(RESULT, {}, {outputMode:'files', modelOutputDir:'/models', textureOutputDir:'/textures', resourcePackDir:'/untouched', selectedContexts:[], textureResource:'custom:models/cat'});
+    expect([...memfs.writes.keys()].sort()).toEqual(['/models/cat_default.json','/textures/cat.png']);
+    expect([...memfs.dirs].sort()).toEqual(['/models','/textures']);
+    const model = JSON.parse(memfs.writes.get('/models/cat_default.json'));
     expect(model.textures).toEqual({'0':'custom:models/cat', particle:'custom:models/cat'});
     expect(model.elements).toEqual(RESULT.elements);
   });

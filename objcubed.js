@@ -52,7 +52,7 @@ SOFTWARE.
         'generateDatapack', 'exportCameras', 'datapackNamespace', 'datapackAnimId',
         'datapackTargetType', 'datapackEquipSlot', 'datapackOutputDir',
         // Output paths
-        'resourcePackDir', 'baseItem', 'cmdName', 'outputMode', 'filesOutputDir', 'textureResource', 'customContexts', 'selectedContexts',
+        'resourcePackDir', 'baseItem', 'cmdName', 'outputMode', 'filesOutputDir', 'modelOutputDir', 'textureOutputDir', 'textureResource', 'customContexts', 'selectedContexts',
         // Equipment (armor) export — Approach C
         'exportAsEquipment', 'equipmentTarget', 'equipmentSlot', 'selectedPieces',
         // Display — right hand & shared
@@ -393,10 +393,10 @@ SOFTWARE.
             lbl_target: "Target",
             lbl_slot: 'Slot',
             lbl_respack_dir: "Resource pack folder",
-            lbl_output_mode: "Export to", output_pack: "Resource pack", output_files: "Model and texture",
-            lbl_files_dir: "Output folder", lbl_texture_resource: "Texture resource ID",
-            lbl_contexts: "Display contexts", contexts_auto: "Automatic", contexts_selected: "Choose contexts", contexts_default: "Default only",
-            help_output_mode: "Model and texture saves PNG and model JSON files directly in the chosen folder, without assets, item definitions or give commands. Place the files in your pack yourself. Equipment and datapacks require Resource pack mode.",
+            lbl_output_mode: "Export as", output_pack: "Resource pack", output_files: "Model and texture",
+            lbl_model_dir: "Model folder", lbl_texture_dir: "Texture folder", lbl_texture_resource: "Texture resource ID",
+            lbl_contexts: "Display contexts", contexts_auto: "Automatic", contexts_selected: "Choose contexts",
+            help_output_mode: "Model and texture saves model JSON and PNG files in separately chosen folders, without assets, item definitions or give commands. Place the files in your pack yourself. Equipment and datapacks require Resource pack mode.",
             help_texture_resource: "Texture reference in the model JSON, for example mypack:item/golem. No .png extension. Leave blank for objcubed:item/<model ID>.",
             help_contexts: "Default is always exported. Select extra variants for the contexts you need. Unselected contexts use default; this does not hide the model. Hands, ground and shelf need their variants for correct positioning. Existing files are not deleted.",
             err_files_options: "Equipment and datapacks require Resource pack mode.",
@@ -459,7 +459,7 @@ SOFTWARE.
             columns_xyz: 'Columns are X, Y, Z.',
             ground_y_tip: "Minecraft limits the height of dropped items.",
             preview_title: "Preview",
-            open_display_editor: "Preview in Blockbench",
+            open_display_editor: "Edit in BlockBench",
 
             open_display_disabled: "This model format has no display editor.",
             lbl_export_cameras: 'Export Cameras',
@@ -694,10 +694,10 @@ SOFTWARE.
             lbl_target: "Цель",
             lbl_slot: 'Слот',
             lbl_respack_dir: "Папка ресурспака",
-            lbl_output_mode: "Экспорт в", output_pack: "Ресурспак", output_files: "Модель и текстура",
-            lbl_files_dir: "Папка для файлов", lbl_texture_resource: "ID текстуры",
-            lbl_contexts: "Контексты отображения", contexts_auto: "Автоматически", contexts_selected: "Выбрать контексты", contexts_default: "Только default",
-            help_output_mode: "Модель и текстура сохраняет PNG и JSON моделей прямо в выбранную папку, без assets, описания предмета и команд выдачи. Разместите файлы в своём паке самостоятельно. Экипировка и датапаки требуют режима «Ресурспак».",
+            lbl_output_mode: "Экспортировать как", output_pack: "Ресурспак", output_files: "Модель и текстура",
+            lbl_model_dir: "Папка модели", lbl_texture_dir: "Папка текстуры", lbl_texture_resource: "ID текстуры",
+            lbl_contexts: "Контексты отображения", contexts_auto: "Автоматически", contexts_selected: "Выбрать контексты",
+            help_output_mode: "Модель и текстура сохраняет JSON моделей и PNG в отдельно выбранные папки, без assets, описания предмета и команд выдачи. Разместите файлы в своём паке самостоятельно. Экипировка и датапаки требуют режима «Ресурспак».",
             help_texture_resource: "Ссылка на текстуру в JSON модели, например mypack:item/golem. Без расширения .png. Пустое поле использует objcubed:item/<ID модели>.",
             help_contexts: "Default экспортируется всегда. Отметьте дополнительные варианты для нужных контекстов. Остальные используют default; модель в них не скрывается. Для правильного отображения в руках, на земле и на полке нужны их варианты. Ранее созданные файлы не удаляются.",
             err_files_options: "Для экипировки и датапаков выберите режим «Ресурспак».",
@@ -759,7 +759,7 @@ SOFTWARE.
             columns_xyz: 'Колонки — X, Y, Z.',
             ground_y_tip: "Minecraft ограничивает высоту выпавших предметов.",
             preview_title: "Предпросмотр",
-            open_display_editor: "Посмотреть в Blockbench",
+            open_display_editor: "Редактировать в BlockBench",
 
             open_display_disabled: "В этом формате модели нет редактора отображения.",
             lbl_export_cameras: 'Экспорт камер Cameras',
@@ -1044,6 +1044,22 @@ SOFTWARE.
             width: 100% !important;
             accent-color: #5a8cc0;
         }
+        .oc-root button { align-items: center; justify-content: center; }
+        .oc-output-options {
+            display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;
+            color: #aaa; font-size: calc(12px * var(--oc-scale)); line-height: 1.2;
+        }
+        .oc-output-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .oc-output-options select, .oc-output-options input:not([type=checkbox]) {
+            font: inherit; color: inherit; height: calc(24px * var(--oc-scale));
+            line-height: 1.2; padding: 0 6px;
+        }
+        .oc-output-path { display: flex; align-items: center; gap: 6px; }
+        .oc-output-path input { flex: 1; min-width: 0; }
+        .oc-output-browse { flex: 0 0 calc(24px * var(--oc-scale)); height: calc(24px * var(--oc-scale)); padding: 0; }
+        .oc-output-browse .material-icons { font-size: calc(16px * var(--oc-scale)); line-height: 1; }
+        .oc-context-options { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+        .oc-context-options label { display: inline-flex; align-items: center; gap: 4px; }
         .oc-root input[type=checkbox] { accent-color: #5a8cc0; }
         .oc-root input[type=number],
         .oc-root input[type=text],
@@ -1152,6 +1168,7 @@ SOFTWARE.
 
         /* Inline buttons — borderless, BB-native style */
         .oc-btn {
+            display: inline-flex; align-items: center; justify-content: center;
             padding: calc(4px * var(--oc-scale)) calc(8px * var(--oc-scale)); cursor: pointer;
             background: rgba(255,255,255,0.06); border: none;
             color: #bbb; border-radius: 4px;
@@ -3930,8 +3947,12 @@ SOFTWARE.
 
             // One-shot: pick the resource pack root once (only if not already
             // set). Everything else is written without further dialogs.
-            const root = (filesOnly ? cfg.filesOutputDir : cfg.resourcePackDir) || pickDirectory(t(filesOnly ? 'lbl_files_dir' : 'lbl_respack_dir'), Project.export_path || '');
+            const root = (filesOnly ? (cfg.modelOutputDir || cfg.filesOutputDir) : cfg.resourcePackDir) || pickDirectory(t(filesOnly ? 'lbl_model_dir' : 'lbl_respack_dir'), Project.export_path || '');
             if (!root) { reject(new Error('__cancelled__')); return; }
+            // Select both destinations before writing anything: cancelling the
+            // second picker must not leave a partial export.
+            const textureRoot = filesOnly ? (cfg.textureOutputDir || cfg.filesOutputDir || pickDirectory(t('lbl_texture_dir'), root)) : null;
+            if (filesOnly && !textureRoot) { reject(new Error('__cancelled__')); return; }
 
             const baseItem = horse ? horse.item : (cfg.baseItem || 'iron_ingot').replace(/[^a-z0-9_]/gi, '_').toLowerCase() || 'iron_ingot';
             // custom_model_data name (issue #7). Used as BOTH the per-slot model
@@ -3941,7 +3962,7 @@ SOFTWARE.
             const modelName = ((cfg.cmdName || name).replace(/[^a-z0-9_]/gi, '_').toLowerCase()) || name;
             const horseAsset = horse ? `${modelName}_${horse.layer}` : null;
             const horseGive = horse ? `give @s minecraft:${horse.item}[minecraft:custom_model_data={strings:["${modelName}"]},minecraft:equippable=${animalEquippable(horse, horseAsset, legacyHorse)},minecraft:tooltip_display={hidden_components:["minecraft:dyed_color"]}]` : null;
-            const texDir   = filesOnly ? root : path.join(root, 'assets', EXPORT_NS, 'textures', 'item');
+            const texDir   = filesOnly ? textureRoot : path.join(root, 'assets', EXPORT_NS, 'textures', 'item');
             const modelsDir= filesOnly ? root : path.join(root, 'assets', EXPORT_NS, 'models', 'item');
             const itemsDir = path.join(root, 'assets', 'minecraft', 'items');
             fs.mkdirSync(texDir,    { recursive: true });
@@ -4922,7 +4943,7 @@ SOFTWARE.
                         datapackOutputDir: '',
                         // Output paths
                         resourcePackDir: '',
-                        outputMode: 'pack', filesOutputDir: '', textureResource: '',
+                        outputMode: 'pack', filesOutputDir: '', modelOutputDir: '', textureOutputDir: '', textureResource: '',
                         customContexts: false, selectedContexts: [],
                         contextOptions: DISPLAY_SLOTS.map((id, i) => ({id, label: t(['tab_third','tab_left','tab_fpr','tab_fpl','tab_head','tab_gui','tab_ground','tab_fixed','tab_shelf'][i])})),
                         baseItem: 'iron_ingot',
@@ -5039,6 +5060,8 @@ SOFTWARE.
                         }
                     }
 
+                    state.modelOutputDir ||= state.filesOutputDir;
+                    state.textureOutputDir ||= state.filesOutputDir;
                     if (state.equipmentTarget !== 'humanoid' && !Object.prototype.hasOwnProperty.call(ANIMAL_EQUIPMENT,state.equipmentTarget))
                         state.equipmentTarget = 'humanoid';
 
@@ -5924,9 +5947,9 @@ SOFTWARE.
                             scale: t('cb_scale'), overlay: t('cb_overlay'), hurt: t('cb_hurt'),
                         })[value] || value;
                     },
-                    browseFilesOutputDir() {
-                        const dir = pickDirectory(t('lbl_files_dir'), this.filesOutputDir);
-                        if (dir) this.filesOutputDir = dir;
+                    browseFilesOutputDir(field) {
+                        const dir = pickDirectory(t(field === 'modelOutputDir' ? 'lbl_model_dir' : 'lbl_texture_dir'), this[field]);
+                        if (dir) this[field] = dir;
                     },
                     onAnimChange() {
                         const anim = Animation.all[this.animationIndex];
@@ -5980,7 +6003,8 @@ SOFTWARE.
                                 datapackOutputDir:  this.datapackOutputDir,
                                 resourcePackDir:    this.resourcePackDir,
                                 outputMode: this.outputMode,
-                                filesOutputDir: this.filesOutputDir,
+                                modelOutputDir: this.modelOutputDir,
+                                textureOutputDir: this.textureOutputDir,
                                 textureResource: this.textureResource,
                                 selectedContexts: this.customContexts ? this.selectedContexts.slice() : undefined,
                                 baseItem:           this.baseItem,
@@ -6518,25 +6542,37 @@ SOFTWARE.
     <div style="border-top:1px solid rgba(255,255,255,0.06);margin:12px 0;"></div>
 
     <!-- Output sub-section -->
-    <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-      {{t('lbl_output_mode')}}
-      <select v-model="outputMode"><option value="pack">{{t('output_pack')}}</option><option value="files">{{t('output_files')}}</option></select>
-      <span class="oc-help" tabindex="0" :aria-label="help('output_mode')" :data-tip="help('output_mode')">?</span>
-    </label>
-    <div style="margin-bottom:10px;">
-      {{t('lbl_contexts')}}
-      <span class="oc-help" tabindex="0" :aria-label="help('contexts')" :data-tip="help('contexts')">?</span>
-      <select v-model="customContexts"><option :value="false">{{t('contexts_auto')}}</option><option :value="true">{{t('contexts_selected')}}</option></select>
-      <div v-if="customContexts" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+    <div class="oc-output-options">
+      <label class="oc-output-field">
+        <span>{{t('lbl_output_mode')}}<span class="oc-help" tabindex="0" :aria-label="help('output_mode')" :data-tip="help('output_mode')">?</span></span>
+        <select v-model="outputMode"><option value="pack">{{t('output_pack')}}</option><option value="files">{{t('output_files')}}</option></select>
+      </label>
+      <label class="oc-output-field">
+        <span>{{t('lbl_contexts')}}<span class="oc-help" tabindex="0" :aria-label="help('contexts')" :data-tip="help('contexts')">?</span></span>
+        <select v-model="customContexts"><option :value="false">{{t('contexts_auto')}}</option><option :value="true">{{t('contexts_selected')}}</option></select>
+      </label>
+      <div v-if="customContexts" class="oc-context-options">
         <label><input type="checkbox" checked disabled/> default</label>
         <label v-for="context in contextOptions" :key="context.id"><input type="checkbox" v-model="selectedContexts" :value="context.id"/> {{context.label}}</label>
-        <button class="oc-btn" @click="selectedContexts = []">{{t('contexts_default')}}</button>
       </div>
-    </div>
-    <div v-if="outputMode === 'files'" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
-      <label>{{t('lbl_files_dir')}}<input v-model="filesOutputDir" style="width:100%;"/></label>
-      <button class="oc-btn" @click="browseFilesOutputDir">{{t('tip_browse_folder')}}</button>
-      <label>{{t('lbl_texture_resource')}}<span class="oc-help" tabindex="0" :aria-label="help('texture_resource')" :data-tip="help('texture_resource')">?</span><input v-model="textureResource" placeholder="objcubed:item/my_model" style="width:100%;"/></label>
+      <template v-if="outputMode === 'files'">
+        <label class="oc-output-field">
+          <span>{{t('lbl_model_dir')}}</span>
+          <div class="oc-output-path"><input v-model="modelOutputDir"/>
+            <button type="button" class="oc-btn oc-output-browse" @click="browseFilesOutputDir('modelOutputDir')" :aria-label="t('lbl_model_dir')" :data-tip="t('tip_browse_folder')"><i class="material-icons">folder_open</i></button>
+          </div>
+        </label>
+        <label class="oc-output-field">
+          <span>{{t('lbl_texture_dir')}}</span>
+          <div class="oc-output-path"><input v-model="textureOutputDir"/>
+            <button type="button" class="oc-btn oc-output-browse" @click="browseFilesOutputDir('textureOutputDir')" :aria-label="t('lbl_texture_dir')" :data-tip="t('tip_browse_folder')"><i class="material-icons">folder_open</i></button>
+          </div>
+        </label>
+        <label class="oc-output-field">
+          <span>{{t('lbl_texture_resource')}}<span class="oc-help" tabindex="0" :aria-label="help('texture_resource')" :data-tip="help('texture_resource')">?</span></span>
+          <input v-model="textureResource" placeholder="objcubed:item/my_model"/>
+        </label>
+      </template>
     </div>
     <div style="margin-bottom:10px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:calc(12px * var(--oc-scale));">

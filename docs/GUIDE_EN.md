@@ -233,6 +233,6 @@ MIT License (c) 2022 Godlander. See [LICENSE](../LICENSE).
 
 ## Export only the files you need
 
-Choose **Export to → Model and texture** to save the PNG and model JSON directly into a folder, without an `assets` tree, item definition or give command. Set **Texture resource ID** if you use your own namespace/path; place the PNG at that resource location yourself. Equipment and datapacks use **Resource pack** mode.
+Choose **Export as → Model and texture** to save the PNG and model JSON into separately chosen model and texture folders, without an `assets` tree, item definition or give command. Set **Texture resource ID** if you use your own namespace/path; place the PNG at that resource location yourself. Equipment and datapacks use **Resource pack** mode.
 
-Under **Display contexts → Choose contexts**, keep only the variants you need. **Default only** exports `<model>_default.json` and the PNG. Unselected contexts fall back to default rather than hiding the model. Keep the hand, ground and shelf variants when you need their positioning. Previously exported files are not deleted.
+Under **Display contexts → Choose contexts**, keep only the variants you need. Keeping only **default** checked exports `<model>_default.json` and the PNG. Unselected contexts fall back to default rather than hiding the model. Keep the hand, ground and shelf variants when you need their positioning. Previously exported files are not deleted.
