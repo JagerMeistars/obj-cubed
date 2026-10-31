@@ -43,7 +43,7 @@ instead of exporting missing geometry.
 
 ## Remaining limits
 
-- Player skins are experimental. Follow [the current setup guide](PLAYER_SKIN_TEST_RU.md).
+- Player skins are experimental. Follow [the current setup guide](PLAYER_SKIN_TEST_EN.md).
   Different profiles in `item_display` context `none` need different exported
   slots; there are eight slots, not automatic per-player slot allocation.
 - Dynamic player skins on worn armor are not implemented. This release does

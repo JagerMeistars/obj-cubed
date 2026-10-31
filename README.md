@@ -10,7 +10,7 @@ No mods required.
 
 **Experimental 26.3v3:** [release and downloads](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3)
 with player skins, updated export controls and animation fixes.
-[Skin setup and limitations (RU)](docs/PLAYER_SKIN_TEST_RU.md).
+[Skin setup and limitations](docs/PLAYER_SKIN_TEST_EN.md).
 
 ### What you can make
 

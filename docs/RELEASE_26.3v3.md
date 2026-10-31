@@ -15,7 +15,7 @@ Experimental update to objcubed for Minecraft 26.3.
 
 Update both the plugin and resource pack. Re-export skin models and models affected by export fixes.
 Player skins are experimental; dynamic skins on worn armor and skin compatibility with Iris/Chroma are not supported.
-[Skin setup and limitations (RU)](https://github.com/JagerMeistars/obj-cubed/blob/26.3v3/docs/PLAYER_SKIN_TEST_RU.md).
+[Skin setup and limitations](https://github.com/JagerMeistars/obj-cubed/blob/main/docs/PLAYER_SKIN_TEST_EN.md).
 
 ### RU:
 Экспериментальное обновление objcubed для Minecraft 26.3.
