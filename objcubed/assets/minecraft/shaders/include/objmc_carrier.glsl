@@ -7,7 +7,8 @@
 #define OBJMC_CARRIER_GLSL
 
 void oc_read_carrier(vec3 position, vec2 uv, out vec3 positions[4], out vec2 uvs[4]) {
-    for (int i = 0; i < 4; ++i) { positions[i] = position; uvs[i] = uv; }
+    positions = vec3[4](position, position, position, position);
+    uvs = vec2[4](uv, uv, uv, uv);
     uint ownBase = gl_SubgroupInvocationID & ~3u;
     // All broadcasts must execute BEFORE the per-quad selection. Source lanes
     // are compile-time constants: ARB readInvocation requires a uniform index,

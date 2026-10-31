@@ -1,3 +1,4 @@
+#include <minecraft:objmc_skin_config.glsl>
 //objmc
 //https://github.com/Godlander/objmc
 
@@ -173,6 +174,8 @@ if (marker == ivec4(12,34,56,255)) {
             overlayColor *= vec4(directColor, 1.0) * hurtColor;
         }
 #endif
+        // Keep the terminal pose addressable by manual and one-shot controls.
+        if (autoplay && tcolor < 32768) nframes = oc_loop_frame_count(topleft, nframes);
         float animationPhase;
         if (autoplay && tcolor >= 32768) {
             // play_once: tcolor bit 15 = flag, lower 15 bits = start gametime % 24000
@@ -223,14 +226,35 @@ if (marker == ivec4(12,34,56,255)) {
                 index = getvert(topleft, size.x, height+vph+vth, id);
                 vec3 posoffset4 = getpos(topleft, size.x, height, index.x);
                 posoffset = bezier(posoffset4, posoffset, posoffset2, posoffset3, transition);
-                index = currentIndex;
-                id = currentId;
             } else if (easing != 0) { //scalar easing (0 = hold, no blend)
                 posoffset = mix(posoffset, posoffset2, ease(easing, transition));
             }
+            // Interpolate positions only. UVs, skin material and atlas band
+            // must stay on the selected frame, including step/linear easing.
+            index = currentIndex;
+            id = currentId;
         }
         transition = 0;
+
         texCoord = getuv(topleft, size.x, height+vph, index.y);
+#ifdef OC_PLAYER_SKIN
+        int skinFlags=int(round(texelFetch(Sampler0,topleft+ivec2(5,1),0).r*255.0));
+        if((skinFlags & 64)!=0) {
+            // Old whole-model exports remain supported. New exports carry a
+            // per-material flag in the otherwise unused high byte of U.
+            int ui=index.y*2;
+            ocSkin=(skinFlags & 128)==0 ? 1 :
+                (int(round(texelFetch(Sampler0,topleft+ivec2(ui%size.x,height+vph+ui/size.x),0).r*255.0)) & 1);
+        }
+#endif
+
+#ifdef OC_PLAYER_SKIN
+        // New native-context textures replace profile faces in every view.
+        // Older exports retain the hand-only flag and scalable world transport.
+        if(ocSkin==1 && (contextFlags.b==3 || (isHand==1 && (contextFlags.r & 32)!=0))) {
+            gl_Position=vec4(2.0,2.0,2.0,1.0);return;
+        }
+#endif
         oc_uv_vertex_id = id;
 //custom entity rotation
 #ifdef ENTITY
@@ -345,7 +369,11 @@ if (marker == ivec4(12,34,56,255)) {
             float hsx = length(hex), hsy = length(hey);
             vec3 hux = normalize(hex);
             vec3 huy = normalize(hey - dot(hey, hux) * hux);
-            mat3 hrot = mat3(huy, hux, cross(huy, hux));
+            vec3 hdepth = cross(huy, hux);
+            // The carrier's north normal points opposite its transformed +Z.
+            // Preserve reflections: the XY cross product alone loses their sign.
+            if (dot(hdepth, Normal) > 0.0) hdepth = -hdepth;
+            mat3 hrot = mat3(huy, hux, hdepth);
             // UNIFORM scale (see world path): the flat placeholder only exposes 2 in-plane
             // edges, so per-axis scale can't be recovered post-bake; average them.
             // Per-axis scale: ex=+Y edge (len hsx=Sy), ey=+X edge (len hsy=Sx). The matrix
@@ -397,7 +425,10 @@ if (marker == ivec4(12,34,56,255)) {
             float sx = length(ex), sy = length(ey);
             vPos1 = normalize(ex);
             vPos2 = normalize(ey - dot(ey, vPos1) * vPos1); // Gram-Schmidt
-            mat3 fullRotation = mat3(vPos2, vPos1, cross(vPos2, vPos1));
+            vec3 depthDirection = cross(vPos2, vPos1);
+            // Use the baked north normal to retain negative-scale parity.
+            if (dot(depthDirection, Normal) > 0.0) depthDirection = -depthDirection;
+            mat3 fullRotation = mat3(vPos2, vPos1, depthDirection);
             // Per-axis scale (see hand path): X,Y from the measured edges, Z (perpendicular,
             // unmeasurable) -> min(Sx,Sy) — exact for uniform + single-axis stretch.
             //
@@ -617,6 +648,7 @@ if (isCustom == 0) {
         int acb = int(Color.b*255.0+0.5);
         int afr;
         if (acr == 255 && acg == 255 && acb == 255) {
+            if (aap) anf = oc_loop_frame_count(ao, anf);
             at = aap ? at + adur : 0.0;
             afr = int(at * float(anf) / adur) % anf;
         } else {
@@ -627,6 +659,7 @@ if (isCustom == 0) {
                 int ael = (int(at) % 24000 - (atc - 32768) + 24000) % 24000;
                 at = (ael >= anf - 1) ? float(anf - 1) : float(ael) + fract(at);
             } else {                                    // autoplay with phase offset
+                anf = oc_loop_frame_count(ao, anf);
                 at = at + adur - mod(float(atc), adur);
             }
             afr = min(int(at * float(anf) / adur), anf - 1) % anf;

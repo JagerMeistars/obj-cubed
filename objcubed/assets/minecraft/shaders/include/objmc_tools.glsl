@@ -16,6 +16,18 @@
 ivec4 getmeta(ivec2 topleft, int offset) {
     return ivec4(texelFetch(Sampler0, topleft + ivec2(offset,0), 0) * 255.0 + 0.5);
 }
+// New autoplay exports can retain an identical terminal pose for manual/once
+// playback while excluding that extra hold interval from looping playback.
+// Row-1 x=0 B bit2 is unused by the v3 slot flags (bits0..1).
+int oc_loop_frame_count(ivec2 origin, int frames) {
+    if (frames <= 1) return frames;
+    int version = int(texelFetch(Sampler0, origin + ivec2(5,1), 0).b * 255.0 + 0.5);
+    if (version >= 2) {
+        int flags = int(texelFetch(Sampler0, origin + ivec2(0,1), 0).b * 255.0 + 0.5);
+        if ((flags & 4) != 0) return max(frames - 1, 1);
+    }
+    return frames;
+}
 vec3 getpos(ivec2 topleft, int w, int h, int index) {
     int i = index*3;
     ivec3 x = ivec3(texelFetch(Sampler0, topleft + ivec2((i  )%w,h+((i  )/w)), 0).rgb * 255.0 + 0.5);

@@ -20,12 +20,12 @@ function load(project) {
 // Capture the real dialog component without a DOM, Vue, or a Blockbench launch.
 // Stop initialization at the Action/Dialog constructors so unrelated editor
 // integration never executes, then run the actual data/persistence overlay.
-function dialogState(project) {
+function dialogState(project, textures = [{ name: 'test', source: '' }]) {
   let registration, action, component;
   const captured = new Error('captured editor constructor');
   const { api } = loadObjcubedWithContext({ globals: {
     Project: project,
-    Texture: { all: [{ name: 'test', source: '' }] },
+    Texture: { all: textures },
     Animation: { all: [] },
     Outliner: { root: [] },
     BBPlugin: { register(_id, options) { registration = options; } },
@@ -38,6 +38,39 @@ function dialogState(project) {
 }
 
 describe('persistence: flat settings + old-preset migration (B3)', () => {
+  it('detects the tagged skin texture when reopening a project with different saved selection', () => {
+    const { state } = dialogState({ name: 'skin', objcubed_data: { version: 1,
+      settings: { skinEnabled: false, selectedTex: 0 } } }, [
+      { name: 'paint' }, { name: 'renamed reference', objcubed_player_skin: true },
+    ]);
+    expect(state.skinAutomatic).toBe(true);
+    expect(state.skinEnabled).toBe(true);
+    expect(state.skinFromTexture).toBe(true);
+    expect(state.selectedTex).toBe(1);
+  });
+
+  it('does not apply skin to ordinary textures after the tagged reference is removed', () => {
+    const { state } = dialogState({ name: 'skin', objcubed_data: { version: 1,
+      settings: { skinEnabled: true, skinFromTexture: true, selectedTex: 0 } } });
+    expect(state.skinAutomatic).toBe(false);
+    expect(state.skinEnabled).toBe(false);
+    expect(state.skinFromTexture).toBe(false);
+  });
+
+  it('detects animated ordinary textures beside the automatic skin reference', () => {
+    const {state,component}=dialogState({name:'mixed'},[
+      {name:'reference',width:64,height:64,objcubed_player_skin:true},
+      {name:'paint',width:64,height:128,uv_width:64,uv_height:64,display_height:64,frameCount:2},
+    ]);
+    state.useAtlas=false;
+    expect(component.computed.texFrameCount.call(state)).toBe(2);
+    expect(component.template).not.toContain('!multiTex || skinEnabled');
+    const texture=component.template.indexOf('oc-tour-texture');
+    const anim=component.template.indexOf('oc-tour-texanim');
+    const display=component.template.indexOf('<!-- ======== DISPLAY');
+    expect(anim).toBeGreaterThan(texture);expect(anim).toBeLessThan(display);
+  });
+
   it('defaults fresh projects to both autorotate axes (enum value 3)', () => {
     const { state, component, api } = dialogState({ name: 'fresh' });
     expect(state.autorotate).toBe(3);

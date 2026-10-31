@@ -53,17 +53,22 @@ describe('color behavior encoder contract', () => {
 });
 
 describe('color behavior dialog state and export', () => {
-  it('starts with RGB tint and cycles each channel independently back to tint', () => {
+  it('starts with RGB tint and selects each channel independently', () => {
     const { openDialog } = loadColorPlugin();
     const state = openDialog();
     expect(channels(state)).toEqual(['direct', 'direct', 'direct']);
     for (const key of ['cbR', 'cbG', 'cbB']) {
       for (const expected of ['time', 'overlay', 'hurt', 'direct']) {
-        state.cycleCb(key);
+        state.setCb(key, expected);
         expect(state[key]).toBe(expected);
         for (const other of ['cbR', 'cbG', 'cbB'].filter(x => x !== key)) expect(state[other]).toBe('direct');
       }
     }
+    state.setCb('cbR', 'unknown');
+    state.setCb('cbG', 'scale');
+    state.setCb('cmdName', 'time');
+    expect(channels(state)).toEqual(['direct', 'direct', 'direct']);
+    expect(state.cmdName).not.toBe('time');
   });
 
   it('preserves all presets, including legacy scale, through project persistence and reopen', () => {
@@ -78,7 +83,9 @@ describe('color behavior dialog state and export', () => {
       expect(state.colorBehaviorPreset).toBe(preset);
     }
     state.applyColorPreset('scale');
-    state.cycleCb('cbR');
+    expect(state.cbOptions('cbR')).toContain('scale');
+    state.setCb('cbR', 'direct');
+    expect(state.cbOptions('cbR')).not.toContain('scale');
     expect(channels(state)).toEqual(['direct', 'scale', 'scale']);
     expect(state.colorBehaviorPreset).toBeNull();
     state.applyColorPreset('unknown');
@@ -101,7 +108,9 @@ describe('color behavior dialog state and export', () => {
     state.generateDatapack = true;
     expect(state.colorBehaviorForcedByDatapack).toBe(true);
     expect(state.colorBehaviorPretty).toBe(plugin.api.LANG.en.color_all_time);
-    state.cycleCb('cbR');
+    expect(['cbR','cbG','cbB'].map(key => state.cbValue(key))).toEqual(['time','time','time']);
+    expect(state.cbTooltip('cbR')).toContain(plugin.api.LANG.en.color_datapack_note);
+    state.setCb('cbR', 'hurt');
     state.applyColorPreset('hurt');
     expect(channels(state)).toEqual(['direct', 'overlay', 'hurt']);
     await state.doExport();
@@ -115,6 +124,7 @@ describe('color behavior dialog state and export', () => {
     expect(state.autoplay).toBe(true);
     expect(channels(plugin.openDialog())).toEqual(['direct', 'overlay', 'hurt']);
     state.generateDatapack = false;
+    expect(['cbR','cbG','cbB'].map(key => state.cbValue(key))).toEqual(['direct','overlay','hurt']);
     await state.doExport();
     expect(exported.colorbehavior).toEqual(['direct', 'overlay', 'hurt']);
     expect(exported.autoplay).toBe(true);
@@ -143,6 +153,7 @@ describe('color behavior dialog state and export', () => {
       for (const mode of MODES) {
         state.cbR = state.cbG = state.cbB = mode;
         expect(state.cbLabel(mode)).toBe(plugin.api.LANG[language][`cb_${mode}`]);
+        expect(state.cbTooltip('cbR')).toBe(plugin.api.LANG[language][`help_cb_${mode}`]);
         expect(state.colorBehaviorPretty).toBe(plugin.api.LANG[language][`color_all_${mode}`]);
       }
     });

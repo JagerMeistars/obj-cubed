@@ -40,10 +40,8 @@ describe('Catmull-Rom starts at the selected frame in every decoder', () => {
           };
           const decoded = new Function(...Object.keys(scope), block + `\nreturn {value:${result},id,index};`)(...Object.values(scope));
           const actual = decoded.value;
-          if (_name === 'item') {
-            expect(decoded.id).toBe(frame * 4);
-            expect(decoded.index.y).toBe(frame * 4); // UVs belong to the selected frame too
-          }
+          // Current UV/atlas indices after the full interpolation block are
+          // checked for every easing mode in animation-uv-frame.test.mjs.
           // Independent Hermite endpoint/tangent contract for the current segment.
           const before = frames[(frame + count - 1) % count], after = frames[(frame + 2) % count];
           const expected = (2*t**3-3*t**2+1)*current + (t**3-2*t**2+t)*(next-before)/2

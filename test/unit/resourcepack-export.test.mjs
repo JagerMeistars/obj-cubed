@@ -407,6 +407,41 @@ describe('file export and selected display contexts', () => {
     expect(dog).toMatchObject({type:'minecraft:model', model:'objcubed:item/dog_default'});
   });
 
+  it.each(['skin', '0', 'particle', 'Skin', '__proto__'])('exports #%s for parent texture overrides without self references', async key => {
+    const { api, memfs } = setup();
+    await api.saveSingleOutput(RESULT, {}, {
+      outputMode:'files', modelOutputDir:'/models', textureOutputDir:'/textures',
+      selectedContexts:['fixed'], textureResource:` #${key} `,
+    });
+    expect([...memfs.writes.keys()].sort()).toEqual([
+      '/models/cat_default.json', '/models/cat_fixed.json', '/textures/cat.png',
+    ]);
+    expect(memfs.writes.get('/textures/cat.png')).toEqual(RESULT.pngBuffer);
+    const resolve = (textures, ref) => {
+      const visited = new Set();
+      while (ref.startsWith('#')) {
+        expect(visited.has(ref), `cyclic texture reference: ${ref}`).toBe(false);
+        visited.add(ref);
+        ref = textures[ref.slice(1)];
+        expect(typeof ref).toBe('string');
+      }
+      return ref;
+    };
+    for (const slot of ['default','fixed']) {
+      const model = JSON.parse(memfs.writes.get(`/models/cat_${slot}.json`));
+      expect(Object.hasOwn(model.textures, key)).toBe(true);
+      expect(model.textures[key]).toBe('objcubed:item/cat');
+      const child = { parent:`custom:item/cat_${slot}`, textures:{[key]:'custom:item/cat_blue'} };
+      const inheritedTextures = {...model.textures, ...child.textures};
+      for (const ref of [model.elements[0].faces.north.texture, '#particle']) {
+        expect(resolve(model.textures, ref)).toBe('objcubed:item/cat');
+        expect(resolve(inheritedTextures, ref)).toBe('custom:item/cat_blue');
+      }
+    }
+    const model = JSON.parse(memfs.writes.get('/models/cat_default.json'));
+    expect(model.elements).toEqual(RESULT.elements);
+  });
+
   it('keeps hand slot calibration when exporting loose selected variants', async () => {
     const { api, memfs } = setup();
     await api.saveSingleOutput(RESULT, {}, {outputMode:'files', filesOutputDir:'/loose', selectedContexts:['firstperson_righthand']});
@@ -416,7 +451,9 @@ describe('file export and selected display contexts', () => {
     expect(hand.textures['0']).toBe('objcubed:item/cat');
   });
 
-  it.each([{generateDatapack:true},{exportAsEquipment:true},{textureResource:'bad:../cat'},{textureResource:'bad:cat.png'}])('rejects incompatible/invalid file output before writing %j', async extra => {
+  it.each([{generateDatapack:true},{exportAsEquipment:true},{textureResource:'bad:../cat'},{textureResource:'bad:cat.png'},
+    ...['#','##skin','#has space','#skin\nother','#skin\u0000'].map(textureResource => ({textureResource})),
+  ])('rejects incompatible/invalid file output before writing %j', async extra => {
     const { api, memfs } = setup();
     await expect(api.saveSingleOutput(RESULT, {}, {outputMode:'files', filesOutputDir:'/loose', ...extra})).rejects.toThrow();
     expect(memfs.writes.size).toBe(0);

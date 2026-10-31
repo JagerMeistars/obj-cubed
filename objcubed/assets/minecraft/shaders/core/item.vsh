@@ -2,6 +2,7 @@
 #extension GL_KHR_shader_subgroup_basic : require
 #extension GL_KHR_shader_subgroup_ballot : require
 
+#include <minecraft:objmc_skin_config.glsl>
 #include <minecraft:light.glsl>
 #include <minecraft:fog.glsl>
 #include <minecraft:globals.glsl>
@@ -55,7 +56,9 @@ layout(location = 14) out vec2 texCoordGlint;
 
 layout(location = 15) out float ocCarrierFailure;
 
+layout(location = 16) flat out int ocSkin;
 void main() {
+    ocSkin = 0;
     ocCarrierFailure = 0.0;
     Pos = Position;
     texCoord = UV0;
@@ -83,6 +86,7 @@ void main() {
 #endif
 
     #define ENTITY
+    #define OC_PLAYER_SKIN
     #include <minecraft:objmc_main.glsl>
 
     gl_Position = ProjMat * ModelViewMat * vec4(Pos, 1.0);

@@ -1,14 +1,13 @@
 #version 330
 #extension GL_ARB_separate_shader_objects : require
 
+#include <minecraft:objmc_skin_config.glsl>
 #include <minecraft:fog.glsl>
 #if defined(PER_FACE_LIGHTING) || !defined(NO_CARDINAL_LIGHTING)
 #include <minecraft:light.glsl>
 #endif
 #include <minecraft:dynamictransforms.glsl>
-#ifdef GLINT
 #include <minecraft:globals.glsl>
-#endif
 #include <minecraft:oit.glsl>
 
 uniform sampler2D Sampler0;
@@ -61,7 +60,35 @@ vec4 calculateFinalColor(vec4 color) {
 }
 #endif
 
+layout(location = 16) flat in int skinDonor;
 void main() {
+#if OC_PLAYER_SKINS
+    if(skinDonor >= 0) {
+        int width=int(ScreenSize.x), bandRows=(16384+width-1)/width;
+        int origin=skinDonor<4 ? 0 : int(ScreenSize.y)-bandRows;
+        ivec2 p=ivec2(gl_FragCoord.xy)-ivec2(0,origin);
+        int index=p.y*width+p.x-(skinDonor%4)*4096;
+        if(index<0 || index>=4096) discard;
+        vec4 skin=texelFetch(Sampler0,ivec2(index%64,index/64),0);
+#ifdef OIT_DEPTH_BOUNDS
+        // RGBA32F + MAX blending: positive packed RGB wins over normal
+        // negative linear depths. B stores alpha above the device-depth range.
+        // G is deliberately unused: ordinary far depths cannot corrupt RGB.
+        uvec4 bytes=uvec4(round(skin*255.0));
+        fragColor=vec4(float(bytes.r | (bytes.g<<8u) | (bytes.b<<16u))+1.0,
+                       0.0,float(bytes.a)+2.0,2.0);
+#elif !defined(OIT_TRANSMITTANCE) && !defined(OIT_ACCUMULATE)
+        // First-person items bypass the native OIT stages. Preserve the
+        // established screen transport for that path until a full replacement
+        // can preserve both its background and material lighting.
+        fragColor=vec4(skin.rgb,1.0);
+#else
+        discard;
+#endif
+        return;
+    }
+#endif
+
     // Evaluate before alpha discard and divergent branches: live helper lanes
     // are required for defined geometric derivatives on tiny triangles.
     vec3 objmcPosDx = dFdx(Pos);
@@ -70,6 +97,10 @@ void main() {
     vec4 color = isCustom == 2 ? vec4(overlayColor.rgb, 1.0)
         : transition > 0.0 ? mix(texture(Sampler0, texCoord), texture(Sampler0, texCoord2), transition)
         : texture(Sampler0, texCoord);
+    // Native profile geometry may use a translucent pipeline without a cutout
+    // macro. Empty outer-layer pixels must not occlude the underlying skin.
+    // Keep the same two-sided surface visibility as ordinary OBJ faces.
+    if (skinDonor == -2 && color.a < 1.0 / 255.0) discard;
 #ifdef OIT_ADDITIVE
     color.a = min(0.99, color.a);
 #endif

@@ -104,7 +104,10 @@ if (ocAnimalKind.a == 0 && ocAnimalDescriptorHeader.b == 6 && ocAnimalDescriptor
                     float ocAnimalClock = 0.0;
                     ivec3 ocAnimalDye = ivec3(Color.rgb * 255.0 + 0.5);
                     if (all(equal(ocAnimalDye, ivec3(255)))) {
-                        if (getb(ocAnimalMeta[4].a, 6)) ocAnimalClock = ocAnimalTime * float(ocAnimalFrames) / ocAnimalDuration;
+                        if (getb(ocAnimalMeta[4].a, 6)) {
+                            ocAnimalFrames = oc_loop_frame_count(ivec2(0), ocAnimalFrames);
+                            ocAnimalClock = ocAnimalTime * float(ocAnimalFrames) / ocAnimalDuration;
+                        }
                     } else {
                         // Same dyed_color control word as humanoid equipment.
                         int control = (ocAnimalDye.r & 127) * 65536 + ocAnimalDye.g * 256 + ocAnimalDye.b;
@@ -115,6 +118,7 @@ if (ocAnimalKind.a == 0 && ocAnimalDescriptorHeader.b == 6 && ocAnimalDescriptor
                             int elapsed = (int(ocAnimalTime) % 24000 - (control - 32768) + 24000) % 24000;
                             ocAnimalClock = min(float(elapsed) + fract(ocAnimalTime), float(ocAnimalFrames - 1));
                         } else {
+                            ocAnimalFrames = oc_loop_frame_count(ivec2(0), ocAnimalFrames);
                             ocAnimalClock = (ocAnimalTime + ocAnimalDuration - mod(float(control), ocAnimalDuration))
                                 * float(ocAnimalFrames) / ocAnimalDuration;
                         }

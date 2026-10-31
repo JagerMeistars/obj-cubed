@@ -17,7 +17,8 @@ bool oc_read_mesh_carrier(vec3 position, vec2 uv, ivec2 origin, ivec2 offset,
     ivec4 key = ivec4(OBJMC_VERTEX_ID - corner - face * 4, origin, OBJMC_INSTANCE_ID);
     uvec4 mask = subgroupBallot(true);
     uint found = 0u;
-    for (int i = 0; i < 4; ++i) { points[i] = position; texels[i] = uv; }
+    vec3 recoveredPoints[4] = vec3[4](position, position, position, position);
+    vec2 recoveredTexels[4] = vec2[4](uv, uv, uv, uv);
     // Broadcast sources stay compile-time constants for 26.3's SPIRV-Cross.
     // Inactive sources may return undefined values; never consume those reads.
 #define OC_MESH_READ(I) \
@@ -29,8 +30,8 @@ bool oc_read_mesh_carrier(vec3 position, vec2 uv, ivec2 origin, ivec2 offset,
         if ((mask[(I)/32u] & (1u << ((I)%32u))) != 0u && all(equal(k,key))) { \
             uint bit = 1u << uint(c); \
             if ((found & bit) == 0u) { \
-                points[c] = p; \
-                texels[c] = (vec2(origin + offset) + fract(t * atlas)) / atlas; \
+                recoveredPoints[c] = p; \
+                recoveredTexels[c] = (vec2(origin + offset) + fract(t * atlas)) / atlas; \
                 found |= bit; \
             } \
         } \
@@ -76,9 +77,11 @@ bool oc_read_mesh_carrier(vec3 position, vec2 uv, ivec2 origin, ivec2 offset,
     // requires a different carrier/export format.
     if (found == 7u || found == 11u || found == 13u || found == 14u) {
         int m = found == 7u ? 3 : found == 11u ? 2 : found == 13u ? 1 : 0;
-        points[m] = points[(m+1)%4] + points[(m+3)%4] - points[(m+2)%4];
-        texels[m] = texels[(m+1)%4] + texels[(m+3)%4] - texels[(m+2)%4];
+        recoveredPoints[m] = recoveredPoints[(m+1)%4] + recoveredPoints[(m+3)%4] - recoveredPoints[(m+2)%4];
+        recoveredTexels[m] = recoveredTexels[(m+1)%4] + recoveredTexels[(m+3)%4] - recoveredTexels[(m+2)%4];
         found = 15u;
     }
+    points = recoveredPoints;
+    texels = recoveredTexels;
     return found == 15u;
 }

@@ -43,6 +43,7 @@ SOFTWARE.
         // Texture
         'selectedTex', 'useAtlas', 'atlasTexChecked',
         'texAnimEnabled', 'texFrametime', 'texFade',
+        'skinEnabled', 'skinSlot', 'skinFromTexture',
         // Transform
         'scale', 'offsetX', 'offsetY', 'offsetZ',
         // Animation
@@ -351,6 +352,20 @@ SOFTWARE.
     // =========================================================
     const LANG = {
         en: {
+            err_skin_post_conflict: 'This pack has another end-of-frame effect. Export skins into a separate pack; its effect cannot be replaced safely.',
+            lbl_skin: 'Player skin', lbl_skin_slot: 'Skin slot',
+            menu_add_skin_texture: 'obj³: Add player skin template',
+            skin_texture_name: 'Player skin (profile)',
+            skin_atlas_auto: 'Atlas: automatic, using textures assigned to faces.',
+            skin_automatic: 'Profile texture detected. Skin export is enabled automatically.',
+            err_skin_duplicate: 'Keep only one player skin template in the project. Assign it to every face that needs the skin.',
+            lbl_skin_texture: 'Skin reference texture',
+            skin_summary: 'Only faces assigned the skin reference use the player skin. Other faces keep their materials.',
+            help_skin: 'Assign the player skin template to selected faces. Other textures keep their materials and may animate in the atlas. Use the main objcubed RP and the generated profile-binding datapack. Hands, dropped items, frames and GUI support lighting and transparent skin areas. For item_display with context none, enable Improved Transparency and use different slots (1–8) for different visible profiles. Export skin models into the same RP so their generated catalog stays together. Special color modes may use the legacy fallback, which slightly crops the screen edges. Chroma/Iris and dynamic profile armor are not supported.',
+            err_skin_options: 'Use Resource pack mode, a static 64×64 skin reference and slot 1–8. Dynamic profile textures on equipment are not supported by the vanilla armor pipeline.',
+            err_skin_unused: 'Assign the selected skin reference texture to at least one exported face.',
+            err_skin_material: 'A face has no matching texture. Assign textures to all exported faces before skin export.',
+            skin_dp_note: 'The profile-binding datapack is always exported. Datapacks folder:',
             // Dialog
             dialog_title: 'Export obj³',
             btn_export: 'Export',
@@ -397,10 +412,10 @@ SOFTWARE.
             lbl_model_dir: "Model folder", lbl_texture_dir: "Texture folder", lbl_texture_resource: "Texture resource ID",
             lbl_contexts: "Display contexts", contexts_auto: "Automatic", contexts_selected: "Choose contexts",
             help_output_mode: "Model and texture saves model JSON and PNG files in separately chosen folders, without assets, item definitions or give commands. Place the files in your pack yourself. Equipment and datapacks require Resource pack mode.",
-            help_texture_resource: "Texture reference in the model JSON, for example mypack:item/golem. No .png extension. Leave blank for objcubed:item/<model ID>.",
+            help_texture_resource: "Texture ID without .png, or a variable such as #skin. A variable uses objcubed:item/<model ID> by default; a child model with parent can override its value in textures. Use a compatible PNG exported by objcubed, not a plain image. Leave blank for the default texture path.",
             help_contexts: "Default is always exported. Select extra variants for the contexts you need. Unselected contexts use default; this does not hide the model. Hands, ground and shelf need their variants for correct positioning. Existing files are not deleted.",
             err_files_options: "Equipment and datapacks require Resource pack mode.",
-            err_texture_resource: "Use a texture ID such as mypack:item/golem, without .png or parent-directory segments.",
+            err_texture_resource: "Use a texture ID such as mypack:item/golem (without .png or parent-directory segments), or a variable such as #skin without spaces or extra # signs.",
             lbl_base_item: 'Base item',
             lbl_cmd_name: "Model ID",
             lbl_export_equipment: "Export equipment",
@@ -476,6 +491,11 @@ SOFTWARE.
             cb_scale: 'Scale',
             cb_overlay: 'Overlay',
             cb_hurt: "Flash",
+            help_cb_direct: "Controls the matching texture color: 255 keeps it unchanged; 0 removes it.",
+            help_cb_time: "Sets the animation position, or offsets the playback start when autoplay is enabled.",
+            help_cb_overlay: "Tints the texture with a chosen hue. When all channels using this mode are 0, the original colors are preserved.",
+            help_cb_hurt: "Any nonzero channel using this mode gives the model a red tint.",
+            help_cb_scale: "Changes the model’s uniform scale. When all channels using this mode are 0, the original size is preserved.",
             color_all_direct: "Potion color tints the model.",
             color_all_time: "Potion color selects the animation frame.",
             color_all_scale: "Potion color changes the model size.",
@@ -584,7 +604,7 @@ SOFTWARE.
             help_display_head: "Position, rotation and size when worn on the head.",
             help_display_ground: "Position, rotation and size of a dropped item. Minecraft limits its height above the ground.",
             help_display_fixed: "Position, rotation and size in an item frame.",
-            help_cb_general: "Click R, G or B to choose what that potion color channel controls: tint, animation frame, hue or a red flash. Modes on different channels combine. On worn equipment, dye color controls playback instead; these modes affect only its item view.",
+            help_cb_general: "Choose a mode from each R, G or B list to set what that potion color channel controls. Hover over a list for a description. Modes on different channels combine. On worn equipment, dye color controls playback instead; these modes affect only its item view.",
             help_easing: "Choose how the model moves between saved frames. None switches frames directly; Linear moves evenly; Cubic eases both ends; Catmull-Rom uses neighbouring frames; Ease in accelerates and Ease out slows down.",
             help_autorotate: "Make the model follow horizontal rotation, vertical rotation or both. Both is suitable for most models. Explicit display settings take precedence in world views.",
             help_noshadow: "Keep the entire model bright in the dark. To make only selected cubes or meshes glow, use right-click → obj³: Toggle Emissive instead. Neither option lights the surroundings.",
@@ -629,7 +649,7 @@ SOFTWARE.
             tour_t_autoplay: 'Autoplay',
             tour_b_autoplay: "Loop the animation automatically. For command control, enable the datapack instead; its settings take over playback.",
             tour_t_color: 'Color behaviors',
-            tour_b_color: "Click R, G or B to choose tint, animation, hue or a red flash for that potion color channel. Different channel modes combine. Worn equipment uses separate playback controls.",
+            tour_b_color: "Choose tint, animation, hue or a red flash from the R, G and B lists. Hover for a mode description. Datapack control disables the lists. Worn equipment uses separate playback controls.",
             tour_t_datapack: 'Datapack control',
             tour_b_datapack: "Create commands to start, stop or select frames of the animation. Install the generated folder in the world’s datapacks folder and run /reload. Its README.txt lists the commands.",
             tour_t_datapackid: "Animation name and namespace",
@@ -658,6 +678,20 @@ SOFTWARE.
             tour_b_export: "Export when the settings are ready. Files and give commands are saved in the chosen resource pack. Enable the pack in Minecraft and use the saved give command.",
         },
         ru: {
+            err_skin_post_conflict: 'В RP уже есть другой эффект конца кадра. Экспортируйте скин в отдельный RP: заменять чужой эффект нельзя.',
+            lbl_skin: 'Скин игрока', lbl_skin_slot: 'Слот скина',
+            menu_add_skin_texture: 'obj³: Добавить текстуру скина',
+            skin_texture_name: 'Скин игрока (profile)',
+            skin_atlas_auto: 'Атлас: автоматически, из текстур, назначенных граням.',
+            skin_automatic: 'Текстура profile распознана. Экспорт скина включён автоматически.',
+            err_skin_duplicate: 'Оставьте в проекте один образец скина игрока. Назначьте его всем граням, которым нужен скин.',
+            lbl_skin_texture: 'Текстура-образец скина',
+            skin_summary: 'Скин — только на гранях с текстурой-образцом. Остальные грани сохраняют свои материалы.',
+            help_skin: 'Назначьте образец скина нужным граням. Остальные текстуры сохраняют свои материалы и могут анимироваться в атласе. Нужны основной RP objcubed и создаваемый датапак привязки профиля. В руках, у выпавших предметов, в рамках и GUI поддержаны освещение и прозрачные участки скина. Для item_display с контекстом none включите «Улучшенную прозрачность» и назначайте разным видимым профилям разные слоты (1–8). Экспортируйте модели со скином в один RP, чтобы их общий каталог сохранялся вместе. Специальные режимы цвета могут использовать прежний рендер со слегка обрезанными краями кадра. Chroma/Iris и динамический скин на броне не поддерживаются.',
+            err_skin_options: 'Выберите «Ресурспак», статичный образец скина 64×64 и слот 1–8. Динамический скин на экипировке не поддерживается ванильным проходом брони.',
+            err_skin_unused: 'Назначьте выбранную текстуру-образец скина хотя бы одной экспортируемой грани.',
+            err_skin_material: 'У грани не найдена текстура. Назначьте текстуры всем экспортируемым граням перед экспортом скина.',
+            skin_dp_note: 'Датапак привязки профиля экспортируется всегда. Папка датапаков:',
             dialog_title: 'Экспорт obj³',
             btn_export: 'Экспортировать',
             btn_close: 'Закрыть',
@@ -698,10 +732,10 @@ SOFTWARE.
             lbl_model_dir: "Папка модели", lbl_texture_dir: "Папка текстуры", lbl_texture_resource: "ID текстуры",
             lbl_contexts: "Контексты отображения", contexts_auto: "Автоматически", contexts_selected: "Выбрать контексты",
             help_output_mode: "Модель и текстура сохраняет JSON моделей и PNG в отдельно выбранные папки, без assets, описания предмета и команд выдачи. Разместите файлы в своём паке самостоятельно. Экипировка и датапаки требуют режима «Ресурспак».",
-            help_texture_resource: "Ссылка на текстуру в JSON модели, например mypack:item/golem. Без расширения .png. Пустое поле использует objcubed:item/<ID модели>.",
+            help_texture_resource: "ID текстуры без .png или переменная, например #skin. По умолчанию переменная использует objcubed:item/<ID модели>; дочерняя модель с parent может задать ей другую текстуру в textures. Используйте совместимый PNG, экспортированный objcubed, а не обычную картинку. Пустое поле использует стандартный путь к текстуре.",
             help_contexts: "Default экспортируется всегда. Отметьте дополнительные варианты для нужных контекстов. Остальные используют default; модель в них не скрывается. Для правильного отображения в руках, на земле и на полке нужны их варианты. Ранее созданные файлы не удаляются.",
             err_files_options: "Для экипировки и датапаков выберите режим «Ресурспак».",
-            err_texture_resource: "Укажите ID текстуры вида mypack:item/golem, без .png и переходов к родительской папке.",
+            err_texture_resource: "Укажите ID вида mypack:item/golem (без .png и переходов к родительской папке) или переменную вида #skin, без пробелов и дополнительных #.",
             lbl_base_item: 'Базовый предмет',
             lbl_cmd_name: "ID модели",
             lbl_export_equipment: "Экспортировать экипировку",
@@ -775,6 +809,11 @@ SOFTWARE.
             cb_scale: 'Масштаб',
             cb_overlay: 'Оттенок',
             cb_hurt: "Вспышка",
+            help_cb_direct: "Меняет соответствующий цвет текстуры: 255 — без изменений, 0 — убрать этот цвет.",
+            help_cb_time: "Задаёт положение в анимации, а при автозапуске — смещение начала воспроизведения.",
+            help_cb_overlay: "Окрашивает текстуру выбранным оттенком. Если все каналы с этим режимом равны 0, исходные цвета сохраняются.",
+            help_cb_hurt: "Любой ненулевой канал с этим режимом включает красную подсветку модели.",
+            help_cb_scale: "Равномерно меняет размер модели. Если все каналы с этим режимом равны 0, исходный размер сохраняется.",
             color_all_direct: "Цвет зелья окрашивает модель.",
             color_all_time: "Цвет зелья выбирает кадр анимации.",
             color_all_scale: "Цвет зелья меняет размер модели.",
@@ -881,7 +920,7 @@ SOFTWARE.
             help_display_head: "Положение, поворот и размер предмета на голове.",
             help_display_ground: "Положение, поворот и размер выпавшего предмета. Minecraft ограничивает его высоту над землёй.",
             help_display_fixed: "Положение, поворот и размер в рамке.",
-            help_cb_general: "Нажмите R, G или B, чтобы выбрать действие канала цвета зелья: окраска, кадр анимации, оттенок или красная вспышка. Режимы разных каналов сочетаются. У надетой экипировки цвет красителя управляет воспроизведением; эти режимы меняют только вид предмета.",
+            help_cb_general: "Выберите режим в списке R, G или B, чтобы задать действие канала цвета зелья. Наведите курсор на список для пояснения. Режимы разных каналов сочетаются. У надетой экипировки цвет красителя управляет воспроизведением; эти режимы меняют только вид предмета.",
             help_easing: "Переходы между сохранёнными кадрами. «Нет» переключает их сразу; «Линейная» даёт равномерное движение; «Кубическая» сглаживает начало и конец; Catmull-Rom учитывает соседние кадры; «Ускорение» начинает медленно, «Замедление» заканчивает медленно.",
             help_autorotate: "Поворот модели по горизонтали, вертикали или обеим осям. «Оба» подходит для большинства моделей. Заданные настройки отображения имеют приоритет при показе в мире.",
             help_noshadow: "Вся модель остаётся яркой в темноте. Для свечения отдельных кубов или мешей используйте ПКМ → obj³: Переключить свечение. Оба варианта не освещают окружающий мир.",
@@ -926,7 +965,7 @@ SOFTWARE.
             tour_t_autoplay: 'Автозапуск',
             tour_b_autoplay: "Включите автоматическое повторение анимации. Для управления командами включите датапак: его настройки будут управлять воспроизведением.",
             tour_t_color: 'Поведение цвета',
-            tour_b_color: "Нажмите R, G или B, чтобы выбрать окраску, анимацию, оттенок или красную вспышку для канала цвета зелья. Режимы каналов сочетаются. У надетой экипировки управление воспроизведением отдельное.",
+            tour_b_color: "В списках R, G и B выберите окраску, анимацию, оттенок или красную вспышку. При наведении появится описание режима. С датапаком списки становятся неактивными. У надетой экипировки управление воспроизведением отдельное.",
             tour_t_datapack: 'Управление датапаком',
             tour_b_datapack: "Создайте команды запуска, остановки и выбора кадров анимации. Установите созданную папку в datapacks мира и выполните /reload. Команды перечислены в README.txt.",
             tour_t_datapackid: "Имя анимации и пространство имён",
@@ -1221,26 +1260,28 @@ SOFTWARE.
             overflow: hidden !important;
         }
 
-        /* Color & Tinting channel button: keeps R/G/B letter and the
-           current value label in a tidy column, centered vertically. */
-        .oc-cb-btn {
-            padding: 6px 4px;
+        .oc-cb-field {
+            padding: 6px 8px;
             background: rgba(255,255,255,0.04);
-            border: none;
+            border: 1px solid var(--oc-channel);
             border-radius: 4px;
             color: #ddd;
             text-align: center;
             display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            gap: 2px;
-            min-height: 54px;
-            cursor: pointer;
+            justify-content: center;
+            gap: 4px; min-width: 0;
+            font-size: calc(12px * var(--oc-scale));
         }
-        .oc-cb-btn .oc-cb-letter { font-size: calc(16px * var(--oc-scale)); font-weight: 700; }
-        .oc-cb-btn .oc-cb-value  { font-size: calc(11px * var(--oc-scale)); color: #bbb; }
-        .oc-cb-btn { transition: background 120ms, transform 80ms; }
-        .oc-cb-btn:hover  { background: rgba(255,255,255,0.08); }
-        .oc-cb-btn:active { transform: scale(0.97); background: rgba(255,255,255,0.02); }
+        .oc-cb-letter { color: var(--oc-channel); font-weight: 700; line-height: 1.2; }
+        .oc-cb-field select {
+            width: 100%; font: inherit; color: inherit;
+            height: calc(24px * var(--oc-scale)); padding: 0 6px;
+        }
+        .oc-cb-field.is-disabled { border-color: #555; color: #888; background: rgba(255,255,255,0.02); }
+        .oc-cb-field.is-disabled .oc-cb-letter { color: #888; }
+        /* Let the wrapper show its tooltip even when the select is disabled. */
+        .oc-cb-field.is-disabled select { pointer-events: none; color: #888; opacity: 1; }
+        .oc-cb-field:focus-visible { outline: 2px solid #5a8cc0; outline-offset: 1px; }
 
         /* Range+number row — keeps the number input from being squished
            and the slider from overflowing its grid cell. */
@@ -2084,7 +2125,7 @@ SOFTWARE.
                     }
                 }
 
-                const compile = () => Codecs.obj.compile();
+                const compile = () => compileObjGeometry();
                 const safeCompile = () => withNonGeoHidden(compile);
                 const c = filterArm ? await withArmatureHidden(safeCompile) : await safeCompile();
                 let objStr = typeof c === 'string' ? c : (c.obj || '');
@@ -2220,6 +2261,21 @@ SOFTWARE.
     // Section 4: OBJ Parsing
     // =========================================================
 
+    function compileObjGeometry() {
+        // Blockbench's "quads only" OBJ preference pads triangles after writing
+        // their UVs, shifting those references by one. Preserve native triangles
+        // and quads here; our encoder pads triangles without changing their UVs.
+        const faceMode = typeof settings !== 'undefined' && settings.obj_face_export_mode;
+        if (!faceMode) return Codecs.obj.compile();
+        const previous = faceMode.value;
+        try {
+            faceMode.value = 'both';
+            return Codecs.obj.compile();
+        } finally {
+            faceMode.value = previous;
+        }
+    }
+
     // Remove bone groups from an OBJ string by UUID and re-index v/vt references.
     // Codecs.obj.compile() ignores visibility on armature_bone elements, so we
     // post-process the OBJ text to strip their geometry.
@@ -2347,12 +2403,13 @@ SOFTWARE.
     // =========================================================
     // Section 5: Vertex Indexing
     // =========================================================
-    function buildVertexData(objContents, atlasInfo, partRef, faceToPart) {
+    function buildVertexData(objContents, atlasInfo, partRef, faceToPart, skinMaterials) {
         // atlasInfo: null (single texture) or { materialToTexIdx, offsets, width, height }
         // partRef/faceToPart: per-part re-centering (armor only); null = no centering.
         const count = [0, 0];
         const mem   = { pos: Object.create(null), uv: Object.create(null) };
         const data  = { positions: [], uvs: [], vertices: [] };
+        const skinUvs = [];
 
         let uvClamped = false;
         function remapUV(uv, material) {
@@ -2387,11 +2444,12 @@ SOFTWARE.
             const rawUv = o.uvs[vert[1]]    || [0,0];
             const uv = remapUV(rawUv, material);
             const pk  = pos.join(',');
-            const uk  = uv[0].toFixed(8) + ',' + uv[1].toFixed(8);
+            const skin = !!(skinMaterials && skinMaterials.has(material));
+            const uk  = uv[0].toFixed(8) + ',' + uv[1].toFixed(8) + (skinMaterials ? ',' + Number(skin) : '');
             let pi = mem.pos[pk];
             if (pi === undefined) { pi = count[0]++; mem.pos[pk] = pi; data.positions.push(pos); }
             let ui = mem.uv[uk];
-            if (ui === undefined) { ui = count[1]++; mem.uv[uk] = ui; data.uvs.push(uv); }
+            if (ui === undefined) { ui = count[1]++; mem.uv[uk] = ui; data.uvs.push(uv); skinUvs.push(skin); }
             data.vertices.push([pi, ui]);
         }
 
@@ -2417,7 +2475,7 @@ SOFTWARE.
         for (let f = 1; f < objContents.length; f++)
             indexObj(parseObj(objContents[f], nfaces));
 
-        return { data, nfaces, faceGroups: firstObj.faceGroups, faceBlocks: firstObj.faceBlocks, uvClamped };
+        return { data, nfaces, faceGroups: firstObj.faceGroups, faceBlocks: firstObj.faceBlocks, uvClamped, skinUvs };
     }
 
     // =========================================================
@@ -2438,6 +2496,25 @@ SOFTWARE.
     function vertPixels(vert) {
         const [poi, uvi] = vert;
         return [[...u24(poi), 255], [...u24(uvi), 255]];
+    }
+
+    function hasClosedLoopEndpoint(data, nvertices, nframes, cfg, skinUvs) {
+        if (nframes < 2) return false;
+        const offset = [cfg.offset[0], cfg.offset[1] - 0.5, cfg.offset[2]];
+        const positionKeys = new Map(), uvKeys = new Map();
+        const key = (cache, index, encode) => {
+            if (!cache.has(index)) cache.set(index, encode(index).flat().join(','));
+            return cache.get(index);
+        };
+        for (let i = 0; i < nvertices; i++) {
+            const a = data.vertices[i], b = data.vertices[(nframes - 1) * nvertices + i];
+            if (a[0] !== b[0] && key(positionKeys, a[0], j => posPixels(data.positions[j], cfg.scale, offset))
+                !== key(positionKeys, b[0], j => posPixels(data.positions[j], cfg.scale, offset))) return false;
+            if (a[1] !== b[1] && (skinUvs[a[1]] !== skinUvs[b[1]]
+                || key(uvKeys, a[1], j => uvPixels(data.uvs[j]))
+                !== key(uvKeys, b[1], j => uvPixels(data.uvs[j])))) return false;
+        }
+        return true;
     }
 
     function getTextureRGBA(bbTexture) {
@@ -2486,11 +2563,11 @@ SOFTWARE.
 
     // Build a texture atlas by stacking multiple textures vertically.
     // Returns { data: Uint8Array, width, height, offsets: Map<texIdx, {x,y,w,h}> }
-    async function buildAtlas(texIndices, texAnimEnabled) {
+    async function buildAtlas(texIndices, texAnimEnabled, overrides) {
         if (!texIndices || texIndices.length === 0) throw new Error('No textures selected for atlas');
         const texDatas = [];
         for (const idx of texIndices) {
-            texDatas.push({ idx, rgba: await getTextureRGBA(Texture.all[idx]) });
+            texDatas.push({ idx, rgba: overrides && overrides.has(idx) ? overrides.get(idx) : await getTextureRGBA(Texture.all[idx]) });
         }
         const atlasW = Math.max(...texDatas.map(t => t.rgba.width));
         let atlasH = 0;
@@ -3031,7 +3108,309 @@ SOFTWARE.
     // =========================================================
     // Section 8: Core Encode Pipeline
     // =========================================================
+    function skinReferenceTextures() {
+        return typeof Texture !== 'undefined' && Array.isArray(Texture.all)
+            ? Texture.all.filter(tex => tex.objcubed_player_skin === true) : [];
+    }
+
+    function applySkinTextureConfig(cfg) {
+        const references = skinReferenceTextures();
+        if (references.length > 1) throw new Error(t('err_skin_duplicate'));
+        if (references.length) {
+            cfg.skinEnabled = true;
+            cfg.skinFromTexture = true;
+            cfg.texIndex = Texture.all.indexOf(references[0]);
+            cfg.baseItem = 'player_head';
+            if (cfg.skinSlot == null) cfg.skinSlot = 0;
+        } else if (cfg.skinFromTexture) {
+            // Removing the special texture must not turn a regular texture into
+            // a skin just because an older dialog persisted skinEnabled=true.
+            cfg.skinEnabled = false;
+            cfg.skinFromTexture = false;
+        }
+        return cfg;
+    }
+
+    // Blockbench UV guides supplied for the editor; their pixels are never exported.
+    const SKIN_REFERENCE_PNG = {
+        steve: 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAEBElEQVR4AeyaPWsVQRSG56ZRSApRMIGIH6jY+APSaykWaiMpxF8gfjQGCwtJpf4FsQhWWllGsMwPsBEVPzCYiFolGBuvvEseOExm59zNkOKOe+HlnHPfOe/unJ27O7NzJ4Lzefnm8zCHy9fvDHNw5F06d2xxuWOL8w7gFkACc6eOhBTC9md2eiaksE0Xmwtnjw1SQPj5k4eDFOBzdqQC5ATGnesLMO5XsPT8+xFQWsFxzx9pBKy8/xpSoPOr62shBfhSq8ddCujqcZcCfM5OnFt7NMzh2dqhkMPT0wdDDlsfbg1zyB1bXO7Y4nLHFpc7trhmBMxNHw4pULnjM5MhBfjJE0dDCvD7Zs+EFOBfzdwepAC/dH5qkAL81MLCIAX4/ScfD1IQ3xRAzv+KkQpwaTYEgSLJF4jH2Y5UgHHuoHfuIxXgxWoIAmLyBeJxtiMVYJw76J17U4CV9e8hBZI/rW2GFOA3P34JKcD/WX0bUoDX4y4F+PnljWEK8BuLi8MU4PW4A9aKn4gfPzd/XAkWW0v3g0X8OIofP68vzgeL5d83gsX8g4lgceDut2ARn098vKszP4PFtXe/gkV8PqnHn/2uGQGqhAVrf75jrU/sWfJjSx56sYX3LLq0Q4e4i00WoIvAuLdNFoB5P51jnk/sWfJjSx56sYX3LLq0Q4e4i92xFtD82kLzaQt7E5Ef37xsbsq3WvKX7v0NFtK08PSlYWFz5XvFaEYA6wAaM+8nZp5PzLyeuC0fHSzt2/TQxdK+TR++TQ8+Z5sC5BrUzvUFqP0Ke/3rR4BXodr5fgTUfoW9/vUjwKtQ7XwzAngXQGdZ+xOz1idmbU/clo8OlvZteuhiad+mD9+mJ97DjvcBdq0t36615du1tPx4/a6cHKRhYd8NyJemhadvteTbXPluAVIN2IuHY++d2LPkx5Y89GIL71l0aYcOcRfb/AS6JNTWNlkA9uHoLPtuxJ4lP7bkoRdbeM+iSzt0iLvY/n2AqsWNRr7Ai0j5Ai8a5Qu6uQjyhbZ8dLBqK7TpSdNCbYU2fXFCm544D8mfgJdUE98XoKaruZu+9CNgN1WrKacfATVdzd30pR8Bu6laTTnNCGD7iY6xF0/M3juxtpwE4rZ8dLC0b9OTpgXt2/ThrZ6+Q0O+hz1/H2D/WyCfaSvWTn3l2/8SyLf/HZDPtBqLDlY5FiyUsHFBmhEQf1m63i7dvy/N73L+yQLEBak5ThagdL1dun9fmt/l/Pf8fYDdu5fPDQrLDQ4b/6dAORbkYcnDds1vRkDpert0/740v+T8mwLU/Bv3+tYXwKtQ7Xw/Amq/wl7/+hHgVah2vh8BtV9hr3/NCGAaSeNR1++0L92/L8nXOZSc/z8AAAD//8OtMsgAAAAGSURBVAMADyxhOxK7d34AAAAASUVORK5CYII=',
+        alex: 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAEc0lEQVR4AeyaPWsVQRSG595GISlEwVyI+IGKjT8gvZZioTaSQvwF4kdjsLCQVOpfEItgpZVlBMv8ABtR8QODN6JWCcbGK++SBw6Tc2fGu6TYvRt4eefcd87ZmbOT2Zmd7YfM38s3n0cpXL5+Z5RCJnxWTl1bWura0nIXyCZAARZOHQkews7f/NwgeNiRa9OFs8d6Hgj8/MnDngf0FBclIBWg6VqXgKbfwbrt70ZA3Qw23b9oBKy9/xo80Pn1jWHwgF6X9bjzQFw97jygp7h/bvholMKz4aGQwtPTB0MK2x9ujVJIXVta6trSUteWlrq2tGoELMwdDh7I3PHBTPCAPnPiaPCAvm/+TPCA/mpwu+cBfeX8bM8D+uzSUs8D+v6Tj3sepFcJUGFaUZSAS/MhCCRJZQG7yVyUgCZ3MNf2ogS8WA9BIJjKAnaTuSgBTe5gru1VAtY2vgcPOH8abgUP6FsfvwQP6H/W3wYP6HrceUBfXN0ceUDfXF4eeUDX4w5Ylt6PHz83f1wJFtsr94NF/DiKHz+vLy4Gi9XfN4LF4oN+sDhw91uwiNsTX+/q4GcAate1d7+CELcD23v82d+qEaBMWLD35zf2+tg5xj9m/IgXM3qOFZc6ikF5EnYTMEmgpvq4CWDdT6dY52PnGP+Y8SNezOg5VlzqKAblSXjXXkDrawutpy3sJKJyPHlZX69sY6m8cu9vsFBMi1R8+QNNgtavNBnVCGAfgBPrfmzW+dis67HH+RMHpv64eMSFqe/FR/NioZVwlYCSim2t0yWgrXe2tF/dCCjNVFvrdSOgrXe2tF/dCCjNVFvrVSOAdwF0kr0/Nnt9bPb22OP8iQNTf1w84sLU9+KjebHQxDnseh/AXhvWXtvC7qVVjvfv+I1jG0tl+25AZcW0SMWXP9D+3/rlOo5ejQAMmLN4bM7esXOMf8z4ES9m9BwrLnUUg/Ik7CZgkkBN9XETwDkcneLcDTvH+MeMH/FiRs+x4lJHMShPwt37AGWNiUZlgReRKguaYASVBSYblYVx/sSBVVdQLEFlgXgxSxO8+PpdUBxBZUExxKVw/wVKndtQr0tAG+5inT50I6BO9trg242ANtzFOn3oRkCd7LXBtxoBHD/RIc7isXXsJGBzBIU9zp84MPUVS8AmXszoXnw0xRGwFYNyCe/5+wCd4Vto2WqhpatF/C0B3w6wHGZZLbZxVFYc/LVh0kYJjEtGNQJiUfttgd+15xawc6zze4F6OsMXsHMc++bqx3rc9li3tpsAW6HtZTcBGj4Cnc8NI+rBOr8XsHWGL2DnOPbN1Y/1uO2xbu09fx/A+T2sScqCCQ623xTgI9ZEZ/3oBH7w//pXI4AJhqCaYARsTTACtiYbAds7v9c3AejeGb6+AUD3/NE8XzTYaz+a2i1g23brtyoBKkwrugRM652n390IIBPTyt0ImNY7T7+7EUAmppWrEcAykiSU7t+p753f65sAdO8MX98AoHv+aJ4vmljw2q/fBS2hBZUFLafF4B8AAAD//8kRp90AAAAGSURBVAMAA48UmwfNBaQAAAAASUVORK5CYII=',
+    };
+    function skinReferenceImage(variant = 'steve') {
+        return Buffer.from(SKIN_REFERENCE_PNG[variant === 'alex' ? 'alex' : 'steve'], 'base64');
+    }
+
+    function addSkinReferenceTexture(variant = 'steve') {
+        const existing = skinReferenceTextures()[0];
+        if (existing) { existing.select(); return existing; }
+        const source = 'data:image/png;base64,' + skinReferenceImage(variant).toString('base64');
+        Undo.initEdit({textures:[],selected_texture:true});
+        const texture = new Texture({name:t('skin_texture_name') + (variant === 'alex' ? ' — Alex' : ' — Steve'),width:64,height:64,uv_width:64,uv_height:64,
+            objcubed_player_skin:true}).fromDataURL(source).add(false);
+        texture.select();
+        Undo.finishEdit(t('menu_add_skin_texture'),{textures:[texture],selected_texture:true});
+        return texture;
+    }
+
+    function installSkinTextureTools(owner) {
+        owner.skinTextureProperty = new Property(Texture,'boolean','objcubed_player_skin',{default:false});
+        owner.skinTextureAction = new Action(PLUGIN_ID+'_skin_texture',{
+            name:t('menu_add_skin_texture'),icon:'person_add',category:'textures',
+            condition:()=>typeof Project!=='undefined' && !!Project,
+            children: [
+                {name:'Steve (Classic)', click:()=>addSkinReferenceTexture('steve')},
+                {name:'Alex (Slim)', click:()=>addSkinReferenceTexture('alex')},
+            ],
+        });
+        owner.skinTextureMenus = [...new Set([
+            typeof Interface!=='undefined' && Interface.Panels?.textures?.menu,
+            Texture.prototype.menu,
+        ].filter(Boolean))];
+        for (const menu of owner.skinTextureMenus) menu.addAction(owner.skinTextureAction);
+    }
+
+    function uninstallSkinTextureTools(owner) {
+        if (owner.skinTextureAction) {
+            for (const menu of owner.skinTextureMenus || []) menu.removeAction(owner.skinTextureAction.id);
+            owner.skinTextureAction.delete();
+        }
+        if (owner.skinTextureProperty) owner.skinTextureProperty.delete();
+    }
+
+    function validateSkinExport(cfg) {
+        applySkinTextureConfig(cfg);
+        if (!cfg.skinEnabled) return;
+        if (cfg.outputMode === 'files' || cfg.exportAsEquipment
+            || (!Number.isInteger(cfg.skinSlot) || cfg.skinSlot < 0 || cfg.skinSlot >= 8)) throw new Error(t('err_skin_options'));
+        const tex = Texture.all[cfg.texIndex];
+        const w = tex && ((tex.img && tex.img.naturalWidth) || tex.width);
+        const h = tex && ((tex.img && tex.img.naturalHeight) || tex.height);
+        if (w !== 64 || h !== 64 || Number(tex.frameCount || tex.frame_count || 1) > 1)
+            throw new Error(t('err_skin_options'));
+    }
+
+    function skinTextureData(slot) {
+        const data = new Uint8Array(64 * 64 * 4);
+        for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++)
+            data.set([x, y, (253 + slot) & 255, 255], (y * 64 + x) * 4);
+        return { data, width: 64, height: 64 };
+    }
+
+    function vanillaPlayerHead() {
+        return {type:'minecraft:special',base:'minecraft:item/template_skull',model:{type:'minecraft:player_head'},
+            transformation:{left_rotation:[1,0,0,0],right_rotation:[0,0,0,1],scale:[1,1,1],translation:[0.5,0,0.5]}};
+    }
+
+    // The native player-head renderer binds the actual profile texture even in
+    // first person. Its twelve quads carry geometry from this generated table.
+    // Keep the catalog in the exported RP: exporting a second model must not
+    // remove the first model's shader data or change its carrier identifiers.
+    function nativeSkinData(cfg, objContents, skinMaterials, emission, loopFrames) {
+        if (!cfg.skinEnabled) return null;
+        if (!cfg.colorbehavior.every(x => x === 'direct') && !cfg.colorbehavior.every(x => x === 'time')) return null;
+        // Hand-written potion-color controllers do not supply the native clock.
+        // Preserve their existing renderer; the generated datapack mirrors it.
+        if (cfg.colorbehavior.every(x => x === 'time') && !cfg.generateDatapack) return null;
+        const frames = objContents.map(o => parseObj(o, 0));
+        const profileFaces = frames[0].faceMaterials.map(material => skinMaterials.has(material));
+        // Native profile carriers contain a fixed subset of the model's faces.
+        // Changing either direction would omit geometry from one of the renderers.
+        for (const frame of frames) {
+            if (frame.faceMaterials.length !== profileFaces.length
+                || frame.faceMaterials.some((material, i) => skinMaterials.has(material) !== profileFaces[i]))
+                throw new Error('Profile face material changes between animation frames.');
+        }
+        const indices = frames[0].faces.map((_, i) => i).filter(i => profileFaces[i]);
+        const positions = [], uvs = [], vertices = [], posMap = new Map(), uvMap = new Map();
+        const index = (list, map, value) => {const key = value.join(','); if (!map.has(key)) {map.set(key,list.length);list.push(value);}return map.get(key);};
+        for (const frame of frames) for (const fi of indices) {
+            const face = frame.faces[fi];
+            for (let c = 0; c < 4; c++) {
+                const [pi,ui] = face[Math.min(c,face.length-1)];
+                const p = (frame.positions[pi] || [0,0,0]).map((x,i) =>
+                    Math.floor(8388608+(x*cfg.scale+cfg.offset[i]-(i===1?.5:0))*65536)/65536-128);
+                const uv = (frame.uvs[ui] || [0,0]).map(x=>Math.trunc(Math.max(0,Math.min(1,x))*65535)/65535);
+                if (!cfg.flipuv) uv[1] = 1-uv[1];
+                vertices.push([index(positions,posMap,p),index(uvs,uvMap,uv)]);
+            }
+        }
+        return {positions,uvs,vertices,faces:indices.length,ordinaryFaces:frames[0].faces.length-indices.length,frames:frames.length,
+            loopFrames, duration:Math.max(1,cfg.duration || frames.length),autoplay:!!cfg.autoplay,
+            controlled:cfg.colorbehavior.every(x=>x==='time'),easing:cfg.easing || 0,
+            visible:!!(cfg.visibility & 2),visibility:cfg.visibility,unlit:indices.map(i=>Number(!!cfg.noshadow || !!emission[i]))};
+    }
+
+    function planNativeSkin(fs,path,root,name,data,display,selectedContexts,elements=[]) {
+        if (!data) return null;
+        const file = path.join(root,'assets/objcubed/native_profiles.json');
+        const catalog = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file,'utf8')) : {version:1,models:{}};
+        if (catalog.version !== 1 || !catalog.models || Array.isArray(catalog.models)) throw new Error('Unsupported native profile catalog.');
+        const chunks = Math.ceil(data.faces/12), states = data.controlled ? 1+data.frames*2 : 1;
+        const contexts = ['firstperson_righthand','firstperson_lefthand',...DISPLAY_SLOTS.filter(s=>!s.startsWith('firstperson'))];
+        const count = chunks*states*contexts.length;
+        const previous = catalog.models[name];
+        const start = previous && previous.count >= count ? previous.start : Math.max(0,...Object.values(catalog.models).map(m=>m.start+m.count-1))+1;
+        if (start+count > 4096) throw new Error('Too many native profile carriers in this pack. Split the pack or reduce animation frames.');
+        const transforms = contexts.map(slot => {
+            const enabled=!Array.isArray(selectedContexts) || selectedContexts.includes(slot);
+            const d=(enabled && display[slot]) || {}, r=[...(d.rotation || [0,0,0])], tr=[...(d.translation || [0,0,0])];
+            // ItemTransform.apply mirrors Y/Z angles and X translation for the left hand.
+            if(slot.endsWith('lefthand')) {r[1]*=-1;r[2]*=-1;tr[0]*=-1;}
+            const matrix=buildItemTransformMatrix(r,tr,d.scale || [1,1,1]);
+            if(slot==='gui' && d.pivot?.some(x=>x!==0)) {
+                const pivot=d.pivot;
+                for(let axis=0;axis<3;axis++) matrix[12+axis]+=pivot[axis]-matrix[axis]*pivot[0]-matrix[4+axis]*pivot[1]-matrix[8+axis]*pivot[2];
+            }
+            return matrix;
+        });
+        const modelLifts=contexts.map(slot=>(slot==='ground'||slot==='on_shelf') && (!Array.isArray(selectedContexts)||selectedContexts.includes(slot))?[0,1,0]:[0,0,0]);
+        const originShifts=contexts.map((slot,i)=>{
+            if(slot!=='ground') return [0,0,0];
+            const lifted=modelLifts[i][1]!==0;
+            const carrier=lifted?calibratedElementsForSlot(elements,'ground',0):elements;
+            const matrix=transforms[i];let minY=Infinity;
+            for(const e of carrier) for(const x of [e.from[0],e.to[0]]) for(const y of [e.from[1],e.to[1]]) for(const z of [e.from[2],e.to[2]])
+                minY=Math.min(minY,matrix[1]*(x/16-.5)+matrix[5]*(y/16-.5)+matrix[9]*(z/16-.5)+matrix[13]);
+            // ItemEntityRenderer lifts by -CPU bounds.minY. A native head has
+            // minY=-1.015625 after the item-origin shift. Match the ordinary
+            // carrier bounds; cancel this translation in GPU geometry below.
+            return [0,(Number.isFinite(minY)?minY:0)+1.015625,0];
+        });
+        const entry={...data,start,count,chunks,states,transforms,contexts,modelLifts,originShifts};catalog.models[name]=entry;
+        return {file,catalog,entry,shader:generateNativeSkinShader(catalog)};
+    }
+
+    function generateNativeSkinShader(catalog) {
+        const f=x=>{if(!Number.isFinite(x))throw new Error('Non-finite native profile geometry');return Number(x).toFixed(8);};
+        const vec=(n,v)=>`vec${n}(${v.map(f).join(',')})`;
+        const code=['// Generated by objcubed. Re-export the model to update its geometry.', '#define OC_NATIVE_PROFILE_GEOMETRY 1'];
+        const tables=new Map();
+        let dispatch='bool oc_profile_geometry(int id,int face,int corner,out vec3 position,out vec2 uv,out int unlit) {\n';
+        for(const [name,m] of Object.entries(catalog.models)) {
+            if(!/^[a-z0-9_]+$/.test(name))throw new Error('Invalid native profile catalog key');
+            // Legacy catalogs have no loopFrames; manual/commanded playback
+            // still addresses the full endpoint-inclusive frame table.
+            const loopFrames = m.autoplay && !m.controlled ? (m.loopFrames || m.frames) : m.frames;
+            const tableKey=JSON.stringify([m.positions,m.uvs,m.vertices,m.unlit]);
+            const shared=tables.has(tableKey),prefix=tables.get(tableKey) || 'ocp_'+name;
+            tables.set(tableKey,prefix);
+            // Avoid dynamically indexed const arrays: some GL drivers expand
+            // them into thousands of temporary initializers at program link.
+            const lookup=(type,name,values)=>{
+                const tree=(lo,hi)=>hi-lo===1?`return ${values[lo]};`:
+                    `if(i<${Math.floor((lo+hi)/2)}){${tree(lo,Math.floor((lo+hi)/2))}}else{${tree(Math.floor((lo+hi)/2),hi)}}`;
+                return `${type} ${name}(int i){${tree(0,values.length)}}`;
+            };
+            if(!shared) {
+                const packed=(name,values)=>{
+                    const maximum=values.reduce((a,b)=>Math.max(a,b),0),bits=maximum<256?8:maximum<65536?16:32,per=32/bits,words=[];
+                    for(let i=0;i<values.length;i+=per){let word=0;for(let j=0;j<per;j++)word=(word|((values[i+j]||0)<<(j*bits)))>>>0;words.push(word+'u');}
+                    return `int ${name}(int i){const uint words[${words.length}]=uint[](${words});return int((words[i/${per}]>>uint((i%${per})*${bits}))&${bits===32?'4294967295':2**bits-1}u);}`;
+                };
+                const tracks=channel=>{
+                    const bases=[],samples=[],seen=new Map();
+                    for(let vi=0;vi<m.faces*4;vi++){
+                        const track=Array.from({length:m.frames},(_,f)=>m.vertices[f*m.faces*4+vi][channel]);
+                        if(track.every(x=>x===track[0])) {bases.push((0x80000000|track[0])>>>0);continue;}
+                        const key=track.join(',');if(!seen.has(key)){seen.set(key,samples.length);samples.push(...track);}bases.push(seen.get(key));
+                    }
+                    return {bases,samples:samples.length?samples:[0]};
+                };
+                const pt=tracks(0),ut=tracks(1);
+                code.push(lookup('vec3',prefix+'_p',m.positions.map(p=>vec(3,p))),
+                    lookup('vec2',prefix+'_u',m.uvs.map(u=>vec(2,u))),
+                    packed(prefix+'_pb',pt.bases),packed(prefix+'_pa',pt.samples),
+                    packed(prefix+'_ub',ut.bases),packed(prefix+'_ua',ut.samples),
+                    `ivec2 ${prefix}_v(int i){int f=i/${m.faces*4};int v=i%${m.faces*4};int p=${prefix}_pb(v),u=${prefix}_ub(v);return ivec2(p<0?(p&2147483647):${prefix}_pa(p+f),u<0?(u&2147483647):${prefix}_ua(u+f));}`,
+                    lookup('int',prefix+'_l',m.unlit.map(String)));
+            }
+            dispatch+=`if(id>=${m.start} && id<${m.start+m.count}) {\nint local=id-${m.start};int chunk=local%${m.chunks};int state=(local/${m.chunks})%${m.states};int hand=local/${m.chunks*m.states};int fi=chunk*12+face;\n`;
+            const visible=m.contexts?m.contexts.map(s=>!!(m.visibility & (s==='gui'?1:s.startsWith('firstperson')?2:4))):m.transforms.map(()=>m.visible);
+            const visibility=visible.map((v,i)=>v?`hand==${i}`:'false').join(' || ');
+            dispatch+=`position=vec3(0);uv=vec2(0);unlit=0;if(fi>=${m.faces} || !(${visibility}))return true;\nfloat phase=${m.autoplay&&!m.controlled?`GameTime*24000.0*${f(loopFrames/m.duration)}`:'0.0'};\n`;
+            if(m.controlled) dispatch+=`if(state>0 && state<=${m.frames})phase=mod(GameTime*24000.0+${f(m.duration)}-float(state-1),${f(m.duration)})*${f(m.frames/m.duration)};else if(state>${m.frames})phase=float(state-${m.frames+1});\n`;
+            if(m.contexts?.includes('gui')) dispatch+=`if(hand==${m.contexts.indexOf('gui')})phase=0.0;\n`;
+            dispatch+=`int frame=int(phase)%${loopFrames};int vi=fi*4+corner;ivec2 a=${prefix}_v(frame*${m.faces*4}+vi);position=${prefix}_p(a.x);uv=${prefix}_u(a.y);unlit=${prefix}_l(fi);\n`;
+            if(loopFrames>1 && m.easing) {
+                dispatch+=`vec3 b=${prefix}_p(${prefix}_v(((frame+1)%${loopFrames})*${m.faces*4}+vi).x);\n`;
+                if(m.easing===3) dispatch+=`vec3 c=${prefix}_p(${prefix}_v(((frame+2)%${loopFrames})*${m.faces*4}+vi).x);vec3 d=${prefix}_p(${prefix}_v(((frame+${loopFrames-1})%${loopFrames})*${m.faces*4}+vi).x);position=bezier(d,position,b,c,fract(phase));\n`;
+                else dispatch+=`position=mix(position,b,ease(${m.easing},fract(phase)));\n`;
+            }
+            const matrices=m.transforms.map(t=>`mat4(${t.map(f).join(',')})`);
+            // Special models and baked item models share the -0.5 item origin.
+            for(const [i,lift] of (m.modelLifts||[]).entries()) if(lift.some(x=>x!==0)) dispatch+=`if(hand==${i})position+=${vec(3,lift)};\n`;
+            dispatch+=`mat4 transform=${matrices[0]};\n`;
+            for(let i=1;i<matrices.length;i++) if(matrices[i]!==matrices[0]) dispatch+=`if(hand==${i})transform=${matrices[i]};\n`;
+            dispatch+=`position=(transform*vec4(position,1.0)).xyz+vec3(0.5);\n`;
+            for(const [i,shift] of (m.originShifts||[]).entries()) if(shift.some(x=>x!==0)) dispatch+=`if(hand==${i})position-=${vec(3,shift)};\n`;
+            dispatch+='return true;\n}\n';
+        }
+        code.push(dispatch+'return false;\n}');return code.join('\n')+'\n';
+    }
+
+    function nativeSkinHandModel(name,entry,hand,ordinary) {
+        const stateModel=state=>({type:'minecraft:composite',models:[...(entry.ordinaryFaces?[ordinary]:[]),...Array.from({length:entry.chunks},(_,chunk)=>{
+            const id=entry.start+(hand*entry.states+state)*entry.chunks+chunk,t=id/32;
+            return {type:'minecraft:special',base:`${EXPORT_NS}:item/${name}_skin_donor`,model:{type:'minecraft:player_head'},
+                transformation:{scale:[32+t,1,1/(8+t)],translation:entry.originShifts?.[hand]||[0,0,0],left_rotation:[0,0,0,1],right_rotation:[0,0,0,1]}};
+        })]});
+        if(!entry.controlled)return stateModel(0);
+        return {type:'minecraft:range_dispatch',property:'minecraft:custom_model_data',index:0,
+            entries:Array.from({length:entry.states-1},(_,i)=>({threshold:i+1,model:stateModel(i+1)})),fallback:stateModel(0)};
+    }
+
+    function skinComposite(modelName, slots, slot, nativeEntry) {
+        const composite = {type:'minecraft:composite',models:[buildDisplayContextModel(modelName, slots),
+            {type:'minecraft:special',base:`${EXPORT_NS}:item/${modelName}_skin_donor`,model:{type:'minecraft:player_head'},
+                transformation:{translation:[0,16384*(slot+1),0],scale:[1,1,1],left_rotation:[0,0,0,1],right_rotation:[0,0,0,1]}}]};
+        // The GUI has no profile transport. Show the real profile's head there.
+        const cases=nativeEntry?[]:[{when:'gui',model:vanillaPlayerHead()}];
+        if(nativeEntry) for(const [i,context] of (nativeEntry.contexts || ['firstperson_righthand','firstperson_lefthand']).entries()) {
+            const ordinary={type:'minecraft:model',model:`${EXPORT_NS}:item/${modelName}_native_${context}`,tints:[{type:'minecraft:potion',default:-1}]};
+            cases.push({when:context,model:nativeSkinHandModel(modelName,nativeEntry,i,ordinary)});
+        }
+        return {type:'minecraft:select',property:'minecraft:display_context',cases,fallback:composite};
+    }
+
+    function installSkinRuntime(fs, path, root, checkOnly = false) {
+        // Shader code ships in the main RP. Activate the first-person fallback
+        // only for a pack that actually exports profile faces.
+        const postFile=path.join(root,'assets/minecraft/post_effect/end_of_frame.json');
+        if(fs.existsSync(postFile)) {
+            const old=JSON.parse(fs.readFileSync(postFile,'utf8'));
+            if(!Array.isArray(old.passes) || old.passes.some(p =>
+                !/^objcubed:post\/profile_(resolve|copy)$/.test(p.fragment_shader || '') &&
+                !/^objcubed_skin:post\/(resolve|copy)$/.test(p.fragment_shader || '')))
+                throw new Error(t('err_skin_post_conflict'));
+        }
+        if(checkOnly) return;
+        const post={"targets":{"swap":{}},"passes":[{"vertex_shader":"minecraft:core/screenquad","fragment_shader":"objcubed:post/profile_resolve","inputs":[{"sampler_name":"In","target":"minecraft:main"}],"output":"swap"},{"vertex_shader":"minecraft:core/screenquad","fragment_shader":"objcubed:post/profile_copy","inputs":[{"sampler_name":"In","target":"swap","bilinear":true}],"output":"minecraft:main"}]};
+        fs.mkdirSync(path.dirname(postFile),{recursive:true});
+        const temporary=postFile+'.tmp';
+        fs.writeFileSync(temporary,JSON.stringify(post,null,2)+'\n');
+        fs.renameSync(temporary,postFile);
+    }
+
+    function generateSkinDatapackFiles(modelName) {
+        const files = new Map();
+        const put = (name, text) => files.set(name, text + '\n');
+        put('pack.mcmeta', JSON.stringify({pack:{description:'objcubed player skins',min_format:[121,0],max_format:[121,0]}}));
+        put('data/minecraft/tags/function/tick.json', JSON.stringify({values:['objcubed:skin/tick']}));
+        put('data/minecraft/tags/function/load.json', JSON.stringify({values:['objcubed:skin/load']}));
+        put('data/objcubed/function/skin/load.mcfunction', 'scoreboard objectives add oc.skin dummy\nscoreboard players set #clock oc.skin 0');
+        put('data/objcubed/function/skin/tick.mcfunction', 'scoreboard players add #clock oc.skin 1\nexecute if score #clock oc.skin matches ..19 run return 0\nscoreboard players set #clock oc.skin 0\nfunction #objcubed:skin/bind');
+        put('data/objcubed/tags/function/skin/bind.json', JSON.stringify({values:[`objcubed:skin/${modelName}/tick`]}));
+        put(`data/objcubed/function/skin/${modelName}/tick.mcfunction`, ['weapon.mainhand','weapon.offhand'].map(hand =>
+            `execute as @a[tag=!objcubed.skin.fixed] if items entity @s ${hand} minecraft:player_head[minecraft:custom_model_data~{strings:["${modelName}"]}] run item modify entity @s ${hand} {type:"minecraft:fill_player_head",entity:"this"}`).join('\n'));
+        put(`data/objcubed/function/skin/${modelName}/bind.mcfunction`, ['weapon.mainhand','weapon.offhand'].map(hand =>
+            `execute if items entity @s ${hand} minecraft:player_head[minecraft:custom_model_data~{strings:["${modelName}"]}] run item modify entity @s ${hand} {type:"minecraft:fill_player_head",entity:"this"}`).join('\n'));
+        put(`data/objcubed/function/skin/${modelName}/give.mcfunction`,
+            `give @s minecraft:player_head[minecraft:custom_model_data={strings:["${modelName}"]}]\nfunction objcubed:skin/${modelName}/bind`);
+        return files;
+    }
+
     async function buildOutput(cfg, objContents, mtlString) {
+        validateSkinExport(cfg);
         // objContents: string[] — one OBJ per frame (already compiled/baked)
         if (!objContents || !objContents.length || !objContents[0])
             throw new Error('No OBJ content');
@@ -3043,40 +3422,46 @@ SOFTWARE.
         let atlasInfo = null; // null = single texture, otherwise atlas UV remap info
 
         // Map material names → Texture.all indices
-        // Try MTL file first, then fall back to BB's m_UUID convention
+        // MTL filenames are a fallback; BB's m_UUID identifies the exact texture
+        // even when multiple textures have the same name or were renamed.
         const materialToTexIdx = new Map();
         const mtlMap = parseMtl(mtlString);
         if (mtlMap.size > 0) {
             for (const [k, v] of buildMaterialToTexMap(mtlMap)) materialToTexIdx.set(k, v);
         }
-        if (materialToTexIdx.size === 0) {
-            // BB OBJ uses "usemtl m_<texture-uuid>" — match directly
-            for (const obj of objContents) {
-                for (const line of obj.split('\n')) {
-                    const trimmed = line.trim();
-                    if (trimmed.startsWith('usemtl ')) {
-                        const mtlName = trimmed.slice(7).trim();
-                        if (materialToTexIdx.has(mtlName)) continue;
-                        if (mtlName.startsWith('m_')) {
-                            const uuid = mtlName.slice(2);
-                            const idx = Texture.all.findIndex(t => t.uuid === uuid);
-                            if (idx >= 0) materialToTexIdx.set(mtlName, idx);
-                        }
+        for (const obj of objContents) {
+            for (const line of obj.split('\n')) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('usemtl ')) {
+                    const mtlName = trimmed.slice(7).trim();
+                    if (mtlName.startsWith('m_')) {
+                        const uuid = mtlName.slice(2);
+                        const idx = Texture.all.findIndex(t => t.uuid === uuid);
+                        if (idx >= 0) materialToTexIdx.set(mtlName, idx);
                     }
                 }
             }
         }
         let referencedTexIndices = new Set(materialToTexIdx.values());
+        let skinMaterials;
+        if (cfg.skinEnabled) {
+            const usedMaterials = new Set(objContents.flatMap(obj => parseObj(obj, 0).faceMaterials));
+            if ([...usedMaterials].some(m => !materialToTexIdx.has(m))) throw new Error(t('err_skin_material'));
+            referencedTexIndices = new Set([...usedMaterials].map(m => materialToTexIdx.get(m)));
+            skinMaterials = new Set([...usedMaterials].filter(m => materialToTexIdx.get(m) === cfg.texIndex));
+            if (!skinMaterials.size) throw new Error(t('err_skin_unused'));
+        }
         // Filter to only user-selected textures
-        if (cfg.useAtlas && cfg.atlasTexIndices) {
+        if (!cfg.skinEnabled && cfg.useAtlas && cfg.atlasTexIndices) {
             const allowed = new Set(cfg.atlasTexIndices);
             referencedTexIndices = new Set([...referencedTexIndices].filter(i => allowed.has(i)));
         }
 
         const atlasBands = []; // { y0, frameH, frameCount } per animated strip inside the atlas (max 4)
-        if (cfg.useAtlas && referencedTexIndices.size > 1) {
+        if ((cfg.useAtlas || cfg.skinEnabled) && referencedTexIndices.size > 1) {
             // Multi-texture: build atlas
-            const atlas = await buildAtlas([...referencedTexIndices], !!cfg.texAnimEnabled);
+            const atlas = await buildAtlas([...referencedTexIndices], !!cfg.texAnimEnabled,
+                cfg.skinEnabled ? new Map([[cfg.texIndex, skinTextureData(cfg.skinSlot)]]) : null);
             texData = { data: atlas.data, width: atlas.width, height: atlas.height };
             atlasInfo = {
                 materialToTexIdx,
@@ -3118,7 +3503,7 @@ SOFTWARE.
             // Single texture (original path)
             const bbTex = Texture.all[cfg.texIndex];
             if (!bbTex) throw new Error(`No texture at index ${cfg.texIndex}`);
-            texData = await getTextureRGBA(bbTex);
+            texData = cfg.skinEnabled ? skinTextureData(cfg.skinSlot) : await getTextureRGBA(bbTex);
         }
 
         const tw = texData.width, th = texData.height;
@@ -3161,7 +3546,7 @@ SOFTWARE.
                 : f0.faces.map(() => 0);                        // legacy single-part: whole model as one unit
             partRef = computePartCenters(f0, faceToPart);
         }
-        const { data, nfaces, faceGroups, faceBlocks, uvClamped } = buildVertexData(objContents, atlasInfo, partRef, faceToPart);
+        const { data, nfaces, faceGroups, faceBlocks, uvClamped, skinUvs } = buildVertexData(objContents, atlasInfo, partRef, faceToPart, skinMaterials);
         const emissiveMap = collectEmissiveMap();
         const faceEmission = faceGroups.map(g => {
             const tk = parseFaceToken(g);                 // each element's emissive is baked into its token
@@ -3218,6 +3603,11 @@ SOFTWARE.
             return idx;
         });
         const cb  = (ca[0]<<6)|(ca[1]<<3)|ca[2];
+        // Endpoint-inclusive sampling is necessary for manual/play_once. A
+        // closed autoplay loop must not spend another interval at that endpoint.
+        const closedLoop = !!cfg.autoplay && !cfg.generateDatapack
+            && hasClosedLoopEndpoint(data, nvertices, nframes, cfg, skinUvs);
+        const loopFrames = closedLoop ? nframes - 1 : nframes;
         const dur = cfg.duration === 0 ? nframes : cfg.duration;
 
         const buf = new Uint8Array(tw * ty * 4);
@@ -3356,7 +3746,8 @@ SOFTWARE.
             put(4, 1, Math.trunc(texFrametime/65536)%256, Math.trunc(texFrametime/256)%256,
                       texFrametime%256, 255);
         }
-        put(5, 1, ((texAnimActive && texFade) ? 1 : 0) | (dynamics.length << 1),
+        // Skin export: bit6 enables transport; bit7 selects per-UV material flags.
+        put(5, 1, ((texAnimActive && texFade) ? 1 : 0) | (dynamics.length << 1) | (cfg.skinEnabled ? 192 : 0),
                   atlasBands.length, 2, 255);
         for (const [i, b] of atlasBands.entries()) {
             put(6 + 2*i, 1, Math.trunc(b.y0/256)%256, b.y0%256, Math.trunc(b.frameH/256)%256, 255);
@@ -3377,6 +3768,9 @@ SOFTWARE.
                 put(x, 1, hi, lo, (d.lift ? 1 : 0) | (d.hand ? 2 : 0), 255);
             }
         }
+        // Row 1 x=0 B bit2: omit the duplicate endpoint during autoplay only.
+        // Keep slot-marker bits0/1 and opaque alpha; old decoders ignore bit2.
+        if (closedLoop) buf[tw * 4 + 2] |= 4;
 
         // UV header + JSON elements
         const elements = [];
@@ -3478,6 +3872,9 @@ SOFTWARE.
             surfaceWarning('Some UVs are outside the texture frame. Move them inside the frame to avoid stretched or incorrect textures.');
         for (let i = 0; i < data.uvs.length; i++) {
             for (const [j, pxArr] of uvPixels(data.uvs[i]).entries()) {
+                // getuv decodes only G/B. The unused R byte of U identifies the
+                // skin material independently of RGB, including across frames.
+                if (j === 0 && skinUvs[i]) pxArr[0] = 1;
                 const p = i*2+j;
                 put(p%tw, ybase+Math.floor(p/tw), ...pxArr);
             }
@@ -3539,9 +3936,10 @@ SOFTWARE.
             const uvBase = headerRows + uvH + texH + vpH;
             const uv0u = rd(0, uvBase), uv0v = rd(1, uvBase);
             const decUv = [
-                (uv0u[0]*65536 + uv0u[1]*256 + uv0u[2]) / 65535,
-                (uv0v[0]*65536 + uv0v[1]*256 + uv0v[2]) / 65535,
+                (uv0u[1]*256 + uv0u[2]) / 65535,
+                (uv0v[1]*256 + uv0v[2]) / 65535,
             ];
+            if (uv0u[0] !== Number(!!skinUvs[0]) || uv0v[0] !== 0) verifyWarns.push('uv[0] material flag mismatch');
             const srcUv = data.uvs[0];
             if (srcUv) {
                 const expUv = srcUv.map(v => Math.max(0, Math.min(1, v)));
@@ -3581,13 +3979,15 @@ SOFTWARE.
             throw new Error('Integrity check failed (' + hardFails.join('; ') + ') — export aborted to avoid a corrupt model; see console for details.');
         }
 
+        const nativeSkin = nativeSkinData(cfg,objContents,skinMaterials,faceEmission,loopFrames);
+        if(nativeSkin) buf[(tw+5)*4] |= 32;
         const pngBuffer = encodePNG(tw, ty, buf);
         const warnStr = verifyWarns.length
             ? t('warn_suffix').replace('{n}', verifyWarns.length).replace('{w}', tPlural(verifyWarns.length, 'warnings'))
             : '';
         const debugInfo = `${nfaces} ${tPlural(nfaces, 'faces')} · ${nframes} ${tPlural(nframes, 'frames')} · ${tw}×${ty}px` + warnStr;
 
-        return { pngBuffer, rawBuf: buf, elements, nfaces, nvertices, nframes, tw, ty, debugInfo, faceGroups, faceBlocks, faceToPart, faceEmission, faceToEquipmentBinding: buildFaceEquipmentBindings(faceGroups,cfg) };
+        return { nativeSkin, pngBuffer, rawBuf: buf, elements, nfaces, nvertices, nframes, tw, ty, debugInfo, faceGroups, faceBlocks, faceToPart, faceEmission, faceToEquipmentBinding: buildFaceEquipmentBindings(faceGroups,cfg), skinSlot: cfg.skinEnabled ? cfg.skinSlot : null };
     }
 
     // =========================================================
@@ -3642,7 +4042,7 @@ SOFTWARE.
                     onProgress,
                 });
             } else {
-                const compile = () => Codecs.obj.compile();
+                const compile = () => compileObjGeometry();
                 const safeCompile = () => withNonGeoHidden(compile);
                 const boneUUIDs = collectBoneUUIDs();
                 const hasArm = boneUUIDs.size > 0;
@@ -3669,6 +4069,7 @@ SOFTWARE.
 
     // Main export entry point
     async function runExport(cfg, onStatus) {
+        validateSkinExport(cfg);
         if (cfg.exportCameras && (!cfg.animationEnabled || !cfg.generateDatapack || cfg.exportAsEquipment || cfg.datapackTargetType !== 'item_display'))
             throw new Error(t('err_camera_target'));
         const displayTransforms = buildDisplayTransforms(cfg);
@@ -3780,7 +4181,9 @@ SOFTWARE.
         const dynamics = [];
         const zOverride = (d) => {
             if (!d || !d.scale) return 0;
-            const s = d.scale;
+            // The carrier normal retains reflection signs; q16 stores only
+            // depth magnitude, matching the measured X/Y edge lengths.
+            const s = d.scale.map(v => Math.abs(v));
             return Math.abs(s[2] - Math.min(s[0], s[1])) > 1e-4 ? s[2] : 0;
         };
         for (const slot of DISPLAY_SLOTS) {
@@ -3875,8 +4278,15 @@ SOFTWARE.
     // is the heavy full-geometry file. textures carries both 0 and particle so
     // Minecraft has break/landing particles instead of missing-texture.
     function buildSlotModelJson(pngName, slot, slotDisplay, elements, textureResource) {
+        const defaultTexture = `${EXPORT_NS}:item/${pngName}`;
+        const texture = textureResource || defaultTexture;
+        // Keep the model usable on its own and let children override the named
+        // texture. Defining the key last also avoids cycles for #0/#particle.
+        const textures = texture.startsWith('#')
+            ? { 0: texture, particle: texture, [texture.slice(1)]: defaultTexture }
+            : { 0: texture, particle: texture };
         const model = {
-            textures: { 0: textureResource || `${EXPORT_NS}:item/${pngName}`, particle: textureResource || `${EXPORT_NS}:item/${pngName}` },
+            textures,
             elements: elements,
             display:  slotDisplay,
         };
@@ -3927,6 +4337,8 @@ SOFTWARE.
 
     function saveSingleOutput(result, displayTransforms, cfg) {
         return new Promise((resolve, reject) => {
+            validateSkinExport(cfg);
+            if (cfg.skinEnabled && result.skinSlot !== cfg.skinSlot) throw new Error('Skin export configuration changed; encode the model again.');
             const fs   = require('fs');
             const path = require('path');
             const name = (Project.name || 'model').replace(/[^a-z0-9_]/gi,'_').toLowerCase();
@@ -3934,8 +4346,12 @@ SOFTWARE.
             if (filesOnly && (cfg.exportAsEquipment || cfg.generateDatapack || cfg.exportCameras))
                 throw new Error(t('err_files_options'));
             const textureResource = filesOnly ? String(cfg.textureResource || '').trim() : '';
-            if (textureResource && (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(textureResource)
-                || textureResource.endsWith('.png') || textureResource.split(':')[1].split('/').some(p => !p || p === '.' || p === '..')))
+            // Texture variables are JSON keys, not resource paths or filenames.
+            const isTextureVariable = /^#[^\s#\u0000-\u001f\u007f]+$/u.test(textureResource);
+            const isTexturePath = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(textureResource)
+                && !textureResource.endsWith('.png')
+                && !textureResource.split(':')[1].split('/').some(p => !p || p === '.' || p === '..');
+            if (textureResource && !isTextureVariable && !isTexturePath)
                 throw new Error(t('err_texture_resource'));
             const horse = equipmentOf(cfg);
             const legacyHorse = !!horseEquipmentOf(cfg) && !result.faceToEquipmentBinding;
@@ -3949,17 +4365,30 @@ SOFTWARE.
             // set). Everything else is written without further dialogs.
             const root = (filesOnly ? (cfg.modelOutputDir || cfg.filesOutputDir) : cfg.resourcePackDir) || pickDirectory(t(filesOnly ? 'lbl_model_dir' : 'lbl_respack_dir'), Project.export_path || '');
             if (!root) { reject(new Error('__cancelled__')); return; }
+            if (cfg.skinEnabled) installSkinRuntime(fs,path,root,true);
             // Select both destinations before writing anything: cancelling the
             // second picker must not leave a partial export.
             const textureRoot = filesOnly ? (cfg.textureOutputDir || cfg.filesOutputDir || pickDirectory(t('lbl_texture_dir'), root)) : null;
             if (filesOnly && !textureRoot) { reject(new Error('__cancelled__')); return; }
 
-            const baseItem = horse ? horse.item : (cfg.baseItem || 'iron_ingot').replace(/[^a-z0-9_]/gi, '_').toLowerCase() || 'iron_ingot';
+            const baseItem = cfg.skinEnabled ? 'player_head' : horse ? horse.item : (cfg.baseItem || 'iron_ingot').replace(/[^a-z0-9_]/gi, '_').toLowerCase() || 'iron_ingot';
             // custom_model_data name (issue #7). Used as BOTH the per-slot model
             // file base AND the custom_model_data case key, so the UI-facing name
             // and the in-game key the player puts on the item match. Falls back to
             // the sanitized project name when cfg.cmdName is unset.
             const modelName = ((cfg.cmdName || name).replace(/[^a-z0-9_]/gi, '_').toLowerCase()) || name;
+            const nativeDisplay={...displayTransforms};
+            if(result.nativeSkin) {
+                // Use the same normalized q16 GUI values as ordinary faces.
+                // Reading the encoded header also preserves its scale fallback,
+                // range clamps, pivot conversion and quantization exactly.
+                const fields=[];
+                for(let x=8;x<16;x++)fields.push(...result.rawBuf.subarray(x*4,x*4+3));
+                const triple=(start,min,max)=>[0,2,4].map(i=>(fields[start+i]*256+fields[start+i+1])/65535*(max-min)+min);
+                nativeDisplay.gui={scale:triple(0,0,4),translation:triple(6,-128,128),
+                    rotation:triple(12,0,360),pivot:triple(18,-128,128)};
+            }
+            const nativePlan = planNativeSkin(fs,path,root,modelName,result.nativeSkin,nativeDisplay,cfg.selectedContexts,result.elements);
             const horseAsset = horse ? `${modelName}_${horse.layer}` : null;
             const horseGive = horse ? `give @s minecraft:${horse.item}[minecraft:custom_model_data={strings:["${modelName}"]},minecraft:equippable=${animalEquippable(horse, horseAsset, legacyHorse)},minecraft:tooltip_display={hidden_components:["minecraft:dyed_color"]}]` : null;
             const texDir   = filesOnly ? textureRoot : path.join(root, 'assets', EXPORT_NS, 'textures', 'item');
@@ -4040,12 +4469,18 @@ SOFTWARE.
                 // The unset-slot fallback stops MC block-model display defaults
                 // (scale ~0.4 / rot 45) leaking into the active slot.
                 if (!slotDisplay[displayLookupSlot]) slotDisplay[displayLookupSlot] = IDENTITY_DISPLAY;
-                fs.writeFileSync(
-                    path.join(modelsDir, `${modelName}_${fileSlot}.json`),
-                    buildSlotModelJson(modelName, fileSlot, slotDisplay,
-                        calibratedElementsForSlot(result.elements, displayLookupSlot, markerId), textureResource),
-                    'utf8'
-                );
+                let json = buildSlotModelJson(modelName, fileSlot, slotDisplay,
+                    calibratedElementsForSlot(result.elements, displayLookupSlot, markerId), textureResource);
+                if (cfg.skinEnabled) {
+                    const model = JSON.parse(json);
+                    for (const key of Object.keys(model.textures || {})) {
+                        const sprite = model.textures[key];
+                        if (typeof sprite === 'string' && !sprite.startsWith('#'))
+                            model.textures[key] = {sprite, force_translucent:true};
+                    }
+                    json = JSON.stringify(model);
+                }
+                fs.writeFileSync(path.join(modelsDir, `${modelName}_${fileSlot}.json`), json, 'utf8');
             };
             for (const slot of exportedSlots) {
                 writeSlotJson(slot, slot, slotMarkerIds.get(slot) || 0);
@@ -4053,6 +4488,27 @@ SOFTWARE.
             // Neutral fallback for contexts without their own case (marker id 0,
             // no SLOT_OFFSETS calibration — those slots are all exported).
             writeSlotJson('default', 'thirdperson_righthand', 0);
+            if(nativePlan && result.nativeSkin.ordinaryFaces) {
+                // Native contexts draw only the ordinary faces of this texture.
+                // Keep the default texture intact for item_display's scalable
+                // world transport and for older hand-only catalog entries.
+                const nativeBytes=new Uint8Array(result.rawBuf);
+                nativeBytes[(result.tw+5)*4+2]=3;
+                if(Array.isArray(cfg.selectedContexts) && !cfg.selectedContexts.includes('gui')) {
+                    // Disable only the GUI header transform in the native copy.
+                    // Original world/default material metadata stays untouched.
+                    const meta=[[64,0,64],[0,64,0],[128,0,128],[0,128,0],[0,0,0],[0,0,0],[128,0,128],[0,128,0]];
+                    meta.forEach((rgb,i)=>nativeBytes.set([...rgb,255],(8+i)*4));
+                }
+                fs.writeFileSync(path.join(texDir,`${modelName}_native.png`),encodePNG(result.tw,result.ty,nativeBytes));
+                for(const slot of [...DISPLAY_SLOTS,'default']) {
+                    const sourceSlot=exportedSlots.includes(slot)?slot:'default';
+                    const model=JSON.parse(fs.readFileSync(path.join(modelsDir,`${modelName}_${sourceSlot}.json`),'utf8'));
+                    if(!exportedSlots.includes(slot)) model.display[slot]=IDENTITY_DISPLAY;
+                    for(const key of Object.keys(model.textures)) model.textures[key]={sprite:`${EXPORT_NS}:item/${modelName}_native`,force_translucent:true};
+                    fs.writeFileSync(path.join(modelsDir,`${modelName}_native_${slot}.json`),JSON.stringify(model));
+                }
+            }
             if (filesOnly) { resolve(); return; }
 
             // Item override → assets/minecraft/items/<baseItem>.json. Merge a new
@@ -4075,6 +4531,35 @@ SOFTWARE.
             } else {
                 itemObj = buildItemSelector(modelName, exportedSlots, baseItem);
             }
+            if (cfg.skinEnabled) {
+                installSkinRuntime(fs, path, root);
+                itemObj.model.cases.find(c => c.when === modelName).model = skinComposite(modelName, exportedSlots, cfg.skinSlot,nativePlan?.entry);
+                if(nativePlan) {
+                    const shaderFile=path.join(root,"assets/objcubed/shaders/include/profile_geometry.glsl");
+                    fs.mkdirSync(path.dirname(shaderFile),{recursive:true});
+                    for(const [file,content] of [[shaderFile,nativePlan.shader],[nativePlan.file,JSON.stringify(nativePlan.catalog)]]) {
+                        fs.writeFileSync(file+".tmp",content);fs.renameSync(file+".tmp",file);
+                    }
+                }
+                const donorDisplay = Object.fromEntries(DISPLAY_SLOTS.map(slot => [slot, IDENTITY_DISPLAY]));
+                fs.writeFileSync(path.join(modelsDir, `${modelName}_skin_donor.json`),
+                    JSON.stringify({parent:'minecraft:item/template_skull',display:donorDisplay}), 'utf8');
+                saveDatapackFiles(generateSkinDatapackFiles(modelName),
+                    path.join(cfg.datapackOutputDir || path.join(root, '..', 'datapacks'), 'objcubed_skin'));
+                fs.writeFileSync(path.join(itemsDir, `${modelName}_skin.txt`), [
+                    '# objcubed RP + Improved Transparency / objcubed RP + Улучшенная прозрачность',
+                    `# Skin slot / Слот скина: ${cfg.skinSlot + 1}`,
+                    `function objcubed:skin/${modelName}/give`,
+                    '# Hold the item; the datapack binds your profile within one second.',
+                    '# Возьмите предмет в руку; датапак подставит ваш профиль в течение секунды.',
+                    `function objcubed:skin/${modelName}/bind`,
+                    '# For an item_display: copy this held item, including its profile, to contents.',
+                    '# Для item_display скопируйте этот предмет вместе с профилем в слот contents.',
+                ].join('\n')+'\n', 'utf8');
+            }
+            // Ordinary models may share player_head with skin exports. Preserve
+            // its native profile renderer regardless of which model exports last.
+            if (baseItem === 'player_head') itemObj.model.fallback = vanillaPlayerHead();
             // Atomic write: this file aggregates EVERY model's custom_model_data case on
             // this base item, so a half-written/interrupted overwrite would destroy them
             // all. Stage to .tmp then rename (atomic on the same filesystem).
@@ -4112,7 +4597,7 @@ SOFTWARE.
                     cfg.datapackNamespace, horse ? 'horse' : cfg.datapackTargetType,
                     horse ? horse.slot : cfg.datapackEquipSlot,
                     baseItem, modelName, horseAsset || legacyEquipAsset,
-                    horse ? horse.layer : 'humanoid', legacyHorse, result.cameras
+                    horse ? horse.layer : 'humanoid', legacyHorse, result.cameras, result.nativeSkin
                 );
                 // Empty output dir defaults to a sibling of the resource pack. That default
                 // is unwritable when the RP root is a Flatpak document-portal mount
@@ -4334,7 +4819,7 @@ SOFTWARE.
     // Section 10b: Datapack Function Generation
     // =========================================================
 
-    function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot, baseItem, modelName, equipAsset, equipmentTarget, legacyHorse = true, cameras = []) {
+    function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot, baseItem, modelName, equipAsset, equipmentTarget, legacyHorse = true, cameras = [], nativeSkin = null) {
         const horse = equipmentOf({ exportAsEquipment: true, equipmentTarget });
         legacyHorse = legacyHorse && !!HORSE_EQUIPMENT[equipmentTarget];
         if (horse) { targetType = horse.entity; equipSlot = horse.slot; baseItem = horse.item; }
@@ -4613,6 +5098,26 @@ SOFTWARE.
             ``,
         ].join('\n'));
 
+        if (nativeSkin?.controlled && !isArmor) {
+            // Native special models do not receive item tint. Mirror the clock
+            // into floats[0] only when a control command changes it, not every
+            // tick. Other custom_model_data lists and float entries survive.
+            for (const mode of ['auto','manual']) {
+                const key=`data/${ns}/function/${priv}/_apply_${mode}.mcfunction`;
+                const target=isPlayer?tmp:'@s', at=isPlayer?'execute at @s run ':'';
+                const component=`${equipPath}.components."minecraft:custom_model_data".floats`;
+                const lines=[`scoreboard players operation #profile ${sb} = @s ${sb}`];
+                if(mode==='auto') lines.push(`execute if score #profile ${sb} matches 32768.. run scoreboard players remove #profile ${sb} 32768`);
+                lines.push(`scoreboard players operation #profile ${sb} %= #dur ${sb}`,
+                    `scoreboard players add #profile ${sb} ${mode==='manual'?nframes+1:1}`,
+                    `${at}execute unless data entity ${target} ${component} run data modify entity ${target} ${component} set value [0.0f]`,
+                    `${at}execute unless data entity ${target} ${component}[0] run data modify entity ${target} ${component} append value 0.0f`,
+                    `${isPlayer?'execute at @s':'execute'} store result entity ${target} ${component}[0] float 1 run scoreboard players get #profile ${sb}`);
+                const body=files.get(key);
+                const copyBack=`execute at @s run item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`;
+                files.set(key,isPlayer?body.replace(copyBack,lines.join('\n')+'\n'+copyBack):body+'\n'+lines.join('\n'));
+            }
+        }
         if (cameras?.length) addCameraDatapack(files, {ns, id, sb, targetType, nframes, cameras});
         return files;
     }
@@ -4850,7 +5355,7 @@ SOFTWARE.
             if (relPath === 'pack.mcmeta' && fs.existsSync(fullPath)) continue;
             const dir = path.dirname(fullPath);
             fs.mkdirSync(dir, { recursive: true });
-            if (/tags\/function\/(tick|load)\.json$/.test(relPath) && fs.existsSync(fullPath)) {
+            if (/tags\/function\/(tick|load|skin\/bind)\.json$/.test(relPath) && fs.existsSync(fullPath)) {
                 // merge our function into the existing tag (don't clobber other packs')
                 let existing = {};
                 try { existing = JSON.parse(fs.readFileSync(fullPath, 'utf8')); } catch (e) {}
@@ -4922,6 +5427,10 @@ SOFTWARE.
                         texAnimEnabled: false,
                         texFrametime:  1,
                         texFade:       false,
+                        skinEnabled: false,
+                        skinSlot: 0,
+                        skinFromTexture: false,
+                        skinAutomatic: false,
                         // Transform
                         scale:         1,
                         offsetX:       0, offsetY: 0, offsetZ: 0,
@@ -5060,6 +5569,14 @@ SOFTWARE.
                         }
                     }
 
+                    const skinReferences = skinReferenceTextures();
+                    state.skinAutomatic = skinReferences.length > 0;
+                    if (state.skinAutomatic) {
+                        state.skinEnabled = state.skinFromTexture = true;
+                        state.selectedTex = Texture.all.indexOf(skinReferences[0]);
+                    } else if (state.skinFromTexture) {
+                        state.skinEnabled = state.skinFromTexture = false;
+                    }
                     state.modelOutputDir ||= state.filesOutputDir;
                     state.textureOutputDir ||= state.filesOutputDir;
                     if (state.equipmentTarget !== 'humanoid' && !Object.prototype.hasOwnProperty.call(ANIMAL_EQUIPMENT,state.equipmentTarget))
@@ -5161,6 +5678,11 @@ SOFTWARE.
                         const t = e.target.closest('[data-tip]');
                         if (t) hide();
                     });
+                    this.$el.addEventListener('change', (e) => {
+                        const field = e.target.closest('.oc-cb-field');
+                        // Refresh after Vue updates the selected mode's explanation.
+                        if (field) this.$nextTick(() => show(field));
+                    });
                     // Style the Export button in the dialog bar
                     this.$nextTick(() => {
                         const dlg = this.$el.closest('.dialog');
@@ -5257,8 +5779,8 @@ SOFTWARE.
                             try { return h / textureFrameHeight(tex, w, h, true); }
                             catch (_) { return Math.max(2, Number(tex.frameCount) || 2); }
                         };
-                        if (this.useAtlas) {
-                            const counts = atlasTexIndicesFrom(this.atlasTexChecked)
+                        if (this.useAtlas || this.skinEnabled) {
+                            const counts = (this.skinEnabled ? Texture.all.map((_,i)=>i) : atlasTexIndicesFrom(this.atlasTexChecked))
                                 .map(i => framesOf(Texture.all[i]));
                             return counts.length ? Math.max(1, ...counts) : 1;
                         }
@@ -5295,13 +5817,12 @@ SOFTWARE.
                     },
                     previewTexSize() {
                         // Returns {w, h} based on current texture/atlas choice.
-                        if (this.useAtlas) {
+                        if (this.useAtlas || this.skinEnabled) {
                             // Array-guarded via atlasTexIndicesFrom so a corrupt/hand-edited
                             // project whose persisted atlasTexChecked is a non-array doesn't
                             // make this computed throw `TypeError: …map is not a function`
                             // (final-review fix; same class as C1/C3).
-                            const selected = atlasTexIndicesFrom(this.atlasTexChecked)
-                                .map(i => Texture.all[i])
+                            const selected = (this.skinEnabled ? Texture.all : atlasTexIndicesFrom(this.atlasTexChecked).map(i => Texture.all[i]))
                                 .filter(Boolean);
                             if (!selected.length) return null;
                             let w = 0, h = 0;
@@ -5357,7 +5878,7 @@ SOFTWARE.
                             w.push({ level:'warn',
                                 msg: t('warn_filter_no_armature') });
                         }
-                        if (this.useAtlas && this.multiTex && !(Array.isArray(this.atlasTexChecked) && this.atlasTexChecked.some(v=>v))) {
+                        if (!this.skinEnabled && this.useAtlas && this.multiTex && !(Array.isArray(this.atlasTexChecked) && this.atlasTexChecked.some(v=>v))) {
                             w.push({ level:'error', msg: t('warn_atlas_empty') });
                         }
                         // Validate each source texture using the exporter's frame
@@ -5411,7 +5932,13 @@ SOFTWARE.
                     },
                     validationErrors() {
                         const errs = [];
-                        if (this.useAtlas && this.multiTex && !(Array.isArray(this.atlasTexChecked) && this.atlasTexChecked.some(v => v)))
+                        if (this.skinEnabled) {
+                            try { validateSkinExport({skinEnabled:true,skinFromTexture:this.skinFromTexture,skinSlot:+this.skinSlot,texIndex:+this.selectedTex,
+                                outputMode:this.outputMode,exportAsEquipment:this.exportAsEquipment,
+                                useAtlas:this.useAtlas,texAnimEnabled:this.texAnimEnabled}); }
+                            catch (e) { errs.push({field:'skinEnabled',msg:e.message}); }
+                        }
+                        if (!this.skinEnabled && this.useAtlas && this.multiTex && !(Array.isArray(this.atlasTexChecked) && this.atlasTexChecked.some(v => v)))
                             errs.push({ field:'atlas', msg: t('err_atlas_none') });
                         // (removed: orphaned scale<=0 validation — `scale` has no UI input,
                         // so this was an unrecoverable dead-end for legacy/corrupt persisted
@@ -5918,15 +6445,22 @@ SOFTWARE.
                         });
                         if (dir) this.resourcePackDir = dir;
                     },
-                    cycleCb(channel) {
-                        // Click a channel button → step through direct→time→overlay→hurt.
-                        // 'scale' is intentionally not offered in the UI cycle (kept in the
-                        // shader's index mapping for backward compatibility, see cbArr).
-                        if (this.colorBehaviorForcedByDatapack) return;
-                        const ORDER = ['direct','time','overlay','hurt'];
-                        const cur = this[channel];
-                        const next = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length];
-                        this[channel] = next;
+                    cbOptions(channel) {
+                        const modes = ['direct','time','overlay','hurt'];
+                        // Keep a saved legacy scale setting visible until it is changed.
+                        if (this[channel] === 'scale') modes.splice(2, 0, 'scale');
+                        return modes;
+                    },
+                    cbValue(channel) {
+                        return this.colorBehaviorForcedByDatapack ? 'time' : this[channel];
+                    },
+                    cbTooltip(channel) {
+                        const prefix = this.colorBehaviorForcedByDatapack ? t('color_datapack_note') + '. ' : '';
+                        return prefix + t('help_cb_' + this.cbValue(channel));
+                    },
+                    setCb(channel, value) {
+                        if (this.colorBehaviorForcedByDatapack || !['cbR','cbG','cbB'].includes(channel)) return;
+                        if (this.cbOptions(channel).includes(value)) this[channel] = value;
                     },
                     applyColorPreset(name) {
                         if (this.colorBehaviorForcedByDatapack) return;
@@ -5971,6 +6505,9 @@ SOFTWARE.
                         try {
                             const cfg = {
                                 texIndex:        +this.selectedTex,
+                                skinEnabled: !!this.skinEnabled,
+                                skinSlot: +this.skinSlot,
+                                skinFromTexture: !!this.skinFromTexture,
                                 useAtlas:        !!this.useAtlas,
                                 atlasTexIndices:  atlasTexIndicesFrom(this.atlasTexChecked),
                                 texAnimEnabled:  !!this.texAnimEnabled,
@@ -6007,7 +6544,7 @@ SOFTWARE.
                                 textureOutputDir: this.textureOutputDir,
                                 textureResource: this.textureResource,
                                 selectedContexts: this.customContexts ? this.selectedContexts.slice() : undefined,
-                                baseItem:           this.baseItem,
+                                baseItem:           this.skinEnabled ? 'player_head' : this.baseItem,
                                 cmdName:            this.cmdName,
                                 exportAsEquipment:  !!this.exportAsEquipment,
                                 equipmentTarget:    this.equipmentTarget,
@@ -6074,7 +6611,7 @@ SOFTWARE.
     <div v-if="!multiTex" style="display:flex;align-items:center;gap:10px;padding:0 4px;">
       <img v-if="selectedTexThumb" :src="selectedTexThumb"
            style="width:48px;height:48px;image-rendering:pixelated;border-radius:4px;object-fit:contain;background:rgba(255,255,255,0.04);flex-shrink:0;"/>
-      <select v-model="selectedTex" style="flex:1;padding:4px 6px;">
+      <select v-model="selectedTex" :disabled="skinAutomatic" style="flex:1;padding:4px 6px;">
         <option v-for="tx in texOptions" :key="tx.value" :value="tx.value">{{tx.label}}</option>
       </select>
     </div>
@@ -6082,11 +6619,11 @@ SOFTWARE.
     <div v-else style="padding:0 4px;">
       <!-- oc-tour-atlas: tour anchor (issue #4) — on the combine-into-atlas toggle -->
       <label class="oc-tour-atlas" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <input type="checkbox" v-model="useAtlas"/>
+        <input type="checkbox" :checked="useAtlas || skinEnabled" :disabled="skinEnabled" @change="useAtlas=$event.target.checked"/>
         <span>{{t('atlas_combine')}}</span>
         <span class="oc-help" tabindex="0" :aria-label="help('useAtlas')" :data-tip="help('useAtlas')">?</span>
       </label>
-      <div v-if="!useAtlas" style="display:flex;align-items:center;gap:10px;">
+      <div v-if="!useAtlas && !skinEnabled" style="display:flex;align-items:center;gap:10px;">
         <img v-if="selectedTexThumb" :src="selectedTexThumb"
              style="width:48px;height:48px;image-rendering:pixelated;border-radius:4px;object-fit:contain;background:rgba(255,255,255,0.04);flex-shrink:0;"/>
         <select v-model="selectedTex" style="flex:1;padding:4px 6px;">
@@ -6095,12 +6632,49 @@ SOFTWARE.
       </div>
       <div v-else :class="hasErr('atlas') ? 'oc-err' : ''" style="padding:6px 8px;border-radius:4px;background:rgba(255,255,255,0.02);display:flex;flex-direction:column;gap:5px;">
         <label v-for="(tx, i) in texOptions" :key="tx.value" style="display:flex;align-items:center;gap:8px;line-height:1.4;cursor:pointer;">
-          <input type="checkbox" :checked="atlasTexChecked[i]" @change="setAtlasChecked(i, $event.target.checked)"/>
+          <input type="checkbox" :checked="skinEnabled || atlasTexChecked[i]" :disabled="skinEnabled" @change="setAtlasChecked(i, $event.target.checked)"/>
           <img v-if="tx.thumb" :src="tx.thumb" class="oc-tex-thumb"/>
           <span>{{tx.label}}</span>
         </label>
       </div>
     </div>
+    <div class="oc-skin-row" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;">
+      <label style="display:inline-flex;align-items:center;gap:6px;">
+        <input v-if="!skinAutomatic" type="checkbox" v-model="skinEnabled"/>
+        <span>{{t('lbl_skin')}}</span>
+        <span class="oc-help" tabindex="0" :aria-label="t('help_skin')" :data-tip="t('help_skin')">?</span>
+      </label>
+      <label v-if="skinEnabled" style="display:inline-flex;align-items:center;gap:6px;">
+        <span>{{t('lbl_skin_slot')}}</span>
+        <select v-model.number="skinSlot"><option v-for="slot in 8" :key="slot" :value="slot - 1">{{slot}}</option></select>
+      </label>
+    </div>
+    <div v-if="skinEnabled && multiTex" style="margin-top:6px;color:var(--color-subtle_text);">{{t('skin_atlas_auto')}}</div>
+    <div  class="oc-tour-texanim" style="margin-top:10px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
+          <input type="checkbox" v-model="texAnimEnabled" :disabled="texFrameCount <= 1"/>
+          <span>{{t('tex_anim_enable')}}</span>
+          <span class="oc-help" tabindex="0" :aria-label="help('texAnim')" :data-tip="help('texAnim')">?</span>
+        </label>
+      </div>
+      <div v-if="texAnimEnabled && texFrameCount > 1" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;max-width:140px;">
+          <span>{{t('tex_frametime')}}<span class="oc-help" tabindex="0" :aria-label="help('texFrametime')" :data-tip="help('texFrametime')">?</span></span>
+          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime"/>
+        </label>
+        <div class="oc-frame-chip">
+          <i class="material-icons">movie</i>
+          <span>{{texFrameCount}} {{tPlural(texFrameCount,'frames')}} · {{texFrametime}} {{tPlural(texFrametime,'ticks')}} {{t('tex_chip_each')}}</span>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--oc-scale));">
+          <input type="checkbox" v-model="texFade"/>
+          <span>{{t('tex_fade')}}</span>
+          <span class="oc-help" tabindex="0" :aria-label="help('texFade')" :data-tip="help('texFade')">?</span>
+        </label>
+      </div>
+    </div>
+
   </div>
 
   <!-- ======== DISPLAY (per-slot tabs with rotation / translation / scale) ======== -->
@@ -6412,34 +6986,6 @@ SOFTWARE.
 
     </div>
 
-    <!-- Animated textures (issue #9): only when a frame-strip texture is present.
-         Sits between the geometry animation and the datapack block — all three
-         are playback controls, and texAnim is independent of the geometry anim. -->
-    <div v-if="texFrameCount > 1" class="oc-tour-texanim" style="margin-top:10px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <label style="font-weight:600;color:#ddd;display:inline-flex;align-items:center;gap:6px;flex:1;">
-          <input type="checkbox" v-model="texAnimEnabled"/>
-          <span>{{t('tex_anim_enable')}}</span>
-          <span class="oc-help" tabindex="0" :aria-label="help('texAnim')" :data-tip="help('texAnim')">?</span>
-        </label>
-      </div>
-      <div v-if="texAnimEnabled" style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
-        <label style="font-size:calc(12px * var(--oc-scale));color:#aaa;display:flex;flex-direction:column;gap:3px;max-width:140px;">
-          <span>{{t('tex_frametime')}}<span class="oc-help" tabindex="0" :aria-label="help('texFrametime')" :data-tip="help('texFrametime')">?</span></span>
-          <input v-model.number="texFrametime" type="number" min="1" step="1" @change="clampTexFrametime"/>
-        </label>
-        <div class="oc-frame-chip">
-          <i class="material-icons">movie</i>
-          <span>{{texFrameCount}} {{tPlural(texFrameCount,'frames')}} · {{texFrametime}} {{tPlural(texFrametime,'ticks')}} {{t('tex_chip_each')}}</span>
-        </div>
-        <label style="display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--oc-scale));">
-          <input type="checkbox" v-model="texFade"/>
-          <span>{{t('tex_fade')}}</span>
-          <span class="oc-help" tabindex="0" :aria-label="help('texFade')" :data-tip="help('texFade')">?</span>
-        </label>
-      </div>
-    </div>
-
     <!-- Playback shaping: easing (geometry frame blending) + autorotate.
          Ungated: autorotate matters for STATIC exports too (item frames). -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
@@ -6570,7 +7116,7 @@ SOFTWARE.
         </label>
         <label class="oc-output-field">
           <span>{{t('lbl_texture_resource')}}<span class="oc-help" tabindex="0" :aria-label="help('texture_resource')" :data-tip="help('texture_resource')">?</span></span>
-          <input v-model="textureResource" placeholder="objcubed:item/my_model"/>
+          <input v-model="textureResource" placeholder="mypack:item/golem / #skin"/>
         </label>
       </template>
     </div>
@@ -6588,7 +7134,16 @@ SOFTWARE.
              Combobox: free typing always works; when the item registry loaded
              (fetched once from the mcasset mirror, cached in localStorage) a
              filtered dropdown with item icons appears. Offline = plain input. -->
-        <label v-if="outputMode !== 'files' && !isHorseEquipment" class="oc-tour-baseitem" style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;position:relative;">
+        <div v-if="skinEnabled" style="grid-column:1/-1;">
+      <label style="display:flex;flex-direction:column;gap:4px;">
+        <span>{{t('skin_dp_note')}}</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="text" v-model="datapackOutputDir" :placeholder="t('placeholder_near_png')" style="flex:1;min-width:0;"/>
+          <button type="button" class="oc-btn oc-icon-btn" style="width:24px;height:24px;min-width:24px;min-height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;" @click="browseDatapackDir" :title="t('lbl_datapack_dir')"><i class="material-icons">folder_open</i></button>
+        </div>
+      </label>
+        </div>
+        <label v-if="outputMode !== 'files' && !isHorseEquipment && !skinEnabled" class="oc-tour-baseitem" style="color:#aaa;grid-column:1/-1;display:flex;flex-direction:column;gap:3px;min-width:0;position:relative;">
           <span>{{t('lbl_base_item')}}<span class="oc-help" tabindex="0" :aria-label="help('base_item')" :data-tip="help('base_item')">?</span></span>
           <div style="display:flex;gap:6px;align-items:center;">
             <img v-if="baseItemKnown" :src="itemIconUrl(baseItem)" class="oc-item-icon"
@@ -6655,18 +7210,20 @@ SOFTWARE.
         <span>{{t('section_color')}}</span>
         <span class="oc-help" tabindex="0" :aria-label="help('cb_general')" :data-tip="help('cb_general')">?</span>
       </div>
-      <div v-if="!colorBehaviorForcedByDatapack">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-          <button v-for="cn in [{k:'cbR',col:'#d44'},{k:'cbG',col:'#4d4'},{k:'cbB',col:'#48f'}]" :key="cn.k"
-                  class="oc-cb-btn"
-                  @click="cycleCb(cn.k)"
-                  :style="{border:'1px solid '+cn.col}">
-            <span class="oc-cb-letter" :style="{color:cn.col}">{{cn.k.slice(-1)}}</span>
-            <span class="oc-cb-value">{{cbLabel($data[cn.k])}}</span>
-          </button>
-        </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+        <label v-for="cn in [{k:'cbR',col:'#d44'},{k:'cbG',col:'#4d4'},{k:'cbB',col:'#48f'}]" :key="cn.k"
+               class="oc-cb-field" :class="{'is-disabled':colorBehaviorForcedByDatapack}"
+               :style="{'--oc-channel':cn.col}" :data-tip="cbTooltip(cn.k)"
+               :tabindex="colorBehaviorForcedByDatapack ? 0 : null">
+          <span class="oc-cb-letter">{{cn.k.slice(-1)}}</span>
+          <select :value="cbValue(cn.k)" @change="setCb(cn.k,$event.target.value)"
+                  :disabled="colorBehaviorForcedByDatapack"
+                  :aria-label="t('section_color')+' — '+cn.k.slice(-1)" :aria-description="cbTooltip(cn.k)">
+            <option v-for="mode in cbOptions(cn.k)" :key="mode" :value="mode" :title="t('help_cb_'+mode)">{{cbLabel(mode)}}</option>
+          </select>
+        </label>
       </div>
-      <div v-else style="color:#777;font-size:calc(12px * var(--oc-scale));">
+      <div v-if="colorBehaviorForcedByDatapack" style="margin-top:6px;color:#888;font-size:calc(12px * var(--oc-scale));">
         {{t('color_datapack_note')}}. <span class="oc-help" tabindex="0" :aria-label="help('generateDatapack')" :data-tip="help('generateDatapack')">?</span>
       </div>
       <div v-if="exportAsEquipment" style="margin-top:8px;color:#aaa;font-size:calc(12px * var(--oc-scale));">
@@ -6767,7 +7324,7 @@ SOFTWARE.
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export models, textures and animations to Minecraft resource packs',
         icon: 'data:image/png;base64,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',
-        version: '0.9.7',
+        version: '0.10.0',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {
@@ -6778,6 +7335,7 @@ SOFTWARE.
                 click: showDialog,
             });
             MenuBar.addAction(this.exportAction, 'file.export');
+            installSkinTextureTools(this);
 
             this.emissivePropCube = new Property(Cube, 'number', 'objcubed_light_emission', {
                 default: 0,
@@ -6862,6 +7420,7 @@ SOFTWARE.
             installStylesheet();
         },
         onunload() {
+            uninstallSkinTextureTools(this);
             if (this.exportAction) this.exportAction.delete();
             if (this._emissiveMenuItem) {
                 for (const cls of [Cube, typeof Mesh !== 'undefined' ? Mesh : null]) {
@@ -6909,6 +7468,8 @@ SOFTWARE.
             buildItemTransformMatrix, activeSlotPrefixFor,
             parseObj, parseMtl, posPixels, uvPixels, vertPixels, atlasTexIndicesFrom, frameCountOf,
             buildAtlas,
+            nativeSkinData, planNativeSkin, generateNativeSkinShader, nativeSkinHandModel,
+            installSkinTextureTools, uninstallSkinTextureTools, addSkinReferenceTexture, skinReferenceImage, installSkinRuntime, applySkinTextureConfig,
             compileAnimatedObjFrames, collectExportCameras, sampleExportCamera, addCameraDatapack,
             encodePNG, estimateOutputPng, t, LANG, PERSISTABLE_FIELDS,
             surfaceWarning, pluralForm, tPlural,

@@ -8,6 +8,10 @@ Mesh models, 3D armor and first- and third-person animations in vanilla Minecraf
 Create and export them directly from [Blockbench](https://www.blockbench.net/).
 No mods required.
 
+**Experimental 26.3v3:** [release and downloads](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3)
+with player skins, updated export controls and animation fixes.
+[Skin setup and limitations (RU)](docs/PLAYER_SKIN_TEST_RU.md).
+
 ### What you can make
 
 - Mesh models for items and blocks.
@@ -23,8 +27,8 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 
 ### Start
 
-1. Download [objcubed.js](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.js?v=0.9.5) and load it in Blockbench via **File → Plugins → Load Plugin from File**.
-2. Download [objcubed.zip](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.zip?v=0.9.5), put it in Minecraft's `resourcepacks` folder and enable it.
+1. Download `objcubed.js` and `objcubed.zip` from the same release: [stable 26.3v2](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v2) or [experimental 26.3v3](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3). Load `objcubed.js` in Blockbench via **File → Plugins → Load Plugin from File**.
+2. Put `objcubed.zip` in Minecraft's `resourcepacks` folder and enable it.
 3. [Set up a model resource pack](docs/GUIDE_EN.md#set-up-a-model-resource-pack), open your model and choose **File → Export → Export as obj³…**.
 4. Enable your model pack, reload resources with **F3+T** and use the command from the exported `_give.txt` file.
 
@@ -43,6 +47,10 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 Создавайте и экспортируйте их прямо из [Blockbench](https://www.blockbench.net/).
 Моды не нужны.
 
+**Экспериментальная 26.3v3:** [релиз и файлы](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3)
+со скинами игроков, обновлёнными настройками экспорта и исправлениями анимаций.
+[Настройка скинов и ограничения](docs/PLAYER_SKIN_TEST_RU.md).
+
 ### Что можно сделать
 
 - Модели предметов и блоков из мешей.
@@ -58,8 +66,8 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 
 ### Начать
 
-1. Скачайте [objcubed.js](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.js?v=0.9.5) и установите в Blockbench через **File → Plugins → Load Plugin from File**.
-2. Скачайте [objcubed.zip](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3/objcubed.zip?v=0.9.5), положите в папку `resourcepacks` Minecraft и включите пакет.
+1. Скачайте `objcubed.js` и `objcubed.zip` из одного релиза: [стабильного 26.3v2](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v2) или [экспериментального 26.3v3](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3). Установите `objcubed.js` в Blockbench через **File → Plugins → Load Plugin from File**.
+2. Положите `objcubed.zip` в папку `resourcepacks` Minecraft и включите пакет.
 3. [Подготовьте ресурс-пак для моделей](docs/README_RU.md#установка), откройте модель и выберите **File → Export → Export as obj³…**.
 4. Включите пакет модели, перезагрузите ресурсы через **F3+T** и используйте команду из экспортированного `_give.txt`.
 
