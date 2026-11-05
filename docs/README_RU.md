@@ -1,6 +1,6 @@
 # obj³ (objcubed)
 
-**Экспериментальный релиз 26.3v3:** [изменения](RELEASE_26.3v3.md),
+[**Стабильный релиз 26.3v4**](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v4) · [изменения](RELEASE_26.3v4.md) ·
 [установка и ограничения скинов](PLAYER_SKIN_TEST_RU.md).
 Для него обновите плагин и основной RP вместе; датапак профилей создаётся при
 экспорте модели со скином. Версии и отчёты ниже относятся к прежним выпускам.
@@ -17,8 +17,8 @@
 
 ## Установка
 
-1. В настольном Blockbench откройте **File → Plugins → Load Plugin from File** и выберите `objcubed.js`.
-2. Поместите `objcubed.zip` в папку `resourcepacks` клиента Minecraft 26.3 и включите его выше пакетов, заменяющих те же core-шейдеры.
+1. Скачайте [плагин Blockbench (`objcubed.js`)](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3v4/objcubed.js) и откройте его в настольном Blockbench через **File → Plugins → Load Plugin from File**.
+2. Скачайте [ресурспак (`objcubed.zip`)](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3v4/objcubed.zip), поместите его в папку `resourcepacks` клиента Minecraft 26.3 и включите выше пакетов, заменяющих те же core-шейдеры.
 3. Создайте папку модели в `resourcepacks`, скопируйте в её корень `pack.mcmeta` из ZIP шейдеров и выберите эту папку для экспорта в плагине. Экспортёр добавляет `assets`, но сам не создаёт metadata ресурс-пака. Включите пакет модели вместе с пакетом шейдеров. Для рук и управления анимацией используйте свежий экспорт: 26.3 получает явные метки контекста предмета и актуальный формат datapack.
 4. Перезагрузите ресурсы через **F3+T**. Для получения предмета используйте команду из созданного экспортёром файла `_give.txt`.
 

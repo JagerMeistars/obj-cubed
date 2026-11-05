@@ -8,8 +8,7 @@ Mesh models, 3D armor and first- and third-person animations in vanilla Minecraf
 Create and export them directly from [Blockbench](https://www.blockbench.net/).
 No mods required.
 
-**Experimental 26.3v3:** [release and downloads](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3)
-with player skins, updated export controls and animation fixes.
+[**Stable release 26.3v4**](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v4) includes player skins, datapack controls for animated textures and whole-model shading.
 [Skin setup and limitations](docs/PLAYER_SKIN_TEST_EN.md).
 
 ### What you can make
@@ -27,8 +26,8 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 
 ### Start
 
-1. Download `objcubed.js` and `objcubed.zip` from the same release: [stable 26.3v2](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v2) or [experimental 26.3v3](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3). Load `objcubed.js` in Blockbench via **File → Plugins → Load Plugin from File**.
-2. Put `objcubed.zip` in Minecraft's `resourcepacks` folder and enable it.
+1. Download the [Blockbench plugin (`objcubed.js`)](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3v4/objcubed.js) and load it via **File → Plugins → Load Plugin from File**.
+2. Download the [resource pack (`objcubed.zip`)](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3v4/objcubed.zip), put it in Minecraft's `resourcepacks` folder and enable it.
 3. [Set up a model resource pack](docs/GUIDE_EN.md#set-up-a-model-resource-pack), open your model and choose **File → Export → Export as obj³…**.
 4. Enable your model pack, reload resources with **F3+T** and use the command from the exported `_give.txt` file.
 
@@ -37,7 +36,7 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 - [Modeling, export and animation controls](docs/GUIDE_EN.md)
 - [Animal equipment and elytra bindings (RU)](docs/ANIMAL_EQUIPMENT_RU.md)
 - [Blockbench equipment templates (RU)](templates/animal-equipment/README-RU.md)
-- [26.3 release details and verification](docs/RELEASE_26.3.md)
+- [26.3v4 release notes](docs/RELEASE_26.3v4.md) and [verification](docs/VERIFICATION_26.3v4.md)
 
 [Report a bug](https://github.com/JagerMeistars/obj-cubed/issues).
 
@@ -47,8 +46,7 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 Создавайте и экспортируйте их прямо из [Blockbench](https://www.blockbench.net/).
 Моды не нужны.
 
-**Экспериментальная 26.3v3:** [релиз и файлы](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3)
-со скинами игроков, обновлёнными настройками экспорта и исправлениями анимаций.
+[**Стабильный релиз 26.3v4**](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v4) поддерживает скины игроков, управление анимированными текстурами через датапак и выбор режима затенения для всей модели.
 [Настройка скинов и ограничения](docs/PLAYER_SKIN_TEST_RU.md).
 
 ### Что можно сделать
@@ -66,8 +64,8 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 
 ### Начать
 
-1. Скачайте `objcubed.js` и `objcubed.zip` из одного релиза: [стабильного 26.3v2](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v2) или [экспериментального 26.3v3](https://github.com/JagerMeistars/obj-cubed/releases/tag/26.3v3). Установите `objcubed.js` в Blockbench через **File → Plugins → Load Plugin from File**.
-2. Положите `objcubed.zip` в папку `resourcepacks` Minecraft и включите пакет.
+1. Скачайте [плагин Blockbench (`objcubed.js`)](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3v4/objcubed.js) и установите его через **File → Plugins → Load Plugin from File**.
+2. Скачайте [ресурспак (`objcubed.zip`)](https://github.com/JagerMeistars/obj-cubed/releases/download/26.3v4/objcubed.zip), положите его в папку `resourcepacks` Minecraft и включите в игре.
 3. [Подготовьте ресурс-пак для моделей](docs/README_RU.md#установка), откройте модель и выберите **File → Export → Export as obj³…**.
 4. Включите пакет модели, перезагрузите ресурсы через **F3+T** и используйте команду из экспортированного `_give.txt`.
 
@@ -76,7 +74,7 @@ The plugin has English and Russian interfaces. This release is for **Minecraft
 - [Установка и обновление](docs/README_RU.md)
 - [Привязки экипировки мобов и элитр](docs/ANIMAL_EQUIPMENT_RU.md)
 - [Шаблоны экипировки для Blockbench](templates/animal-equipment/README-RU.md)
-- [Подробности релиза 26.3 и результаты проверок](docs/RELEASE_26.3.md)
+- [Изменения в 26.3v4](docs/RELEASE_26.3v4.md) и [результаты проверок](docs/VERIFICATION_26.3v4.md)
 
 [Сообщить об ошибке](https://github.com/JagerMeistars/obj-cubed/issues).
 
