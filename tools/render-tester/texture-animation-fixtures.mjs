@@ -2,7 +2,7 @@
 // export that result as STATIC textures. The GPU compares actual animation to
 // this static reference through the same geometry decoder. No shader decoding
 // formula or encoded header is used to construct expected image pixels.
-// Usage: node tools/render-tester/texture-animation-fixtures.mjs <out> <vanilla> [plugin-source]
+// Usage: node tools/render-tester/texture-animation-fixtures.mjs <out> <vanilla> [plugin-source] [--controlled]
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -14,7 +14,8 @@ const {loadPlugin}=require('../../test/helpers/load-plugin.cjs');
 const {makeMemFs}=require('../../test/helpers/mem-fs.cjs');
 const out=path.resolve(process.argv[2]??'audit/texture-animation');
 const vanilla=path.resolve(process.argv[3]??'audit/2026-09-28/vanilla');
-const plugin=path.resolve(process.argv[4]??'objcubed.js');
+const plugin=path.resolve(process.argv.slice(4).find(arg=>arg!=='--controlled')??'objcubed.js');
+const controlled=process.argv.includes('--controlled');
 fs.mkdirSync(out,{recursive:true});
 const sourceRoot=path.resolve('objcubed'),sourceHashes={};
 for(const pipeline of ['item','entity'])for(const[suffix,stage]of[['vsh','vert'],['fsh','frag']]){
@@ -42,6 +43,8 @@ function load(images,scenario){const memfs=makeMemFs();
  const api=loadPlugin(plugin,{requireImpl:id=>id==='fs'?memfs:id==='path'?{...path,...path.posix}:require(id),globals:{Buffer,Image,setTimeout,process,
   console:{log(){},warn(){},error:console.error},document:{createElement(){let image;return {getContext(){return {drawImage(i){image=i;},getImageData(){return images[image.index];}};}};}},
   ...(scenario.formatFalse?{Format:{animated_textures:false}}:{}),
+  // The static pose oracle must use the same equipment pivot as the animated export.
+  ...(scenario.controlled||scenario.staticPose!==undefined?{Group:{all:[{objcubed_body_part:0,origin:[0,1,0]}]}}:{}),
   Texture:{all:images.map((im,i)=>({uuid:'t'+i,name:'texture'+i,source:'data:'+i,img:{src:'data:'+i},...(scenario.metadataFree?{}:scenario.formatFalse?{uv_height:16,uv_width:16,frameCount:undefined}:scenario.modern?{uv_height:16*im.frameHeight/im.width,uv_width:16,frameCount:im.frames>1?im.frames:undefined,display_height:im.frameHeight}:{uv_height:im.frameHeight,frame_count:im.frames})}))},Outliner:{root:[]},
   Blockbench:{export(){throw Error('unexpected dialog');},pickDirectory(){return '/rp';}},Project:{name:'texture',export_path:''},BarItems:{}}});
  return {api,memfs};
@@ -70,7 +73,11 @@ const faces=[
 ];
 for(const f of faces){const[u0,v0,u1,v1]=f.uv,uv=[[u1,v0],[u0,v0],[u0,v1],[u1,v1]];for(let k=0;k<4;k++)armor.push(...f.v[k],uv[k][0]/64,uv[k][1]/32,...f.n);}
 floats(path.join(out,'armor-carrier.f32'),armor);
-const scenarios=[
+const scenarios=controlled ? [
+ {name:'controlled_strip',frames:[3],controlled:true,fade:true},
+ {name:'controlled_atlas',frames:[2,3,1],controlled:true,fade:true,flip:true},
+ {name:'controlled_moving_atlas',frames:[3,2],controlled:true,fade:true,geometry:true},
+] : [
  {name:'single_strip',frames:[3]},
  {name:'single_strip_flip',frames:[3],flip:true},
  {name:'single_strip_fade',frames:[3],fade:true},
@@ -94,24 +101,45 @@ const scenarios=[
  {name:'format_false_fallback',frames:[3,1],formatFalse:true,fade:true},
  {name:'metadata_free_fallback',frames:[3,1],metadataFree:true},
 ];
-async function exported(images,scenario,animate){const {api,memfs}=load(images,scenario);const cfg={texIndex:0,nopow:false,scale:1,offset:[0,0,0],colorbehavior:scenario.geometry?['time','time','time']:['direct','direct','direct'],duration:4,autoplay:false,easing:0,interpolation:0,noshadow:true,autorotate:0,visibility:7,displaySlots:{},flipuv:!!scenario.flip,useAtlas:images.length>1,atlasTexIndices:images.map((_,i)=>i),texAnimEnabled:animate,texFrametime:scenario.ft??2,texFade:!!scenario.fade,resourcePackDir:'/rp',baseItem:'stick',generateDatapack:false,cmdName:'texture',exportAsEquipment:true,selectedPieces:['chestplate']};
- const exp=await api.buildOutput(cfg,(scenario.geometry?[0,1,2,3]:[0]).map(f=>obj(images.length,f)),'');await api.saveSingleOutput(exp,api.buildDisplayTransforms(cfg),cfg);
+async function exported(images,scenario,animate){const {api,memfs}=load(images,scenario);const cfg={texIndex:0,nopow:false,scale:1,offset:[0,0,0],colorbehavior:scenario.geometry||scenario.controlled||scenario.staticPose!==undefined?['time','time','time']:['direct','direct','direct'],duration:4,autoplay:false,easing:0,interpolation:0,noshadow:true,autorotate:0,visibility:7,displaySlots:{},flipuv:!!scenario.flip,useAtlas:images.length>1,atlasTexIndices:images.map((_,i)=>i),texAnimEnabled:animate,texFrametime:scenario.ft??2,texFade:!!scenario.fade,resourcePackDir:'/rp',baseItem:'stick',generateDatapack:!!scenario.controlled,texDatapack:!!scenario.controlled,datapackNamespace:'audit',datapackAnimId:'texture',datapackTargetType:'item_display',cmdName:'texture',exportAsEquipment:true,selectedPieces:['chestplate']};
+ const exp=await api.buildOutput(cfg,(scenario.geometry?[0,1,2,3]:[scenario.staticPose??0]).map(f=>obj(images.length,f)),'');await api.saveSingleOutput(exp,api.buildDisplayTransforms(cfg),cfg);
  const equipment=[...memfs.writes].filter(([name])=>/\/humanoid\/texture_chestplate_\d+\.png$/.test(name));if(equipment.length!==1)throw Error('Expected one torso layer for at most four faces, got '+equipment.length);
  return {item:{data:exp.rawBuf,width:exp.tw,height:exp.ty,png:exp.pngBuffer,vertices:itemCarrier(exp.elements)},armor:{...PNG.sync.read(Buffer.from(equipment[0][1])),png:Buffer.from(equipment[0][1]),vertices:armor}};
 }
 const cases=[];
+function samples(scenario,ft){
+ if(!scenario.controlled) return [0,ft*.5,ft,ft*2,ft*2.5,ft*3,ft*5,ft*12].flatMap((time,ti)=>
+  (scenario.geometry?[0,3]:[0]).map(geometryFrame=>({id:'t'+ti+'-g'+geometryFrame,time,geometryFrame,textureTime:time,
+   fade:scenario.fade,rgb:scenario.geometry?[128,0,geometryFrame]:[255,255,255]})));
+ const duration=scenario.geometry?4:scenario.frames.length===1?6:12;
+ const make=(id,time,word,tick,hold=null,last=false)=>({id,time,geometryFrame:scenario.geometry?Math.floor(tick)%4:0,
+   textureTime:hold===null?tick:hold*ft,fade:hold===null&&!last&&scenario.fade,
+   rgb:word===null?[255,255,255]:[hold===null?0:hold+1,word>>8,word&255]});
+ return [
+  make('idle',17.25,null,0),
+  make('set',41.25,48002,2),make('set-later',95.75,48002,2),
+  make('stop-last',65,48000+duration-1,duration-1,null,true),
+  make('play-start',2,2,0),make('play-next',4.5,2,2.5),make('play-wrap',2+duration,2,0),
+  make('once-before-wrap',23998.25,24000+23997,1.25),make('once-after-wrap',.5,24000+23997,Math.min(3.5,duration-1),null,3.5>=duration-1),
+  make('once-ended',15.25,24000+23997,duration-1,null,true),
+  make('hold0',7.25,2,5.25%duration,0),make('hold2',7.25,2,5.25%duration,2),
+  make('hold2-later',8.25,2,6.25%duration,2),make('resume',8.25,2,6.25%duration),
+  make('manual-high-hold',183,48002,2,254),
+ ];
+}
 for(const scenario of scenarios){const dir=path.join(out,scenario.name);fs.mkdirSync(dir,{recursive:true});const images=scenario.frames.map((f,i)=>image(f,i,scenario.heights?.[i]??32)),actual=await exported(images,scenario,!scenario.static);
  images.forEach((im,i)=>fs.writeFileSync(path.join(dir,'source'+i+'.png'),PNG.sync.write(im)));
  for(const context of ['item','armor']){const e=actual[context];fs.writeFileSync(path.join(dir,context+'.rgba'),e.data);fs.writeFileSync(path.join(dir,context+'.png'),e.png);floats(path.join(dir,context+'.f32'),e.vertices);}
- const ft=scenario.ft??2,times=[0,ft*.5,ft,ft*2,ft*2.5,ft*3,ft*5,ft*12];
- for(const [ti,time]of times.entries())for(const pipeline of ['item','entity','armor','gui'])for(const geometryFrame of scenario.geometry?[0,3]:[0]){
-  const id=`${scenario.name}-${pipeline}-t${ti}-g${geometryFrame}`,cdir=path.join(dir,id);fs.mkdirSync(cdir,{recursive:true});
-  const referenceImages=images.map(im=>selectedImage(im,pipeline==='gui'?0:time,ft,!!scenario.fade));
-  const reference=await exported(referenceImages,scenario,false),kind=pipeline==='armor'?'armor':'item',r=reference[kind],a=actual[kind];
+ const ft=scenario.ft??2;
+ for(const sample of samples(scenario,ft))for(const pipeline of ['item','entity','armor','gui']){
+  const {time,geometryFrame,rgb}=sample,id=`${scenario.name}-${pipeline}-${sample.id}`,cdir=path.join(dir,id);fs.mkdirSync(cdir,{recursive:true});
+  const referenceImages=images.map(im=>selectedImage(im,pipeline==='gui'?0:sample.textureTime,ft,!!sample.fade));
+  const referenceScenario=scenario.controlled?{...scenario,geometry:false,controlled:false,staticPose:pipeline==='gui'?0:geometryFrame}:scenario;
+  const reference=await exported(referenceImages,referenceScenario,false),kind=pipeline==='armor'?'armor':'item',r=reference[kind],a=actual[kind];
   fs.writeFileSync(path.join(cdir,'expected.rgba'),r.data);fs.writeFileSync(path.join(cdir,'expected.png'),r.png);floats(path.join(cdir,'expected.f32'),r.vertices);
-  cases.push({id,pipeline,scenario:scenario.name,time,geometryFrame,rgb:scenario.geometry?[128,0,geometryFrame]:[255,255,255],actual:{texture:path.join(dir,kind+'.rgba'),geometry:path.join(dir,kind+'.f32'),width:a.width,height:a.height,count:a.vertices.length/(kind==='armor'?8:5)},expected:{texture:path.join(cdir,'expected.rgba'),geometry:path.join(cdir,'expected.f32'),width:r.width,height:r.height,count:r.vertices.length/(kind==='armor'?8:5)},directory:cdir,selectedFrames:referenceImages.map(im=>im.selected)});
+  cases.push({id,pipeline,scenario:scenario.name,time,geometryFrame,rgb,actual:{texture:path.join(dir,kind+'.rgba'),geometry:path.join(dir,kind+'.f32'),width:a.width,height:a.height,count:a.vertices.length/(kind==='armor'?8:5)},expected:{texture:path.join(cdir,'expected.rgba'),geometry:path.join(cdir,'expected.f32'),width:r.width,height:r.height,count:r.vertices.length/(kind==='armor'?8:5)},directory:cdir,selectedFrames:referenceImages.map(im=>im.selected)});
  }
 }
 fs.writeFileSync(path.join(out,'cases.tsv'),cases.map(c=>[c.id,c.pipeline,c.time,c.rgb.join(','),c.actual.texture,c.actual.geometry,c.actual.width,c.actual.height,c.actual.count,c.expected.texture,c.expected.geometry,c.expected.width,c.expected.height,c.expected.count,c.directory].join('\t')).join('\n'));
-fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify({createdAt:new Date().toISOString(),pluginSource:plugin,pluginSHA256:crypto.createHash('sha256').update(fs.readFileSync(plugin)).digest('hex'),sourceHashes,scenarios,cases,methodology:'Actual real buildOutput/saveSingleOutput export vs static export of independently time-selected/mixed source RGBA frames. Shared geometry decoder; no original-shader oracle. Pattern distinguishes material, frame, X half and Y half. GUI expects frame0. Geometry RGB24 freeze tested at two poses with the same texture GameTime. Synthetic carriers and hidden OpenGL; not gameplay.'},null,2));
+fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify({createdAt:new Date().toISOString(),pluginSource:plugin,pluginSHA256:crypto.createHash('sha256').update(fs.readFileSync(plugin)).digest('hex'),sourceHashes,scenarios,cases,methodology:'Actual buildOutput/saveSingleOutput vs static export of independently selected/mixed source RGBA frames. Pattern distinguishes material, frame, X half and Y half. GUI expects frame0. Synthetic carriers and hidden OpenGL; not gameplay. '+(controlled?'Control words select loop, single-play, set and independent held texture. Reference pose is baked at the expected geometry frame.':'Geometry RGB24 freeze tested at two poses with the same texture GameTime.')},null,2));
 console.log(`Prepared ${cases.length} texture-animation GPU cases at ${out}`);

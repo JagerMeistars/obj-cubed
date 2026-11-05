@@ -29,6 +29,11 @@ limits for each target. Both guides are in Russian.
 - Export from the **Edit** tab (the plugin guards against the Display and
   Animate tabs baking their pose into a static export, but Edit is the
   canonical state).
+- **Shading (0.11.0):** under **Advanced → Shading**, choose **Flat** (default) to light
+  each face separately, **Smooth** to blend lighting across faces, or **Ambient** to use
+  world light without directional shading. In Ambient the model darkens at night and
+  brightens near a torch. Explicitly glowing faces stay bright.
+  Re-export to apply the choice to the whole model. Its shape stays the same.
 
 ## Usage
 
@@ -44,7 +49,7 @@ limits for each target. Both guides are in Russian.
 
 ### Datapack generation
 
-When animation is enabled, you can generate a datapack for controlling animation via commands:
+Enable datapack generation to control model animation or an animated texture with commands:
 
 - **play** — start autoplay loop synced to GameTime
 - **stop** — freeze at current frame
@@ -58,6 +63,33 @@ Example:
 ```mcfunction
 execute as @e[type=armor_stand] run function mypack:walk/play
 ```
+
+### Controlling an animated texture (0.11.0)
+
+In **Textures**, enable texture animation, set the ticks per texture frame and
+check **Control texture with datapack**. Set the namespace, animation ID, target
+and world datapack directory, then export. A geometry animation is optional.
+After updating the resource pack, press **F3+T** and run `/reload`.
+
+For example, with namespace `demo`, animation ID `panel` and an `item_display`
+target, run these as the target entity:
+
+```mcfunction
+function demo:panel/play
+scoreboard players set @s objcubed.panel.tex 2
+function demo:panel/texture_set
+function demo:panel/texture_sync
+```
+
+`play` starts the shared clock. Run the two middle lines to hold the **third**
+texture frame while the geometry keeps moving. Run `texture_sync` later to
+return to the current point on the clock. The usual `stop`, `set`, `play_from`
+and `play_once` work on the shared timeline, measured in ticks. When only the
+texture moves, one cycle covers every animated strip in the atlas. With moving
+geometry, the geometry sets the cycle length. Each strip wraps at its own frame
+count; a held frame (0–254) applies to all strips on that item. The shared cycle
+can be up to 17,535 ticks; export warns if the texture strips need a longer cycle. GUI icons stay
+on frame 0. Leave the checkbox off for the previous independent texture loop.
 
 ## Armor / equipment export
 

@@ -17,6 +17,7 @@ layout(location = 6) in vec3 Pos;
 layout(location = 7) in float transition;
 layout(location = 8) flat in int isCustom;
 layout(location = 9) flat in int noshadow;
+layout(location = 11) in vec3 ocSmoothNormal;
 
 #ifndef OIT_ALPHA_ONLY
 layout(location = 0) out vec4 fragColor;

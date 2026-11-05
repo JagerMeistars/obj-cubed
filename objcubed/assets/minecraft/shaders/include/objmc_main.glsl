@@ -64,7 +64,8 @@ if (marker == ivec4(12,34,56,255)) {
     int vph = t[5].r*256 + t[5].g;
     int vth = t[5].b*256 + t[7].b;
     //6: noshadow, autorotate, visibility, hasStaticDisplay, colorbehavior
-    noshadow = getb(t[6].r, 7, 1);
+    int modelFlags = oc_model_flags(topleft);
+    noshadow = oc_lighting_mode(modelFlags, getb(t[6].r, 7));
     vec2 autorotate = vec2(getb(t[6].r, 6, 1), getb(t[6].r, 5, 1));
     bvec3 visibility = bvec3(getb(t[6].r, 4), getb(t[6].r, 3), getb(t[6].r, 2));
     bool hasStaticDisplay = getb(t[6].r, 1); //bit 1: any non-identity world display slot
@@ -75,6 +76,8 @@ if (marker == ivec4(12,34,56,255)) {
     //independent texture-animation clock (issue #9): not coupled to the
     //geometry-frame time, which gets reassigned below by tcolor/autoplay.
     float texTime = GameTime * 24000;
+    int heldTexture = -1;
+    bool textureEnd = false;
     int tcolor = 0;
 
 #ifdef BLOCK
@@ -175,9 +178,16 @@ if (marker == ivec4(12,34,56,255)) {
         }
 #endif
         // Keep the terminal pose addressable by manual and one-shot controls.
-        if (autoplay && tcolor < 32768) nframes = oc_loop_frame_count(topleft, nframes);
         float animationPhase;
-        if (autoplay && tcolor >= 32768) {
+        bool linkedTexture = false;
+#ifdef ENTITY
+        linkedTexture = colorbehavior == 73 && (modelFlags & 16) != 0;
+#endif
+        if (!linkedTexture && autoplay && tcolor < 32768) nframes = oc_loop_frame_count(modelFlags, nframes);
+        if (linkedTexture) {
+            texTime = oc_playback_tick(Color.rgb,time,duration,heldTexture,textureEnd);
+            animationPhase = texTime * float(nframes) / duration;
+        } else if (autoplay && tcolor >= 32768) {
             // play_once: tcolor bit 15 = flag, lower 15 bits = start gametime % 24000
             int start = tcolor - 32768;
             int elapsed = (int(time) % 24000 - start + 24000) % 24000;
@@ -194,7 +204,7 @@ if (marker == ivec4(12,34,56,255)) {
         // current on each resource reload. Pin the icon to frame 0 (time 0
         // also zeroes the interpolation mix below; texTime 0 likewise pins the
         // TEXTURE-animation clock to its first frame).
-        if (isGUI == 1) { animationPhase = 0.0; time = 0.0; texTime = 0.0; }
+        if (isGUI == 1) { animationPhase = 0.0; time = 0.0; texTime = 0.0; heldTexture = -1; }
 #endif
         int frame = int(animationPhase) % nframes;
         //relative vertex id from unique face uv
@@ -205,6 +215,7 @@ if (marker == ivec4(12,34,56,255)) {
         int height = headerheight + (size.y * ntextures);
         //read data
         ivec2 index = getvert(topleft, size.x, height+vph+vth, id);
+        int nextUV = -1;
         posoffset = getpos(topleft, size.x, height, index.x);
         if (nframes > 1) {
             int nids = (nframes * nvertices);
@@ -213,6 +224,7 @@ if (marker == ivec4(12,34,56,255)) {
             //next frame
             id = (id+nvertices) % nids;
             index = getvert(topleft, size.x, height+vph+vth, id);
+            nextUV = index.y;
             vec3 posoffset2 = getpos(topleft, size.x, height, index.x);
             //interpolate: t'=ease(t) before the lerp; catmull-rom needs 4 points.
             transition = fract(animationPhase);
@@ -236,7 +248,8 @@ if (marker == ivec4(12,34,56,255)) {
         }
         transition = 0;
 
-        texCoord = getuv(topleft, size.x, height+vph, index.y);
+        texCoord = oc_surface_uv(topleft, modelFlags, size.x, height+vph, index.y, nextUV, easing,
+                                 fract(animationPhase), ocSmoothNormal);
 #ifdef OC_PLAYER_SKIN
         int skinFlags=int(round(texelFetch(Sampler0,topleft+ivec2(5,1),0).r*255.0));
         if((skinFlags & 64)!=0) {
@@ -353,6 +366,7 @@ if (marker == ivec4(12,34,56,255)) {
             // era of the model.json -8 lifts; after the centre re-anchor moved into
             // the guiPivot/q16 math it left the icon half a block LOW vs vanilla.)
             posoffset = m * vec3(slotSize, -slotSize, slotSize);
+            ocSmoothNormal = vec3(1,-1,1) * (guiRotMat * oc_scale_normal(ocSmoothNormal,guiScale));
             // guiRotMat stays plain vanilla Rv (no F flip, no zx axis flip).
         }
         if (isHand == 1) {
@@ -403,6 +417,7 @@ if (marker == ivec4(12,34,56,255)) {
                 }
             }
             posoffset = hrot * (posoffset * vec3(hsy, hsx, handsz));
+            ocSmoothNormal = hrot * oc_scale_normal(ocSmoothNormal,vec3(hsy,hsx,handsz));
         }
         if (isHand + isGUI == 0) {
             // World path: rebuild the model's orientation from the baked carrier
@@ -463,6 +478,7 @@ if (marker == ivec4(12,34,56,255)) {
                 if ((dyn.b & 1) == 1) slotlift = vec3(0.0, 0.5, 0.0);
             }
             posoffset = fullRotation * ((posoffset + slotlift) * vec3(sy, sx, slotsz));
+            ocSmoothNormal = fullRotation * oc_scale_normal(ocSmoothNormal,vec3(sy,sx,slotsz));
         }
     }
 #endif
@@ -484,13 +500,13 @@ if (marker == ivec4(12,34,56,255)) {
         // x=5.r packs fade in BIT 0 (bits 1..4 = dynamic-marker count) -- bool()
         // of the whole byte turned cross-fade on for any model with dynamic slots.
         bool  texFade = (texflags.r & 1) == 1;
-        int   texframe = int(texTime / texFrametime) % ntextures;
+        int   texframe = (heldTexture >= 0 ? heldTexture : int(texTime / texFrametime)) % ntextures;
         int   texnext  = (texframe + 1) % ntextures;
         vec2 base  = vec2(topleft.x, topleft.y + headerheight + texframe*size.y);
         vec2 base2 = vec2(topleft.x, topleft.y + headerheight + texnext *size.y);
         texCoord  = (base  + texuvpx)/atlasSize + uvjit;
         texCoord2 = (base2 + texuvpx)/atlasSize + uvjit;
-        transition = texFade ? fract(texTime / texFrametime) : 0.0;
+        transition = texFade && heldTexture < 0 && !textureEnd ? fract(texTime / texFrametime) : 0.0;
     } else {
         // Atlas texture animation (animated strips inside a stitched atlas).
         // Row-1 x=5.g holds the band COUNT (0..4); only faces whose sampled
@@ -517,7 +533,7 @@ if (marker == ivec4(12,34,56,255)) {
                 int fH = m6.b*256 + m7.r;
                 int fc = max(m7.g, 1);
                 if (vmid > float(y0) && vmid < float(y0 + fH)) {
-                    int tf = int(texTime / ft) % fc;
+                    int tf = (heldTexture >= 0 ? heldTexture : int(texTime / ft)) % fc;
                     int tn = (tf + 1) % fc;
                     // The atlas stores each texture V-FLIPPED (whole region), so
                     // image frame 0 (the TOP frame the model is UV-mapped to)
@@ -531,7 +547,7 @@ if (marker == ivec4(12,34,56,255)) {
             }
             texCoord  = (vec2(topleft.x, topleft.y+headerheight) + texuvpx + vec2(0.0, dy ))/atlasSize + uvjit;
             texCoord2 = (vec2(topleft.x, topleft.y+headerheight) + texuvpx + vec2(0.0, dy2))/atlasSize + uvjit;
-            transition = (inBand && ((aaf.r & 1) == 1)) ? fract(texTime / ft) : 0.0;
+            transition = inBand && (aaf.r & 1) != 0 && heldTexture < 0 && !textureEnd ? fract(texTime / ft) : 0.0;
         } else {
             texCoord = (vec2(topleft.x,topleft.y+headerheight) + texuvpx)/atlasSize + uvjit;
         }
@@ -636,7 +652,8 @@ if (isCustom == 0) {
         bool aap = getb(t[4].a, 6);
         int avph = t[5].r*256+t[5].g;
         int avth = t[5].b*256+t[7].b;
-        noshadow = getb(t[6].r, 7, 1);
+        int modelFlags = oc_model_flags(ao);
+        noshadow = oc_lighting_mode(modelFlags, getb(t[6].r, 7));
         float at = GameTime * 24000.0;
         // Datapack playback control rides the DYE tint: equipment layers are
         // exported dyeable (undyed renders white = no override -> header
@@ -647,8 +664,15 @@ if (isCustom == 0) {
         int acg = int(Color.g*255.0+0.5);
         int acb = int(Color.b*255.0+0.5);
         int afr;
-        if (acr == 255 && acg == 255 && acb == 255) {
-            if (aap) anf = oc_loop_frame_count(ao, anf);
+        int armorHeld = -1;
+        bool armorEnd = false;
+        float armorTexTime = at;
+        if ((modelFlags & 16) != 0) {
+            at = oc_playback_tick(Color.rgb,at,adur,armorHeld,armorEnd);
+            armorTexTime = at;
+            afr = int(at * float(anf) / adur) % anf;
+        } else if (acr == 255 && acg == 255 && acb == 255) {
+            if (aap) anf = oc_loop_frame_count(modelFlags, anf);
             at = aap ? at + adur : 0.0;
             afr = int(at * float(anf) / adur) % anf;
         } else {
@@ -659,7 +683,7 @@ if (isCustom == 0) {
                 int ael = (int(at) % 24000 - (atc - 32768) + 24000) % 24000;
                 at = (ael >= anf - 1) ? float(anf - 1) : float(ael) + fract(at);
             } else {                                    // autoplay with phase offset
-                anf = oc_loop_frame_count(ao, anf);
+                anf = oc_loop_frame_count(modelFlags, anf);
                 at = at + adur - mod(float(atc), adur);
             }
             afr = min(int(at * float(anf) / adur), anf - 1) % anf;
@@ -835,10 +859,13 @@ if (isCustom == 0) {
             // step (only the integer afr) -> no smooth animation AND no easing (easing lives
             // inside this mix). No-op for static armor (anf==1) / aeasing==0.
             int aeasing = getb(t[4].a, 4, 2) | (getb(t[4].a, 0, 2) << 2);
+            int nextUV = -1;
+            float atr = fract(at * float(anf) / adur);
             if (anf > 1 && aeasing != 0) {
                 int avbase = (afk * 4 + ac) % anv;
-                float atr = fract(at * float(anf) / adur);
-                vec3 po2 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 1) % anf) * anv).x);
+                ivec2 nextVertex = getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 1) % anf) * anv);
+                nextUV = nextVertex.y;
+                vec3 po2 = getpos(ao, as.x, ah, nextVertex.x);
                 if (aeasing == 3) {
                     vec3 po3 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + 2) % anf) * anv).x);
                     vec3 po4 = getpos(ao, as.x, ah, getvert(ao, as.x, ah+avph+avth, avbase + ((afr + anf - 1) % anf) * anv).x);
@@ -854,7 +881,7 @@ if (isCustom == 0) {
             // exact pre-convention part-relative bytes, so armor on entities is
             // unchanged while the ITEM view of the same PNG sits correctly.
             posoffset.y += 0.5;
-            vec2 auv = getuv(ao, as.x, ah+avph, ai.y);          // per-vertex uv within one frame
+            vec2 auv = oc_surface_uv(ao, modelFlags, as.x, ah+avph, ai.y, nextUV, aeasing, atr, ocSmoothNormal);
             vec2 ajit = vec2(onepixel.x*0.0001*float(ac), onepixel.y*0.0001*float((ac+1)%4));
             texCoord = (vec2(0, ahh) + auv*vec2(as))/vec2(atlasSize) + ajit;
             // Animated TEXTURE (ant>1): step the sampled frame region + cross-fade on texFade,
@@ -864,12 +891,12 @@ if (isCustom == 0) {
                 ivec4 texmeta  = ivec4(texelFetch(Sampler0, ao + ivec2(4,1), 0)*255.0+0.5);
                 ivec4 texflags = ivec4(texelFetch(Sampler0, ao + ivec2(5,1), 0)*255.0+0.5);
                 float texFrametime = max(float(texmeta.r*65536 + texmeta.g*256 + texmeta.b), 1.0);
-                float texTime = GameTime * 24000.0;
-                int texframe = int(texTime / texFrametime) % ant;
+                float texTime = armorTexTime;
+                int texframe = (armorHeld >= 0 ? armorHeld : int(texTime / texFrametime)) % ant;
                 int texnext  = (texframe + 1) % ant;
                 texCoord  = (vec2(0, ahh + texframe*as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
                 texCoord2 = (vec2(0, ahh + texnext *as.y) + auv*vec2(as))/vec2(atlasSize) + ajit;
-                transition = ((texflags.r & 1) == 1) ? fract(texTime / texFrametime) : 0.0;
+                transition = (texflags.r & 1) != 0 && armorHeld < 0 && !armorEnd ? fract(texTime / texFrametime) : 0.0;
             } else {
                 // Atlas texture-animation bands (mirror of the item path): only
                 // faces whose V midpoint falls inside an animated strip's stored
@@ -881,7 +908,7 @@ if (isCustom == 0) {
                 if (anb > 0) {
                     ivec4 am4 = ivec4(texelFetch(Sampler0, ao + ivec2(4,1), 0)*255.0+0.5);
                     float aft = max(float(am4.r*65536 + am4.g*256 + am4.b), 1.0);
-                    float atexTime = GameTime * 24000.0;
+                    float atexTime = armorTexTime;
                     float avmid = oc_face_v_mid(ao, as.x, ah+avph+avth, ah+avph, avid)
                                   * float(as.y);
                     float ady = 0.0, ady2 = 0.0;
@@ -893,7 +920,7 @@ if (isCustom == 0) {
                         int afH = am6.b*256 + am7.r;
                         int afc = max(am7.g, 1);
                         if (avmid > float(ay0) && avmid < float(ay0 + afH)) {
-                            int atf = int(atexTime / aft) % afc;
+                            int atf = (armorHeld >= 0 ? armorHeld : int(atexTime / aft)) % afc;
                             int atn = (atf + 1) % afc;
                             ady  = float(-atf * afH);
                             ady2 = float(-atn * afH);
@@ -903,13 +930,13 @@ if (isCustom == 0) {
                     }
                     texCoord  = (vec2(0, ahh) + auv*vec2(as) + vec2(0.0, ady ))/vec2(atlasSize) + ajit;
                     texCoord2 = (vec2(0, ahh) + auv*vec2(as) + vec2(0.0, ady2))/vec2(atlasSize) + ajit;
-                    transition = (aInBand && ((aaf.r & 1) == 1)) ? fract(atexTime / aft) : 0.0;
+                    transition = aInBand && (aaf.r & 1) != 0 && armorHeld < 0 && !armorEnd ? fract(atexTime / aft) : 0.0;
                 }
             }
             // Un-mirror left limbs: flip model X about its centre (geometry is centred)
             // BEFORE the offset, so there is no lateral shift; combined with the det(-1)
             // left basis this cancels MC's X-mirror — left reads the same way as right.
-            if (aleft) posoffset.x = -posoffset.x;
+            if (aleft) { posoffset.x = -posoffset.x; ocSmoothNormal.x = -ocSmoothNormal.x; }
             // WAIST: part-0 box on the LEGGINGS layer (this layer packs a leg).
             // AOFF[0] was calibrated on the chest-layer body box (CubeDeformation
             // 1.0); the leggings body box (0.5) has its anchor corner 0.5 model px
@@ -953,6 +980,7 @@ if (isCustom == 0) {
                     : mat3(1.0);                                                          // north
             mat3 abasisBox = abasis * CF;
             posoffset = abasisBox * posoffset;     // orient to carrier; faces front, upright
+            ocSmoothNormal = abasisBox * ocSmoothNormal;
             vec3 n = cross(e1, e2);                 // outward face normal (unit)
             if (areflect) n = -n;                   // measured cross is inward under R
             vec3 anchor;

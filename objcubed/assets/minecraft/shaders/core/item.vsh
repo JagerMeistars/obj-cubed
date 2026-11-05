@@ -41,6 +41,7 @@ layout(location = 10) flat out int isCustom;
 layout(location = 11) flat out int isGUI;
 layout(location = 12) flat out int isHand;
 layout(location = 13) flat out int noshadow;
+layout(location = 17) out vec3 ocSmoothNormal;
 #ifdef GLINT
 layout(location = 14) out vec2 texCoordGlint;
 #endif
@@ -58,6 +59,7 @@ layout(location = 15) out float ocCarrierFailure;
 
 layout(location = 16) flat out int ocSkin;
 void main() {
+    ocSmoothNormal = vec3(0.0);
     ocSkin = 0;
     ocCarrierFailure = 0.0;
     Pos = Position;

@@ -39,10 +39,15 @@ SOFTWARE.
     // One-shot Display-editor pull handoff: uuid of the project whose export
     // dialog should read back Project.display_settings on next open.
     let pullDisplayForProject = null;
+    const ANIMATION_NAME_LIMIT = 64;
+    const invalidAnimationFolder = id => /\.$|^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(id);
+    function suggestedAnimationId(name) {
+        return (name || '').toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, ANIMATION_NAME_LIMIT).replace(/\.+$/, '') || 'anim';
+    }
     const PERSISTABLE_FIELDS = [
         // Texture
         'selectedTex', 'useAtlas', 'atlasTexChecked',
-        'texAnimEnabled', 'texFrametime', 'texFade',
+        'texAnimEnabled', 'texFrametime', 'texFade', 'texDatapack',
         'skinEnabled', 'skinSlot', 'skinFromTexture',
         // Transform
         'scale', 'offsetX', 'offsetY', 'offsetZ',
@@ -75,7 +80,7 @@ SOFTWARE.
         'cbR', 'cbG', 'cbB',
         // Advanced
         'easing', 'interpolation', 'autorotate',
-        'flipuv', 'noshadow', 'nopow', 'filterArmature',
+        'shadingMode', 'flipuv', 'noshadow', 'nopow', 'filterArmature',
     ];
 
     const HORSE_EQUIPMENT = {
@@ -503,6 +508,8 @@ SOFTWARE.
             color_all_hurt: "Potion color controls the red flash.",
             // Advanced
             section_advanced: 'Advanced',
+            lbl_shadingMode: 'Shading',
+            help_shadingMode: 'Flat lights each face separately. Smooth blends the lighting between faces. Ambient lights faces equally: the model darkens at night and brightens near a torch.',
             lbl_easing: "Frame transitions",
             lbl_autorotate: 'Autorotate',
             opt_none: 'None (hold)',
@@ -527,6 +534,7 @@ SOFTWARE.
             err_fps_max: "Enter no more than 60 FPS.",
             err_end_before_start: "End must be later than start.",
             err_need_anim_id: "Enter an animation name.",
+            err_anim_id_folder: "Choose an animation name that can be used as a folder name.",
             err_need_namespace: "Enter a namespace.",
             err_atlas_none: 'Select at least one texture for atlas',
             // Preview warnings
@@ -581,6 +589,8 @@ SOFTWARE.
             tex_fade: "Blend texture frames",
             help_texAnim: "Play texture frames in game. Map UVs to one frame. Blockbench frame sizes are supported; without frame metadata, use a vertical strip of square frames. Animated atlas textures share frame duration and blending settings.",
             help_texFrametime: "How long each texture frame stays visible. 20 ticks = 1 second; a larger value plays the texture more slowly.",
+            tex_datapack: 'Control texture with datapack',
+            help_texDatapack: 'Play, stop or seek the texture with the model. Use texture_set to hold a texture frame while the model keeps moving, and texture_sync to resume. Works without a geometry animation.',
             help_texFade: "Blend into the next texture frame instead of switching abruptly. Some world views may still switch frames without blending.",
             help_scale: "Change the size of the whole model. 1 keeps its original size; 2 doubles it. Display tab scale applies as well.",
             help_offset: "Move the whole model along X, Y and Z before applying display settings.",
@@ -591,7 +601,7 @@ SOFTWARE.
             help_duration: "Length of one playback cycle in ticks. 20 ticks = 1 second. The export dialog uses the selected animation range.",
             help_autoplay: "Loop the animation automatically. Datapack control disables this setting; start playback with its commands.",
             help_generateDatapack: "Create animation commands. Put the generated objcubed folder in the world’s datapacks folder and run /reload. The datapack README.txt lists its commands. Datapack settings control playback and override RGB modes.",
-            help_datapackAnimId: "Name used in animation commands. Use a–z, 0–9 and underscores, up to 12 characters. Choose a different name for each animation.",
+            help_datapackAnimId: `Name used in animation commands. Use a–z, 0–9, underscores, hyphens or periods, up to ${ANIMATION_NAME_LIMIT} characters. Choose a different name for each animation.`,
             help_datapackNamespace: "First part of the function name: function <namespace>:<animation>/play. Use a–z, 0–9 and underscores.",
             help_datapackTargetType: "Choose who uses the animated model: a mob, an item_display entity or a player. For a player, the datapack temporarily creates an armor stand to update playback; it removes the stand afterwards.",
             help_datapackEquipSlot: "Choose the slot containing the animated item. It must match where the target wears or holds it.",
@@ -820,6 +830,8 @@ SOFTWARE.
             color_all_overlay: "Цвет зелья меняет оттенок модели.",
             color_all_hurt: "Цвет зелья управляет красной вспышкой.",
             section_advanced: 'Дополнительно',
+            lbl_shadingMode: 'Сглаживание',
+            help_shadingMode: 'Flat освещает каждую грань отдельно, Smooth сглаживает переходы между гранями. В Ambient грани освещаются одинаково: модель темнеет ночью и становится светлее рядом с факелом.',
             lbl_easing: "Переходы кадров",
             lbl_autorotate: 'Автоповорот',
             opt_none: 'Нет (удержание)',
@@ -842,6 +854,7 @@ SOFTWARE.
             err_fps_max: "Укажите не более 60 кадров/с.",
             err_end_before_start: "Конец должен быть позже начала.",
             err_need_anim_id: "Укажите имя анимации.",
+            err_anim_id_folder: "Выберите имя анимации, которое можно использовать как имя папки.",
             err_need_namespace: "Укажите пространство имён.",
             err_atlas_none: 'Выберите хотя бы одну текстуру для атласа',
             warn_model_empty: "Нет граней для экспорта.",
@@ -897,6 +910,8 @@ SOFTWARE.
             tex_fade: "Плавная смена кадров",
             help_texAnim: "Воспроизведение кадров текстуры в игре. Разверните UV на один кадр. Поддерживается размер кадра из Blockbench; без этих настроек используйте вертикальную полосу квадратных кадров. У текстур в атласе общие длительность кадра и плавность перехода.",
             help_texFrametime: "Время показа одного кадра текстуры. 20 тиков = 1 секунда; большее значение замедляет анимацию текстуры.",
+            tex_datapack: 'Управлять текстурой через датапак',
+            help_texDatapack: 'Запуск, остановка и перемотка действуют на текстуру вместе с моделью. texture_set фиксирует кадр текстуры, не останавливая модель; texture_sync возвращает синхронизацию. Анимация геометрии не обязательна.',
             help_texFade: "Плавная смена одного кадра текстуры другим. В некоторых видах отображения в мире смена кадров может оставаться резкой.",
             help_scale: "Изменение размера всей модели. 1 — исходный размер, 2 — вдвое больше. Масштаб во вкладках отображения применяется дополнительно.",
             help_offset: "Сдвиг всей модели по X, Y и Z до применения настроек отображения.",
@@ -907,7 +922,7 @@ SOFTWARE.
             help_duration: "Длительность одного цикла в тиках. 20 тиков = 1 секунда. В окне экспорта она определяется выбранным отрезком анимации.",
             help_autoplay: "Автоматическое повторение анимации. При управлении датапаком настройка отключена; воспроизведение запускается командами.",
             help_generateDatapack: "Создание команд управления анимацией. Поместите созданную папку objcubed в datapacks мира и выполните /reload. Команды перечислены в README.txt датапака. Настройки датапака управляют воспроизведением и заменяют выбранные режимы RGB.",
-            help_datapackAnimId: "Имя в командах анимации. Используйте a–z, 0–9 и подчёркивания, до 12 символов. Для каждой анимации задавайте отдельное имя.",
+            help_datapackAnimId: `Имя в командах анимации. До ${ANIMATION_NAME_LIMIT} символов: a–z, 0–9, подчёркивания, дефисы и точки. Для каждой анимации задавайте отдельное имя.`,
             help_datapackNamespace: "Первая часть имени функции: function <пространство>:<анимация>/play. Используйте a–z, 0–9 и подчёркивания.",
             help_datapackTargetType: "Выберите, кто использует модель: моб, сущность item_display или игрок. Для игрока датапак временно создаёт стойку для брони, чтобы обновить воспроизведение, и затем удаляет её.",
             help_datapackEquipSlot: "Слот с анимированным предметом. Он должен совпадать со слотом, где цель носит или держит предмет.",
@@ -2135,7 +2150,7 @@ SOFTWARE.
                 // Template approach: use frame 0's face topology for all frames.
                 // Codecs.obj.compile() can produce different face indices when vertex
                 // positions change (triangulation, vertex welding), which breaks
-                // objmc animation. Fix: freeze everything except 'v ' lines.
+                // objmc animation. Smooth normals are calculated from these positions after baking.
                 if (i === 0) {
                     templateLines = objStr.split('\n');
                     templateVIdx = [];
@@ -2311,6 +2326,8 @@ SOFTWARE.
                 curBone = boneUUIDs.has(t.substring(2).trim());
                 if (!curBone) out.push(line);
             } else if (curBone) {
+                // Normal references are global: retain the rows so later meshes keep their indices.
+                if (t.startsWith('vn ')) out.push(line);
                 continue;
             } else if (t.startsWith('f ')) {
                 const parts = t.split(/\s+/);
@@ -2335,7 +2352,7 @@ SOFTWARE.
         return out.join('\n');
     }
 
-    function parseObj(content, expectedFaces) {
+    function parseObj(content, expectedFaces, shadingMode) {
         const d = { positions: [], uvs: [], faces: [], faceMaterials: [], faceGroups: [], faceBlocks: [] };
         let currentMaterial = null;
         let currentGroup = null;
@@ -2367,7 +2384,110 @@ SOFTWARE.
         }
         if (expectedFaces > 0 && d.faces.length !== expectedFaces)
             throw new Error(`Face count mismatch: expected ${expectedFaces}, got ${d.faces.length}`);
+        if (shadingMode === 'smooth') d.cornerNormals = buildSmoothNormals(d);
+        else if (shadingMode === 'flat') d.cornerNormals = d.faces.map(face => flatQuadNormals(d.positions,face));
         return d;
+    }
+
+    function flatQuadNormals(positions,face) {
+        if (face.length !== 4) return null;
+        const p=face.map(c=>positions[c[0]]);
+        if (!p.every(Boolean)) return null;
+        const [a,b,c]=p.slice(1).map(v=>v.map((x,k)=>x-p[0][k]));
+        const cross=(u,v)=>[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+        const n=cross(a,b), m=cross(b,c), ln=Math.hypot(...n), lm=Math.hypot(...m);
+        if (!ln || !lm) return null;
+        const normal=n.map(x=>x/ln), cosine=normal.reduce((s,x,k)=>s+x*(m[k]/lm),0);
+        // Blockbench lights a warped quad with its first triangle's normal. Ignore sub-degree noise and folded quads.
+        return cosine > 0 && cosine < 0.99999 ? Array(4).fill(normal) : null;
+    }
+
+    function buildSmoothNormals(frame) {
+        const sites=new Map(), duplicates=new Set();
+        const site=frame.positions.map((p,i)=>{
+            const key=p.join(',');
+            if (!sites.has(key)) { sites.set(key,i); return i; }
+            const first=sites.get(key); duplicates.add(first); return first;
+        });
+        const vertices=frame.faces.map(face=>face.slice(0,4).map(c=>c[0]));
+        const areas=vertices.map(face=>{
+            const points=face.map(i=>frame.positions[i]);
+            const n = [0,0,0];
+            if (points.length >= 3 && points.every(Boolean)) {
+                for (let i=1; i<points.length-1; i++) {
+                    const a=points[i].map((x,k)=>x-points[0][k]), b=points[i+1].map((x,k)=>x-points[0][k]);
+                    n[0]+=a[1]*b[2]-a[2]*b[1]; n[1]+=a[2]*b[0]-a[0]*b[2]; n[2]+=a[0]*b[1]-a[1]*b[0];
+                }
+            }
+            const length=Math.hypot(...n);
+            return length && Number.isFinite(length) ? n : null;
+        });
+        const faces=new Array(vertices.length).fill(null);
+        for(let start=0,end;start<faces.length;start=end) {
+            end=start+1;
+            while(end<faces.length && frame.faceBlocks[end]===frame.faceBlocks[start]) end++;
+            const parents=new Map(), sums=new Map();
+            function root(v) {
+                while(parents.has(v)) {
+                    const p=parents.get(v), next=parents.get(p) ?? p;
+                    parents.set(v,next); v=next;
+                }
+                return v;
+            }
+            if(duplicates.size) {
+                // Only a complete, oppositely wound manifold edge can join split vertex IDs.
+                const edges=new Map();
+                for(let i=start;i<end;i++) if(areas[i]) {
+                    const face=vertices[i];
+                    for(let j=0;j<face.length;j++) {
+                        const a=face[j], b=face[(j+1)%face.length], x=site[a], y=site[b];
+                        if(x===y || (!duplicates.has(x) && !duplicates.has(y))) continue;
+                        const key=x<y?`${x}:${y}`:`${y}:${x}`;
+                        if(!edges.has(key)) edges.set(key,[]);
+                        edges.get(key).push([a,b,i]);
+                    }
+                }
+                for(const refs of edges.values()) if(refs.length===2) {
+                    const [[a,b,i],[c,d,j]]=refs;
+                    if(i===j || site[a]!==site[d] || site[b]!==site[c] || (a===d && b===c)) continue;
+                    const u=areas[i],v=areas[j];
+                    if(u[0]*v[0]+u[1]*v[1]+u[2]*v[2] <= Math.SQRT1_2*Math.hypot(...u)*Math.hypot(...v)) continue;
+                    for(const [p,q] of [[root(a),root(d)],[root(b),root(c)]]) if(p!==q) parents.set(p,q);
+                }
+            }
+            for(let i=start;i<end;i++) if(areas[i]) {
+                const corners=vertices[i].map(v=>{
+                    const r=root(v); if(!sums.has(r)) sums.set(r,[0,0,0]); return sums.get(r);
+                });
+                // The unnormalized cross product weights by surface area, so a thin rim cannot dominate a cheek.
+                for(const sum of new Set(corners)) for(let k=0;k<3;k++) sum[k]+=areas[i][k];
+                faces[i]=corners;
+            }
+            for(const sum of sums.values()) {
+                const length=Math.hypot(...sum);
+                if(length) for(let k=0;k<3;k++) sum[k]/=length;
+            }
+        }
+        return faces;
+    }
+
+    function* objFrames(contents, shadingMode) {
+        let expectedFaces=0;
+        for (const obj of contents) {
+            const frame=parseObj(obj,expectedFaces,shadingMode === 'ambient' || shadingMode === 'smooth' ? shadingMode : 'flat');
+            expectedFaces=frame.faces.length;
+            yield frame;
+        }
+    }
+
+    // Octahedral direction in 7+8 bits; X=0 means flat, leaving the low U bit for profile skins.
+    function packSmoothNormal(v) {
+        if (!v) return 0;
+        const sum = Math.abs(v[0])+Math.abs(v[1])+Math.abs(v[2]);
+        if (!sum) return 0;
+        let x=v[0]/sum, y=v[1]/sum;
+        if (v[2]<0) [x,y]=[(1-Math.abs(y))*(x<0?-1:1),(1-Math.abs(x))*(y<0?-1:1)];
+        return ((1+Math.round((x+1)*63)) << 8) | Math.round((y+1)*127);
     }
 
     // Parse MTL string to map material names → texture filenames
@@ -2403,12 +2523,12 @@ SOFTWARE.
     // =========================================================
     // Section 5: Vertex Indexing
     // =========================================================
-    function buildVertexData(objContents, atlasInfo, partRef, faceToPart, skinMaterials) {
+    function buildVertexData(objContents, atlasInfo, partRef, faceToPart, skinMaterials, shadingMode, parsedFrames) {
         // atlasInfo: null (single texture) or { materialToTexIdx, offsets, width, height }
         // partRef/faceToPart: per-part re-centering (armor only); null = no centering.
         const count = [0, 0];
         const mem   = { pos: Object.create(null), uv: Object.create(null) };
-        const data  = { positions: [], uvs: [], vertices: [] };
+        const data  = { positions: [], uvs: [], uvNormals: [], vertices: [] };
         const skinUvs = [];
 
         let uvClamped = false;
@@ -2438,18 +2558,23 @@ SOFTWARE.
             ];
         }
 
-        function indexVert(o, vert, material, part) {
+        function indexVert(o, vert, material, part, normal) {
             let pos = o.positions[vert[0]] || [0,0,0];
             if (partRef) { const r = partRef.get(part); if (r) pos = [pos[0]-r[0], pos[1]-r[1], pos[2]-r[2]]; }
             const rawUv = o.uvs[vert[1]]    || [0,0];
             const uv = remapUV(rawUv, material);
             const pk  = pos.join(',');
             const skin = !!(skinMaterials && skinMaterials.has(material));
-            const uk  = uv[0].toFixed(8) + ',' + uv[1].toFixed(8) + (skinMaterials ? ',' + Number(skin) : '');
+            const packed = packSmoothNormal(normal);
+            const uk  = uv[0].toFixed(8) + ',' + uv[1].toFixed(8) + (skinMaterials ? ',' + Number(skin) : '')
+                + (packed ? ':' + packed : '');
             let pi = mem.pos[pk];
             if (pi === undefined) { pi = count[0]++; mem.pos[pk] = pi; data.positions.push(pos); }
             let ui = mem.uv[uk];
-            if (ui === undefined) { ui = count[1]++; mem.uv[uk] = ui; data.uvs.push(uv); skinUvs.push(skin); }
+            if (ui === undefined) {
+                ui = count[1]++; mem.uv[uk] = ui; data.uvs.push(uv); skinUvs.push(skin);
+                if (packed) data.uvNormals[ui] = packed;
+            }
             data.vertices.push([pi, ui]);
         }
 
@@ -2459,23 +2584,24 @@ SOFTWARE.
                 const mtl = o.faceMaterials[fi];
                 const part = faceToPart ? faceToPart[fi] : -1;
                 const n = Math.min(4, face.length);
-                for (let i = 0; i < n; i++) indexVert(o, face[i], mtl, part);
+                const normals = o.cornerNormals?.[fi];
+                for (let i = 0; i < n; i++) indexVert(o, face[i], mtl, part, normals?.[i]);
                 // Pad a triangle to a quad by repeating the LAST vertex (v0,v1,v2,v2):
                 // the 2nd sub-triangle (v0,v2,v2) is then zero-area/degenerate. Repeating
                 // the MIDDLE vertex instead gave (v0,v2,v1) — a reverse-wound coincident
                 // face that flickers / z-fights.
-                if (face.length === 3) indexVert(o, face[2], mtl, part);
+                if (face.length === 3) indexVert(o, face[2], mtl, part, normals?.[2]);
                 if (face.length > 4) console.warn('[obj3] N-Gon — only first 4 verts used');
             }
         }
 
-        const firstObj = parseObj(objContents[0], 0);
-        const nfaces   = firstObj.faces.length;
-        indexObj(firstObj);
-        for (let f = 1; f < objContents.length; f++)
-            indexObj(parseObj(objContents[f], nfaces));
+        let firstObj;
+        for (const frame of parsedFrames || objFrames(objContents,shadingMode)) {
+            firstObj ??= frame;
+            indexObj(frame);
+        }
 
-        return { data, nfaces, faceGroups: firstObj.faceGroups, faceBlocks: firstObj.faceBlocks, uvClamped, skinUvs };
+        return { data, nfaces:firstObj.faces.length, faceGroups: firstObj.faceGroups, faceBlocks: firstObj.faceBlocks, uvClamped, skinUvs };
     }
 
     // =========================================================
@@ -2511,6 +2637,7 @@ SOFTWARE.
             if (a[0] !== b[0] && key(positionKeys, a[0], j => posPixels(data.positions[j], cfg.scale, offset))
                 !== key(positionKeys, b[0], j => posPixels(data.positions[j], cfg.scale, offset))) return false;
             if (a[1] !== b[1] && (skinUvs[a[1]] !== skinUvs[b[1]]
+                || data.uvNormals[a[1]] !== data.uvNormals[b[1]]
                 || key(uvKeys, a[1], j => uvPixels(data.uvs[j]))
                 !== key(uvKeys, b[1], j => uvPixels(data.uvs[j])))) return false;
         }
@@ -3205,13 +3332,13 @@ SOFTWARE.
     // first person. Its twelve quads carry geometry from this generated table.
     // Keep the catalog in the exported RP: exporting a second model must not
     // remove the first model's shader data or change its carrier identifiers.
-    function nativeSkinData(cfg, objContents, skinMaterials, emission, loopFrames) {
+    function nativeSkinData(cfg, objContents, skinMaterials, emission, loopFrames, parsedFrames) {
         if (!cfg.skinEnabled) return null;
         if (!cfg.colorbehavior.every(x => x === 'direct') && !cfg.colorbehavior.every(x => x === 'time')) return null;
         // Hand-written potion-color controllers do not supply the native clock.
         // Preserve their existing renderer; the generated datapack mirrors it.
         if (cfg.colorbehavior.every(x => x === 'time') && !cfg.generateDatapack) return null;
-        const frames = objContents.map(o => parseObj(o, 0));
+        const frames = parsedFrames || [...objFrames(objContents,cfg.shadingMode)];
         const profileFaces = frames[0].faceMaterials.map(material => skinMaterials.has(material));
         // Native profile carriers contain a fixed subset of the model's faces.
         // Changing either direction would omit geometry from one of the renderers.
@@ -3222,22 +3349,27 @@ SOFTWARE.
         }
         const indices = frames[0].faces.map((_, i) => i).filter(i => profileFaces[i]);
         const positions = [], uvs = [], vertices = [], posMap = new Map(), uvMap = new Map();
+        const normals = [[0,0,0]], normalMap = new Map([['0,0,0',0]]);
         const index = (list, map, value) => {const key = value.join(','); if (!map.has(key)) {map.set(key,list.length);list.push(value);}return map.get(key);};
         for (const frame of frames) for (const fi of indices) {
             const face = frame.faces[fi];
+            const directions = frame.cornerNormals?.[fi];
             for (let c = 0; c < 4; c++) {
-                const [pi,ui] = face[Math.min(c,face.length-1)];
+                const corner = Math.min(c,face.length-1);
+                const [pi,ui] = face[corner];
                 const p = (frame.positions[pi] || [0,0,0]).map((x,i) =>
                     Math.floor(8388608+(x*cfg.scale+cfg.offset[i]-(i===1?.5:0))*65536)/65536-128);
                 const uv = (frame.uvs[ui] || [0,0]).map(x=>Math.trunc(Math.max(0,Math.min(1,x))*65535)/65535);
                 if (!cfg.flipuv) uv[1] = 1-uv[1];
-                vertices.push([index(positions,posMap,p),index(uvs,uvMap,uv)]);
+                const vertex = [index(positions,posMap,p),index(uvs,uvMap,uv)];
+                if (directions) vertex.push(index(normals,normalMap,directions[corner]));
+                vertices.push(vertex);
             }
         }
-        return {positions,uvs,vertices,faces:indices.length,ordinaryFaces:frames[0].faces.length-indices.length,frames:frames.length,
+        return {positions,uvs,vertices,...(normals.length>1 ? {normals} : {}),faces:indices.length,ordinaryFaces:frames[0].faces.length-indices.length,frames:frames.length,
             loopFrames, duration:Math.max(1,cfg.duration || frames.length),autoplay:!!cfg.autoplay,
             controlled:cfg.colorbehavior.every(x=>x==='time'),easing:cfg.easing || 0,
-            visible:!!(cfg.visibility & 2),visibility:cfg.visibility,unlit:indices.map(i=>Number(!!cfg.noshadow || !!emission[i]))};
+            visible:!!(cfg.visibility & 2),visibility:cfg.visibility,unlit:indices.map(i=>(cfg.noshadow || emission[i]) ? 1 : cfg.shadingMode==='ambient' ? 2 : 0)};
     }
 
     function planNativeSkin(fs,path,root,name,data,display,selectedContexts,elements=[]) {
@@ -3284,14 +3416,17 @@ SOFTWARE.
         const f=x=>{if(!Number.isFinite(x))throw new Error('Non-finite native profile geometry');return Number(x).toFixed(8);};
         const vec=(n,v)=>`vec${n}(${v.map(f).join(',')})`;
         const code=['// Generated by objcubed. Re-export the model to update its geometry.', '#define OC_NATIVE_PROFILE_GEOMETRY 1'];
+        const hasNormals=Object.values(catalog.models).some(m=>m.normals?.length);
+        if(hasNormals) code.push('#define OC_NATIVE_PROFILE_NORMALS 1','vec3 ocProfileNormal;');
         const tables=new Map();
         let dispatch='bool oc_profile_geometry(int id,int face,int corner,out vec3 position,out vec2 uv,out int unlit) {\n';
+        if(hasNormals) dispatch+='ocProfileNormal=vec3(0);\n';
         for(const [name,m] of Object.entries(catalog.models)) {
             if(!/^[a-z0-9_]+$/.test(name))throw new Error('Invalid native profile catalog key');
             // Legacy catalogs have no loopFrames; manual/commanded playback
             // still addresses the full endpoint-inclusive frame table.
             const loopFrames = m.autoplay && !m.controlled ? (m.loopFrames || m.frames) : m.frames;
-            const tableKey=JSON.stringify([m.positions,m.uvs,m.vertices,m.unlit]);
+            const tableKey=JSON.stringify([m.positions,m.uvs,m.vertices,m.unlit,m.normals]);
             const shared=tables.has(tableKey),prefix=tables.get(tableKey) || 'ocp_'+name;
             tables.set(tableKey,prefix);
             // Avoid dynamically indexed const arrays: some GL drivers expand
@@ -3310,7 +3445,7 @@ SOFTWARE.
                 const tracks=channel=>{
                     const bases=[],samples=[],seen=new Map();
                     for(let vi=0;vi<m.faces*4;vi++){
-                        const track=Array.from({length:m.frames},(_,f)=>m.vertices[f*m.faces*4+vi][channel]);
+                        const track=Array.from({length:m.frames},(_,f)=>m.vertices[f*m.faces*4+vi][channel] ?? 0);
                         if(track.every(x=>x===track[0])) {bases.push((0x80000000|track[0])>>>0);continue;}
                         const key=track.join(',');if(!seen.has(key)){seen.set(key,samples.length);samples.push(...track);}bases.push(seen.get(key));
                     }
@@ -3323,6 +3458,12 @@ SOFTWARE.
                     packed(prefix+'_ub',ut.bases),packed(prefix+'_ua',ut.samples),
                     `ivec2 ${prefix}_v(int i){int f=i/${m.faces*4};int v=i%${m.faces*4};int p=${prefix}_pb(v),u=${prefix}_ub(v);return ivec2(p<0?(p&2147483647):${prefix}_pa(p+f),u<0?(u&2147483647):${prefix}_ua(u+f));}`,
                     lookup('int',prefix+'_l',m.unlit.map(String)));
+                if(m.normals) {
+                    const nt=tracks(2);
+                    code.push(lookup('vec3',prefix+'_normal',m.normals.map(n=>vec(3,n))),
+                        packed(prefix+'_nb',nt.bases),packed(prefix+'_na',nt.samples),
+                        `vec3 ${prefix}_n(int f,int vi){int n=${prefix}_nb(vi);return ${prefix}_normal(n<0?(n&2147483647):${prefix}_na(n+f));}`);
+                }
             }
             dispatch+=`if(id>=${m.start} && id<${m.start+m.count}) {\nint local=id-${m.start};int chunk=local%${m.chunks};int state=(local/${m.chunks})%${m.states};int hand=local/${m.chunks*m.states};int fi=chunk*12+face;\n`;
             const visible=m.contexts?m.contexts.map(s=>!!(m.visibility & (s==='gui'?1:s.startsWith('firstperson')?2:4))):m.transforms.map(()=>m.visible);
@@ -3341,6 +3482,14 @@ SOFTWARE.
             for(const [i,lift] of (m.modelLifts||[]).entries()) if(lift.some(x=>x!==0)) dispatch+=`if(hand==${i})position+=${vec(3,lift)};\n`;
             dispatch+=`mat4 transform=${matrices[0]};\n`;
             for(let i=1;i<matrices.length;i++) if(matrices[i]!==matrices[0]) dispatch+=`if(hand==${i})transform=${matrices[i]};\n`;
+            if(m.normals) {
+                dispatch+=`vec3 n=${prefix}_n(frame,vi);\n`;
+                if(loopFrames>1 && m.easing) {
+                    const weight=m.easing===3?'fract(phase)':`ease(${m.easing},fract(phase))`;
+                    dispatch+=`vec3 n1=${prefix}_n((frame+1)%${loopFrames},vi);if(dot(n,n)>0.0 && dot(n1,n1)>0.0)n=mix(n,n1,${weight});\n`;
+                }
+                dispatch+='ocProfileNormal=oc_normal_transform(mat3(transform),n);\n';
+            }
             dispatch+=`position=(transform*vec4(position,1.0)).xyz+vec3(0.5);\n`;
             for(const [i,shift] of (m.originShifts||[]).entries()) if(shift.some(x=>x!==0)) dispatch+=`if(hand==${i})position-=${vec(3,shift)};\n`;
             dispatch+='return true;\n}\n';
@@ -3443,9 +3592,10 @@ SOFTWARE.
             }
         }
         let referencedTexIndices = new Set(materialToTexIdx.values());
-        let skinMaterials;
+        let skinMaterials, skinFrames;
         if (cfg.skinEnabled) {
-            const usedMaterials = new Set(objContents.flatMap(obj => parseObj(obj, 0).faceMaterials));
+            skinFrames = [...objFrames(objContents,cfg.shadingMode)];
+            const usedMaterials = new Set(skinFrames.flatMap(frame => frame.faceMaterials));
             if ([...usedMaterials].some(m => !materialToTexIdx.has(m))) throw new Error(t('err_skin_material'));
             referencedTexIndices = new Set([...usedMaterials].map(m => materialToTexIdx.get(m)));
             skinMaterials = new Set([...usedMaterials].filter(m => materialToTexIdx.get(m) === cfg.texIndex));
@@ -3546,7 +3696,7 @@ SOFTWARE.
                 : f0.faces.map(() => 0);                        // legacy single-part: whole model as one unit
             partRef = computePartCenters(f0, faceToPart);
         }
-        const { data, nfaces, faceGroups, faceBlocks, uvClamped, skinUvs } = buildVertexData(objContents, atlasInfo, partRef, faceToPart, skinMaterials);
+        const { data, nfaces, faceGroups, faceBlocks, uvClamped, skinUvs } = buildVertexData(objContents, atlasInfo, partRef, faceToPart, skinMaterials, cfg.shadingMode, skinFrames);
         const emissiveMap = collectEmissiveMap();
         const faceEmission = faceGroups.map(g => {
             const tk = parseFaceToken(g);                 // each element's emissive is baked into its token
@@ -3597,7 +3747,7 @@ SOFTWARE.
 
 
         const cbArr = ['direct','time','scale','overlay','hurt'];
-        const ca = cfg.colorbehavior.map(x => {
+        const ca = (cfg.generateDatapack && cfg.texDatapack ? ['time','time','time'] : cfg.colorbehavior).map(x => {
             const idx = cbArr.indexOf(x);
             if (idx < 0) throw new Error('Unknown colorbehavior: ' + x);
             return idx;
@@ -3742,6 +3892,15 @@ SOFTWARE.
             atlasBands.length = Math.max(0, maxBands);
         }
         const texAnimActive = ntextures > 1 || atlasBands.length > 0;
+        let textureControlTicks = 0;
+        if (cfg.generateDatapack && cfg.texDatapack && texAnimActive) {
+            const gcd = (a,b) => b ? gcd(b,a % b) : a;
+            const cycle = atlasBands.reduce((n,b) => n / gcd(n,b.frameCount) * b.frameCount, ntextures);
+            textureControlTicks = nframes > 1 ? nframes : cycle * texFrametime;
+            if (!Number.isSafeInteger(textureControlTicks) || textureControlTicks > 17535)
+                throw new Error('Datapack texture playback supports up to 17535 ticks per cycle. Shorten the frame time or use atlas strips with shorter shared cycles.');
+            put(4, 0, 0, Math.trunc(textureControlTicks / 256), textureControlTicks % 256, buf[4 * 4 + 3]);
+        }
         if (texAnimActive) {
             put(4, 1, Math.trunc(texFrametime/65536)%256, Math.trunc(texFrametime/256)%256,
                       texFrametime%256, 255);
@@ -3771,6 +3930,12 @@ SOFTWARE.
         // Row 1 x=0 B bit2: omit the duplicate endpoint during autoplay only.
         // Keep slot-marker bits0/1 and opaque alpha; old decoders ignore bit2.
         if (closedLoop) buf[tw * 4 + 2] |= 4;
+        if (textureControlTicks) { buf[tw * 4 + 2] |= 16; buf[tw * 4 + 3] = 255; }
+        if (cfg.shadingMode === 'ambient') { buf[tw * 4 + 2] |= 32; buf[tw * 4 + 3] = 255; }
+        if (data.uvNormals.length) {
+            buf[tw * 4 + 2] |= 8;
+            buf[tw * 4 + 3] = 255;
+        }
 
         // UV header + JSON elements
         const elements = [];
@@ -3872,9 +4037,8 @@ SOFTWARE.
             surfaceWarning('Some UVs are outside the texture frame. Move them inside the frame to avoid stretched or incorrect textures.');
         for (let i = 0; i < data.uvs.length; i++) {
             for (const [j, pxArr] of uvPixels(data.uvs[i]).entries()) {
-                // getuv decodes only G/B. The unused R byte of U identifies the
-                // skin material independently of RGB, including across frames.
-                if (j === 0 && skinUvs[i]) pxArr[0] = 1;
+                const packed = data.uvNormals[i] || 0;
+                pxArr[0] = j === 0 ? ((packed >> 8) << 1) | Number(!!skinUvs[i]) : packed & 255;
                 const p = i*2+j;
                 put(p%tw, ybase+Math.floor(p/tw), ...pxArr);
             }
@@ -3939,7 +4103,9 @@ SOFTWARE.
                 (uv0u[1]*256 + uv0u[2]) / 65535,
                 (uv0v[1]*256 + uv0v[2]) / 65535,
             ];
-            if (uv0u[0] !== Number(!!skinUvs[0]) || uv0v[0] !== 0) verifyWarns.push('uv[0] material flag mismatch');
+            const packed = data.uvNormals[0] || 0;
+            if (uv0u[0] !== (((packed >> 8) << 1) | Number(!!skinUvs[0])) || uv0v[0] !== (packed & 255))
+                verifyWarns.push('uv[0] material/normal mismatch');
             const srcUv = data.uvs[0];
             if (srcUv) {
                 const expUv = srcUv.map(v => Math.max(0, Math.min(1, v)));
@@ -3979,7 +4145,7 @@ SOFTWARE.
             throw new Error('Integrity check failed (' + hardFails.join('; ') + ') — export aborted to avoid a corrupt model; see console for details.');
         }
 
-        const nativeSkin = nativeSkinData(cfg,objContents,skinMaterials,faceEmission,loopFrames);
+        const nativeSkin = nativeSkinData(cfg,objContents,skinMaterials,faceEmission,loopFrames,skinFrames);
         if(nativeSkin) buf[(tw+5)*4] |= 32;
         const pngBuffer = encodePNG(tw, ty, buf);
         const warnStr = verifyWarns.length
@@ -3987,7 +4153,7 @@ SOFTWARE.
             : '';
         const debugInfo = `${nfaces} ${tPlural(nfaces, 'faces')} · ${nframes} ${tPlural(nframes, 'frames')} · ${tw}×${ty}px` + warnStr;
 
-        return { nativeSkin, pngBuffer, rawBuf: buf, elements, nfaces, nvertices, nframes, tw, ty, debugInfo, faceGroups, faceBlocks, faceToPart, faceEmission, faceToEquipmentBinding: buildFaceEquipmentBindings(faceGroups,cfg), skinSlot: cfg.skinEnabled ? cfg.skinSlot : null };
+        return { nativeSkin, pngBuffer, rawBuf: buf, elements, nfaces, nvertices, nframes, textureControlTicks, tw, ty, debugInfo, faceGroups, faceBlocks, faceToPart, faceEmission, faceToEquipmentBinding: buildFaceEquipmentBindings(faceGroups,cfg), skinSlot: cfg.skinEnabled ? cfg.skinSlot : null };
     }
 
     // =========================================================
@@ -4584,7 +4750,7 @@ SOFTWARE.
 
             // Datapack: only for multi-frame animations. Default to a datapacks/
             // folder next to the resource pack (no extra dialog when root is set).
-            if (cfg.generateDatapack && result.nframes > 1) {
+            if (cfg.generateDatapack && (result.nframes > 1 || result.textureControlTicks)) {
                 // Legacy single-part armor exports write the equipment asset as
                 // <model>_<slot> (per-piece exports use <model>_<piece>) — tell the
                 // datapack the real name so its summon equips an asset that exists.
@@ -4593,11 +4759,11 @@ SOFTWARE.
                     ? `${modelName}_${(cfg.equipmentSlot || 'chest').replace(/[^a-z0-9_]/gi, '_').toLowerCase()}`
                     : null;
                 const dpFiles = generateDatapackFiles(
-                    cfg.datapackAnimId, result.nframes,
+                    cfg.datapackAnimId, result.textureControlTicks || result.nframes,
                     cfg.datapackNamespace, horse ? 'horse' : cfg.datapackTargetType,
                     horse ? horse.slot : cfg.datapackEquipSlot,
                     baseItem, modelName, horseAsset || legacyEquipAsset,
-                    horse ? horse.layer : 'humanoid', legacyHorse, result.cameras, result.nativeSkin
+                    horse ? horse.layer : 'humanoid', legacyHorse, result.cameras, result.nativeSkin, !!result.textureControlTicks
                 );
                 // Empty output dir defaults to a sibling of the resource pack. That default
                 // is unwritable when the RP root is a Flatpak document-portal mount
@@ -4819,7 +4985,7 @@ SOFTWARE.
     // Section 10b: Datapack Function Generation
     // =========================================================
 
-    function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot, baseItem, modelName, equipAsset, equipmentTarget, legacyHorse = true, cameras = [], nativeSkin = null) {
+    function generateDatapackFiles(animId, nframes, namespace, targetType, equipSlot, baseItem, modelName, equipAsset, equipmentTarget, legacyHorse = true, cameras = [], nativeSkin = null, textureControl = false) {
         const horse = equipmentOf({ exportAsEquipment: true, equipmentTarget });
         legacyHorse = legacyHorse && !!HORSE_EQUIPMENT[equipmentTarget];
         if (horse) { targetType = horse.entity; equipSlot = horse.slot; baseItem = horse.item; }
@@ -4832,6 +4998,7 @@ SOFTWARE.
         // `function ns:id` refs (baseItem/cmdName are already sanitized this way).
         const ns = ((namespace || 'objcubed').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')) || 'objcubed';
         const id = ((animId || 'anim').toLowerCase().replace(/[^a-z0-9_.-]/g, '_')) || 'anim';
+        if (invalidAnimationFolder(id)) throw new Error(t('err_anim_id_folder'));
         if (ns === 'objcubed' && id === '__camera') throw new Error('Animation ID "__camera" is reserved for camera controls.');
         // Scoreboard objectives get their own namespace prefix so generated
         // objectives can't collide with a map's own scoreboards named after models.
@@ -4893,8 +5060,14 @@ SOFTWARE.
             `scoreboard players set #dur ${sb} ${nframes}`,
             `scoreboard players set #base ${sb} 8388608`,
             `scoreboard players set #cycle ${sb} 24000`,
+            ...(textureControl ? [`scoreboard objectives add ${sb}.tex dummy`, `scoreboard players set #word ${sb} 65536`] : []),
         ].join('\n'));
 
+        // GameTime repeats every 24000 ticks. Remember the clock day so loops whose duration
+        // doesn't divide 24000 keep the same pose and native profile phase across midnight.
+        const rememberLoopDay = textureControl ? [`scoreboard players operation @s ${sb}.end = #gt ${sb}`,
+            `scoreboard players operation @s ${sb}.end /= #cycle ${sb}`, `scoreboard players operation #gt ${sb} %= #cycle ${sb}`] : [];
+        const computeDay = [`scoreboard players operation #day ${sb} = #gt ${sb}`, `scoreboard players operation #day ${sb} /= #cycle ${sb}`];
         // play — autoplay loop starting at frame 0 (synced to GameTime). Stores the
         // phase offset (gametime % dur) so frame 0 shows now and advances; re-issuing
         // restarts cleanly. (The old code did `-= @s` first, which on a second call read
@@ -4904,6 +5077,7 @@ SOFTWARE.
         files.set(`data/${ns}/function/${pub}/play.mcfunction`, [
             `function ${ns}:${pub}/init`,
             `execute store result score #gt ${sb} run time query gametime`,
+            ...rememberLoopDay,
             `scoreboard players operation #gt ${sb} %= #dur ${sb}`,
             `scoreboard players operation @s ${sb} = #gt ${sb}`,
             `tag @s add ${id}.auto`,
@@ -4932,6 +5106,8 @@ SOFTWARE.
         // _stop_auto — computes current frame
         files.set(`data/${ns}/function/${priv}/_stop_auto.mcfunction`, [
             `execute store result score #gt ${sb} run time query gametime`,
+            ...(textureControl ? [...computeDay, `execute unless score @s ${sb}.end = #day ${sb} run function ${ns}:${priv}/_rebase`,
+                `scoreboard players operation #gt ${sb} %= #cycle ${sb}`] : []),
             `scoreboard players operation #gt ${sb} -= @s ${sb}`,
             `scoreboard players operation #gt ${sb} %= #dur ${sb}`,
             `scoreboard players operation @s ${sb} = #gt ${sb}`,
@@ -4949,6 +5125,7 @@ SOFTWARE.
         files.set(`data/${ns}/function/${pub}/play_from.mcfunction`, [
             `function ${ns}:${pub}/init`,
             `execute store result score #gt ${sb} run time query gametime`,
+            ...rememberLoopDay,
             `scoreboard players operation #gt ${sb} -= @s ${sb}`,
             `scoreboard players operation #gt ${sb} %= #dur ${sb}`,
             `scoreboard players operation @s ${sb} = #gt ${sb}`,
@@ -4973,46 +5150,52 @@ SOFTWARE.
             `function ${ns}:${priv}/_apply_auto`,
         ].join('\n'));
 
-        // _apply_auto — set autoplay color (custom_color = tcolor from @s <id>)
-        if (isPlayer) {
-            // Every ${tmp} selector needs `at @s`: distance=..0.01 is measured from
-            // the EXECUTION position, and the stand was summoned at @s — without it
-            // a `execute as <player>` from a command block matches nothing (item
-            // never updates + the temp stand leaks).
-            files.set(`data/${ns}/function/${priv}/_apply_auto.mcfunction`, [
-                tmpSummon,
-                `execute at @s run item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
-                `execute at @s run data modify entity ${tmp} ${compSet}`,
-                `execute at @s store result entity ${tmp} ${compStore} run scoreboard players get @s ${sb}`,
-                `execute at @s run item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`,
-                `execute at @s run kill ${tmp}`,
-            ].join('\n'));
-        } else {
-            files.set(`data/${ns}/function/${priv}/_apply_auto.mcfunction`, [
-                `data modify entity @s ${compSet}`,
-                `execute store result entity @s ${compStore} run scoreboard players get @s ${sb}`,
+        for (const manual of [false, true]) {
+            const prep = [];
+            if (textureControl) {
+                // R: optional held texture frame + 1. GB: loop offset, once start + 24000, or manual tick + 48000.
+                prep.push(`scoreboard players set #temp ${sb} 0`,
+                    `execute if score @s ${sb}.tex matches 0..254 run scoreboard players operation #temp ${sb} = @s ${sb}.tex`,
+                    `execute if score @s ${sb}.tex matches 0..254 run scoreboard players add #temp ${sb} 1`,
+                    `scoreboard players operation #temp ${sb} *= #word ${sb}`);
+                if (manual) prep.push(`scoreboard players add @s ${sb} 0`, `scoreboard players operation @s ${sb} %= #dur ${sb}`,
+                    `scoreboard players add #temp ${sb} 48000`);
+                else prep.push(`execute if entity @s[tag=${id}.once] run scoreboard players remove #temp ${sb} 8768`);
+                prep.push(`scoreboard players operation #temp ${sb} += @s ${sb}`);
+            } else if (manual) prep.push(`scoreboard players operation #temp ${sb} = #base ${sb}`,
+                `scoreboard players operation #temp ${sb} += @s ${sb}`);
+            const source = manual || textureControl ? '#temp' : '@s';
+            const target = isPlayer ? tmp : '@s', at = isPlayer ? 'execute at @s run ' : '';
+            files.set(`data/${ns}/function/${priv}/_apply_${manual?'manual':'auto'}.mcfunction`, [
+                ...prep,
+                ...(isPlayer ? [tmpSummon, `${at}item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`] : []),
+                `${at}data modify entity ${target} ${compSet}`,
+                `${isPlayer?'execute at @s':'execute'} store result entity ${target} ${compStore} run scoreboard players get ${source} ${sb}`,
+                ...(isPlayer ? [`${at}item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`, `${at}kill ${tmp}`] : []),
             ].join('\n'));
         }
-
-        // _apply_manual — set manual color (custom_color = 0x800000 + frame from @s <id>)
-        if (isPlayer) {
-            files.set(`data/${ns}/function/${priv}/_apply_manual.mcfunction`, [
-                `scoreboard players operation #temp ${sb} = #base ${sb}`,
-                `scoreboard players operation #temp ${sb} += @s ${sb}`,
-                tmpSummon,
-                `execute at @s run item replace entity ${tmp} ${playerSlot} from entity @s ${playerSlot}`,
-                `execute at @s run data modify entity ${tmp} ${compSet}`,
-                `execute at @s store result entity ${tmp} ${compStore} run scoreboard players get #temp ${sb}`,
-                `execute at @s run item replace entity @s ${playerSlot} from entity ${tmp} ${playerSlot}`,
-                `execute at @s run kill ${tmp}`,
+        if (textureControl) {
+            files.set(`data/${ns}/function/${priv}/_loop_day.mcfunction`, [
+                `execute store result score #gt ${sb} run time query gametime`, ...computeDay,
+                `execute as @e[tag=${id}.auto] unless score @s ${sb}.end = #day ${sb} run function ${ns}:${priv}/_refresh_day`,
             ].join('\n'));
-        } else {
-            files.set(`data/${ns}/function/${priv}/_apply_manual.mcfunction`, [
-                `scoreboard players operation #temp ${sb} = #base ${sb}`,
-                `scoreboard players operation #temp ${sb} += @s ${sb}`,
-                `data modify entity @s ${compSet}`,
-                `execute store result entity @s ${compStore} run scoreboard players get #temp ${sb}`,
+            files.set(`data/${ns}/function/${priv}/_refresh_day.mcfunction`, [
+                `function ${ns}:${priv}/_rebase`, `function ${ns}:${priv}/_apply_auto`,
             ].join('\n'));
+            files.set(`data/${ns}/function/${priv}/_rebase.mcfunction`, [
+                `scoreboard players operation #delta ${sb} = #day ${sb}`,
+                `scoreboard players operation #delta ${sb} -= @s ${sb}.end`,
+                `scoreboard players operation #delta ${sb} *= #cycle ${sb}`,
+                `scoreboard players operation @s ${sb} -= #delta ${sb}`,
+                `scoreboard players operation @s ${sb} %= #dur ${sb}`,
+                `scoreboard players operation @s ${sb}.end = #day ${sb}`,
+            ].join('\n'));
+            const refresh = [`execute if entity @s[tag=${id}.auto] run function ${ns}:${priv}/_apply_auto`,
+                `execute if entity @s[tag=${id}.once] run function ${ns}:${priv}/_apply_auto`,
+                `execute if entity @s[tag=!${id}.auto,tag=!${id}.once] run function ${ns}:${priv}/_apply_manual`];
+            files.set(`data/${ns}/function/${pub}/texture_set.mcfunction`, [
+                `execute unless score @s ${sb}.tex matches 0..254 run return 0`, ...refresh].join('\n'));
+            files.set(`data/${ns}/function/${pub}/texture_sync.mcfunction`, [`scoreboard players reset @s ${sb}.tex`, ...refresh].join('\n'));
         }
 
         // tick latch: per-entity, freezes play_once at the last frame once its
@@ -5020,6 +5203,7 @@ SOFTWARE.
         // playback stays shader-driven (render-fps), this just flips once.
         files.set(`data/${ns}/function/${pub}/tick.mcfunction`, [
             `execute as @e[tag=${id}.once] run function ${ns}:${priv}/_check_once`,
+            ...(textureControl ? [`execute if entity @e[tag=${id}.auto,limit=1] run function ${ns}:${priv}/_loop_day`] : []),
         ].join('\n'));
         files.set(`data/${ns}/function/${priv}/_check_once.mcfunction`, [
             `execute store result score #now ${sb} run time query gametime`,
@@ -5095,6 +5279,10 @@ SOFTWARE.
             `  ${ns}:${pub}/play_from   loop from frame N (set score @s ${sb} = N first)`,
             `  ${ns}:${pub}/set         freeze at frame N (set score @s ${sb} = N first)`,
             `  ${ns}:${pub}/stop        freeze at the current frame`,
+            ...(textureControl ? ['', `TEXTURE: the linked timeline is ${nframes} ticks; set/play_from use ticks.`,
+                `  scoreboard players set @s ${sb}.tex N  (zero-based texture frame, 0..254; each strip wraps at its own length)`,
+                `  function ${ns}:${pub}/texture_set    hold that frame without changing geometry playback`,
+                `  function ${ns}:${pub}/texture_sync   return the texture to the model timeline`] : []),
             ``,
         ].join('\n'));
 
@@ -5427,6 +5615,7 @@ SOFTWARE.
                         texAnimEnabled: false,
                         texFrametime:  1,
                         texFade:       false,
+                        texDatapack:   false,
                         skinEnabled: false,
                         skinSlot: 0,
                         skinFromTexture: false,
@@ -5445,9 +5634,8 @@ SOFTWARE.
                         generateDatapack: false,
                         exportCameras: false,
                         datapackNamespace: 'objcubed',
-                        datapackAnimId:  (firstAnim ? (firstAnim.name || 'anim') : 'anim')
-                            .replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 12) || 'anim',
-                        datapackTargetType: 'equipment',
+                        datapackAnimId:  suggestedAnimationId(firstAnim?.name),
+                        datapackTargetType: 'player',
                         datapackEquipSlot: 'mainhand',
                         datapackOutputDir: '',
                         // Output paths
@@ -5520,6 +5708,7 @@ SOFTWARE.
                         // Color & Tinting
                         cbR: 'direct', cbG: 'direct', cbB: 'direct',
                         // Advanced
+                        shadingMode:   'flat',
                         easing:        1,
                         interpolation: 1,
                         autorotate:    3,
@@ -5567,6 +5756,7 @@ SOFTWARE.
                         for (const k of ['atlasTexChecked', 'selectedPieces']) {
                             if (!Array.isArray(state[k])) state[k] = dialogDefaults[k];
                         }
+                        if (state.shadingMode !== 'smooth' && state.shadingMode !== 'ambient') state.shadingMode = 'flat';
                     }
 
                     const skinReferences = skinReferenceTextures();
@@ -5742,7 +5932,8 @@ SOFTWARE.
                     // which step renders; the array itself never changes.
                     tourSteps() { return hasAnims ? tourSteps : tourSteps.filter(s => !s.requiresAnims); },
                     showDatapackOption() {
-                        return this.outputMode !== 'files' && this.hasAnims && this.animationEnabled;
+                        return this.outputMode !== 'files' && ((this.hasAnims && this.animationEnabled)
+                            || (this.texDatapack && this.texAnimEnabled && this.texFrameCount > 1));
                     },
                     selectedTexThumb() {
                         const tex = Texture.all[this.selectedTex];
@@ -5954,6 +6145,8 @@ SOFTWARE.
                         if (this.generateDatapack && this.showDatapackOption) {
                             if (!this.datapackAnimId.trim())
                                 errs.push({ field:'datapackAnimId', msg: t('err_need_anim_id') });
+                            else if (invalidAnimationFolder(this.datapackAnimId))
+                                errs.push({ field:'datapackAnimId', msg: t('err_anim_id_folder') });
                             if (!this.datapackNamespace.trim())
                                 errs.push({ field:'datapackNamespace', msg: t('err_need_namespace') });
                         }
@@ -5971,7 +6164,7 @@ SOFTWARE.
                 watch: {
                     outputMode(value) {
                         if (value === 'files') {
-                            this.exportAsEquipment = false; this.generateDatapack = false; this.exportCameras = false;
+                            this.exportAsEquipment = false; this.generateDatapack = false; this.texDatapack = false; this.exportCameras = false;
                             if (!this.customContexts) { this.customContexts = true; this.selectedContexts = []; }
                         }
                     },
@@ -5986,8 +6179,7 @@ SOFTWARE.
                             this.animFps   = anim.snapping || this.animFps || 20;
                             this.animStart = 0;
                             this.animEnd   = anim.length || this.animEnd;
-                            this.datapackAnimId = (anim.name || 'anim')
-                                .replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 12) || 'anim';
+                            this.datapackAnimId = suggestedAnimationId(anim.name);
                         }
                     },
                 },
@@ -6490,8 +6682,7 @@ SOFTWARE.
                         if (anim) {
                             this.animFps = anim.snapping || 20;
                             this.animEnd = anim.length;
-                            this.datapackAnimId = (anim.name || 'anim')
-                                .replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 12) || 'anim';
+                            this.datapackAnimId = suggestedAnimationId(anim.name);
                         }
                     },
                     async doExport() {
@@ -6513,6 +6704,7 @@ SOFTWARE.
                                 texAnimEnabled:  !!this.texAnimEnabled,
                                 texFrametime:    Math.max(1, Math.round(+this.texFrametime || 1)),
                                 texFade:         !!this.texFade,
+                                texDatapack:     wantDatapack && this.texAnimEnabled && this.texFrameCount > 1 && !!this.texDatapack,
                                 scale:           +this.scale,
                                 offset:          [+this.offsetX, +this.offsetY, +this.offsetZ],
                                 animationEnabled: this.hasAnims && this.animationEnabled,
@@ -6528,11 +6720,12 @@ SOFTWARE.
                                 autoplay:        wantDatapack ? false : !!this.autoplay,
                                 flipuv:          !!this.flipuv,
                                 noshadow:        !!this.noshadow,
+                                shadingMode:      this.shadingMode,
                                 nopow:           !!this.nopow,
                                 filterArmature:  !!this.filterArmature,
                                 visibility:      7, // world(4) + hand(2) + gui(1) — always all
                                 generateDatapack: wantDatapack,
-                                exportCameras: wantDatapack && !!this.exportCameras,
+                                exportCameras: wantDatapack && this.hasAnims && this.animationEnabled && !!this.exportCameras,
                                 datapackNamespace: this.datapackNamespace || 'objcubed',
                                 datapackAnimId:  this.datapackAnimId || 'anim',
                                 datapackTargetType: this.datapackTargetType,
@@ -6671,6 +6864,10 @@ SOFTWARE.
           <input type="checkbox" v-model="texFade"/>
           <span>{{t('tex_fade')}}</span>
           <span class="oc-help" tabindex="0" :aria-label="help('texFade')" :data-tip="help('texFade')">?</span>
+        </label>
+        <label v-if="outputMode !== 'files'" style="display:inline-flex;align-items:center;gap:6px;font-size:calc(12px * var(--oc-scale));">
+          <input type="checkbox" v-model="texDatapack" @change="if (texDatapack) generateDatapack = true"/>
+          <span>{{t('tex_datapack')}}</span><span class="oc-help" tabindex="0" :aria-label="help('texDatapack')" :data-tip="help('texDatapack')">?</span>
         </label>
       </div>
     </div>
@@ -7017,14 +7214,14 @@ SOFTWARE.
       <!-- oc-tour-datapack: tour anchor (issue #4) — keep on the datapack block -->
       <div v-if="showDatapackOption" class="oc-tour-datapack" style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.1);">
         <label style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#ddd;">
-          <input v-model="generateDatapack" type="checkbox"/>
+          <input v-model="generateDatapack" type="checkbox" @change="if (!generateDatapack) texDatapack = false"/>
           <i class="material-icons" style="font-size:calc(16px * var(--oc-scale));color:#5a8cc0;">terminal</i>
           <span>{{t('lbl_datapack')}}</span>
           <span class="oc-help" tabindex="0" :aria-label="help('generateDatapack')" :data-tip="help('generateDatapack')">?</span>
         </label>
 
         <div v-if="generateDatapack" style="margin-top:8px;font-size:calc(12px * var(--oc-scale));display:flex;flex-direction:column;gap:8px;">
-          <label style="display:flex;align-items:center;gap:8px;">
+          <label v-if="hasAnims && animationEnabled" style="display:flex;align-items:center;gap:8px;">
             <input v-model="exportCameras" type="checkbox"/>
             <span>{{t('lbl_export_cameras')}}</span>
             <span class="oc-help" tabindex="0" :aria-label="help('exportCameras')" :data-tip="help('exportCameras')">?</span>
@@ -7035,7 +7232,7 @@ SOFTWARE.
             <div class="oc-tour-datapackid" style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               <label style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
                 <span>{{t('lbl_anim_id')}}<span class="oc-help" tabindex="0" :aria-label="help('datapackAnimId')" :data-tip="help('datapackAnimId')">?</span></span>
-                <input v-model="datapackAnimId" placeholder="anim" maxlength="12" :class="hasErr('datapackAnimId') ? 'oc-err' : ''"/>
+                <input v-model="datapackAnimId" placeholder="anim" maxlength="${ANIMATION_NAME_LIMIT}" :class="hasErr('datapackAnimId') ? 'oc-err' : ''"/>
                 <span v-if="hasErr('datapackAnimId')" class="oc-err-msg">{{fieldErrorMap.datapackAnimId}}</span>
               </label>
               <label style="color:#aaa;display:flex;flex-direction:column;gap:3px;min-width:0;">
@@ -7239,6 +7436,15 @@ SOFTWARE.
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-weight:600;color:#ddd;font-size:calc(12px * var(--oc-scale));">
         <span>{{t('section_advanced')}}</span>
       </div>
+      <label style="display:inline-flex;align-items:center;gap:6px;margin-bottom:10px;">
+        <span>{{t('lbl_shadingMode')}}</span>
+        <select v-model="shadingMode" style="align-items:center;line-height:1.2;padding:0 6px;">
+          <option value="flat">Flat</option>
+          <option value="smooth">Smooth</option>
+          <option value="ambient">Ambient</option>
+        </select>
+        <span class="oc-help" tabindex="0" :aria-label="help('shadingMode')" :data-tip="help('shadingMode')">?</span>
+      </label>
       <!-- (easing + autorotate moved up to the Animation sub-section; the old
            dead "Texture interpolation" select is gone entirely — the shader
            never read its header bits; the working texture cross-fade is the
@@ -7324,7 +7530,7 @@ SOFTWARE.
         author: 'JagerMeistars, fork of Godlander\'s objmc',
         description: 'Export models, textures and animations to Minecraft resource packs',
         icon: 'data:image/png;base64,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',
-        version: '0.10.0',
+        version: '0.11.0',
         min_version: '4.8.0',
         variant: 'desktop',
         onload() {

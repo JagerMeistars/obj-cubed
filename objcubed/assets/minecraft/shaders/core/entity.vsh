@@ -45,6 +45,7 @@ layout(location = 10) flat out int isCustom;
 layout(location = 11) flat out int isGUI;
 layout(location = 12) flat out int isHand;
 layout(location = 13) flat out int noshadow;
+layout(location = 17) out vec3 ocSmoothNormal;
 #ifdef GLINT
 layout(location = 14) out vec2 texCoordGlint;
 #endif
@@ -62,6 +63,7 @@ float oc_animal_scalar(ivec2 coordinate) {
 
 layout(location = 16) flat out int skinDonor;
 void main() {
+    ocSmoothNormal = vec3(0.0);
     skinDonor = -1;
     Pos = Position;
     texCoord = UV0;

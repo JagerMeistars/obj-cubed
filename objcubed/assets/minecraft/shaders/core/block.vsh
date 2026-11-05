@@ -28,10 +28,12 @@ layout(location = 6) out vec3 Pos;
 layout(location = 7) out float transition;
 layout(location = 8) flat out int isCustom;
 layout(location = 9) flat out int noshadow;
+layout(location = 11) out vec3 ocSmoothNormal;
 
 #include <minecraft:objmc_tools.glsl>
 
 void main() {
+    ocSmoothNormal = vec3(0.0);
     Pos = Position + ModelOffset;
     texCoord = UV0;
     texCoord2 = UV0;

@@ -40,6 +40,24 @@ function expectWorldTransport(model) {
  expect(donor.transformation.translation[1]).toBeGreaterThanOrEqual(16384);
 }
 describe('player skin integration',()=>{
+ it('smooths profile faces with ordinary neighboring faces, and clears authored normals for Flat',()=>{
+  const {api}=setup();
+  const obj='v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\nvt 0 0\nvn 0 0 1\nvn 1 0 0\nvn 0 1 0\no shell\nusemtl m_u\nf 1/1/1 2/1/2 3/1/3\nusemtl regular\nf 1/1/2 3/1/2 4/1/2';
+  const native=shadingMode=>api.nativeSkinData({...cfg,shadingMode},[obj],new Set(['m_u']),[0,0],1);
+  const smooth=native('smooth'), n=smooth.normals[smooth.vertices[0][2]];
+  expect(n[0]).toBeCloseTo(Math.SQRT1_2);expect(n[1]).toBe(0);expect(n[2]).toBeCloseTo(Math.SQRT1_2);
+  for (const mode of [undefined,'model','flat']) expect(native(mode).normals).toBeUndefined();
+ });
+ it('recalculates smooth skin normals per corner and frame from the posed geometry',()=>{
+  const {api}=setup();
+  const frame=z=>`v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 ${z}\nvt 0 0\nusemtl m_u\nf 1/1 2/1 3/1\nf 1/1 3/1 4/1`;
+  const native=api.nativeSkinData({...cfg,shadingMode:'smooth'},[frame(1),frame(-1)],new Set(['m_u']),[0,0],2);
+  expect(native.normals).toBeDefined();
+  const dir=i=>native.normals[native.vertices[i][2] || 0];
+  expect(dir(0)[0]).toBeCloseTo(Math.SQRT1_2);expect(dir(8)[0]).toBeCloseTo(-Math.SQRT1_2);
+  expect(dir(1)).toEqual([0,0,1]);expect(dir(9)).toEqual([0,0,1]);
+  expect(api.nativeSkinData(cfg,[OBJ],new Set(['m_u']),[0],1).normals).toBeUndefined();
+ });
  it('uses the full mixed-model endpoint when choosing the profile loop period',async()=>{
   const {api,context}=setup();
   context.Texture.all.push({uuid:'paint',name:'paint',width:64,height:64,source:'paint'});

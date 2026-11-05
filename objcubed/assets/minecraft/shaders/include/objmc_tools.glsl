@@ -16,17 +16,27 @@
 ivec4 getmeta(ivec2 topleft, int offset) {
     return ivec4(texelFetch(Sampler0, topleft + ivec2(offset,0), 0) * 255.0 + 0.5);
 }
-// New autoplay exports can retain an identical terminal pose for manual/once
-// playback while excluding that extra hold interval from looping playback.
-// Row-1 x=0 B bit2 is unused by the v3 slot flags (bits0..1).
-int oc_loop_frame_count(ivec2 origin, int frames) {
-    if (frames <= 1) return frames;
+int oc_model_flags(ivec2 origin) {
     int version = int(texelFetch(Sampler0, origin + ivec2(5,1), 0).b * 255.0 + 0.5);
-    if (version >= 2) {
-        int flags = int(texelFetch(Sampler0, origin + ivec2(0,1), 0).b * 255.0 + 0.5);
-        if ((flags & 4) != 0) return max(frames - 1, 1);
-    }
-    return frames;
+    return version == 2 || version == 3 ? int(texelFetch(Sampler0, origin + ivec2(0,1), 0).b * 255.0 + 0.5) : 0;
+}
+int oc_lighting_mode(int flags, bool glow) {
+    return glow ? 1 : ((flags & 32) != 0 ? 2 : 0);
+}
+int oc_loop_frame_count(int flags, int frames) {
+    return frames > 1 && (flags & 4) != 0 ? frames - 1 : frames;
+}
+// A linked controller carries the texture override and geometry clock in one vanilla tint.
+float oc_playback_tick(vec3 color, float time, float duration, out int held, out bool end) {
+    ivec3 bytes = ivec3(color * 255.0 + 0.5);
+    held = bytes.r - 1;
+    end = false;
+    if (all(equal(bytes, ivec3(255)))) { held = -1; return 0.0; }
+    int word = bytes.g * 256 + bytes.b;
+    if (word < 24000) return mod(time + duration - float(word), duration);
+    float tick = word < 48000 ? mod(time - float(word - 24000), 24000.0) : float(word - 48000);
+    end = tick >= duration - 1.0;
+    return min(tick, duration - 1.0);
 }
 vec3 getpos(ivec2 topleft, int w, int h, int index) {
     int i = index*3;
@@ -42,14 +52,39 @@ vec3 getpos(ivec2 topleft, int w, int h, int index) {
         z.r*65536 + z.g*256 + z.b - 8388608
     ) / 65536.0;
 }
-vec2 getuv(ivec2 topleft, int w, int h, int index) {
+vec2 oc_read_uv(ivec2 topleft, int w, int h, int index, out vec2 normalBytes) {
     int i = index*2;
     vec4 x = texelFetch(Sampler0, topleft + ivec2((i  )%w,h+((i  )/w)), 0);
     vec4 y = texelFetch(Sampler0, topleft + ivec2((i+1)%w,h+((i+1)/w)), 0);
+    normalBytes = round(vec2(x.r, y.r) * 255.0);
     return vec2(
         ((x.g*65280)+(x.b*255))/65535,
         ((y.g*65280)+(y.b*255))/65535
     );
+}
+vec2 getuv(ivec2 topleft, int w, int h, int index) {
+    vec2 unused;
+    return oc_read_uv(topleft, w, h, index, unused);
+}
+vec3 oc_unpack_normal(vec2 bytes) {
+    int x = int(bytes.x) >> 1;
+    if (x == 0) return vec3(0.0);
+    vec2 xy = vec2(float(x - 1) / 126.0, bytes.y / 254.0) * 2.0 - 1.0;
+    vec3 n = vec3(xy, 1.0 - abs(xy.x) - abs(xy.y));
+    if (n.z < 0.0) n.xy = (1.0 - abs(n.yx)) * mix(vec2(-1.0), vec2(1.0), greaterThanEqual(xy, vec2(0.0)));
+    return normalize(n);
+}
+vec3 oc_normal_transform(mat3 basis, vec3 n) {
+    if (all(equal(n, vec3(0.0)))) return n;
+    // The cofactor matrix is the inverse transpose up to a signed scalar.
+    mat3 cofactor = mat3(cross(basis[1],basis[2]), cross(basis[2],basis[0]), cross(basis[0],basis[1]));
+    float det = dot(basis[0], cofactor[0]);
+    if (!(abs(det) > 1e-24)) return vec3(0.0);
+    return normalize((cofactor * n) * sign(det));
+}
+vec3 oc_scale_normal(vec3 n, vec3 s) {
+    if (all(equal(n,vec3(0.0))) || any(equal(s,vec3(0.0)))) return vec3(0.0);
+    return normalize(n / s);
 }
 ivec2 getvert(ivec2 topleft, int w, int h, int index) {
     int i = index*2;
@@ -148,4 +183,21 @@ ivec2 oc_armor_uvface(vec2 m) {
         return ivec2(i, f6);
     }
     return ivec2(-1, -1);
+}
+vec2 oc_surface_uv(ivec2 origin, int flags, int width, int row, int index, int nextIndex, int easing,
+                   float blend, out vec3 normal) {
+    vec2 bytes;
+    vec2 uv = oc_read_uv(origin, width, row, index, bytes);
+    normal = vec3(0.0);
+    if (bytes.x < 2.0 || (flags & 8) == 0) return uv;
+    normal = oc_unpack_normal(bytes);
+    if (nextIndex >= 0 && nextIndex != index && easing != 0) {
+        oc_read_uv(origin, width, row, nextIndex, bytes);
+        vec3 next = oc_unpack_normal(bytes);
+        if (any(notEqual(next,vec3(0.0)))) {
+            vec3 n = mix(normal, next, easing == 3 ? blend : ease(easing, blend));
+            if (dot(n,n) > 1e-10) normal = normalize(n);
+        }
+    }
+    return uv;
 }

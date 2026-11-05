@@ -28,6 +28,11 @@ else {
     if (noshadow == 0) {
     //normal from position derivatives
     vec3 normal = normalize(cross(objmcPosDx, objmcPosDy));
+    if (dot(ocSmoothNormal,ocSmoothNormal) > 1e-10) {
+        // Match the visible side used by the legacy derivative normal on two-sided faces.
+        vec3 smoothNormal = normalize(ocSmoothNormal);
+        normal = dot(normal,smoothNormal) < 0.0 ? -smoothNormal : smoothNormal;
+    }
 
     //block lighting
 #ifdef BLOCK
@@ -46,6 +51,7 @@ else {
 #endif
 #endif
 
-    color *= lightColor;
     }
+    // Ambient (2) still receives world light. Only explicit glow (1) bypasses it.
+    if (noshadow != 1) color *= lightColor;
 }

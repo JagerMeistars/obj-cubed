@@ -26,6 +26,7 @@ layout(location = 10) flat in int isCustom;
 layout(location = 11) flat in int isGUI;
 layout(location = 12) flat in int isHand;
 layout(location = 13) flat in int noshadow;
+layout(location = 17) in vec3 ocSmoothNormal;
 layout(location = 15) in float ocCarrierFailure;
 #ifdef GLINT
 layout(location = 14) in vec2 texCoordGlint;

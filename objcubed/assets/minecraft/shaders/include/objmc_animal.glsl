@@ -92,14 +92,19 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                     float ocAnimalDuration = max(float(ocAnimalMeta[4].r * 65536 + ocAnimalMeta[4].g * 256 + ocAnimalMeta[4].b), 1.0);
                     int ocAnimalPosRows = ocAnimalMeta[5].r * 256 + ocAnimalMeta[5].g;
                     int ocAnimalUVRows = ocAnimalMeta[5].b * 256 + ocAnimalMeta[7].b;
-                    noshadow = getb(ocAnimalMeta[6].r, 7, 1);
-                    if (ocAnimalEntry.b > 0) noshadow = 1;
+                    int modelFlags = oc_model_flags(ivec2(0));
+                    noshadow = oc_lighting_mode(modelFlags, getb(ocAnimalMeta[6].r, 7) || ocAnimalEntry.b > 0);
                     float ocAnimalTime = GameTime * 24000.0;
                     float ocAnimalClock = 0.0;
                     ivec3 ocAnimalDye = ivec3(Color.rgb * 255.0 + 0.5);
-                    if (all(equal(ocAnimalDye, ivec3(255)))) {
+                    int ocAnimalHeld = -1;
+                    bool ocAnimalEnd = false;
+                    if ((modelFlags & 16) != 0) {
+                        ocAnimalTime = oc_playback_tick(Color.rgb, ocAnimalTime, ocAnimalDuration, ocAnimalHeld, ocAnimalEnd);
+                        ocAnimalClock = ocAnimalTime * float(ocAnimalFrames) / ocAnimalDuration;
+                    } else if (all(equal(ocAnimalDye, ivec3(255)))) {
                         if (getb(ocAnimalMeta[4].a, 6)) {
-                            ocAnimalFrames = oc_loop_frame_count(ivec2(0), ocAnimalFrames);
+                            ocAnimalFrames = oc_loop_frame_count(modelFlags, ocAnimalFrames);
                             ocAnimalClock = ocAnimalTime * float(ocAnimalFrames) / ocAnimalDuration;
                         }
                     } else {
@@ -112,7 +117,7 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                             int elapsed = (int(ocAnimalTime) % 24000 - (control - 32768) + 24000) % 24000;
                             ocAnimalClock = min(float(elapsed) + fract(ocAnimalTime), float(ocAnimalFrames - 1));
                         } else {
-                            ocAnimalFrames = oc_loop_frame_count(ivec2(0), ocAnimalFrames);
+                            ocAnimalFrames = oc_loop_frame_count(modelFlags, ocAnimalFrames);
                             ocAnimalClock = (ocAnimalTime + ocAnimalDuration - mod(float(control), ocAnimalDuration))
                                 * float(ocAnimalFrames) / ocAnimalDuration;
                         }
@@ -126,11 +131,13 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                     ivec2 ocAnimalIndices = getvert(ivec2(0), ocAnimalSize.x, ocAnimalVertexRow, ocAnimalVertex);
                     vec3 ocAnimalDecoded = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow, ocAnimalIndices.x);
                     int ocAnimalEasing = getb(ocAnimalMeta[4].a, 4, 2) | (getb(ocAnimalMeta[4].a, 0, 2) << 2);
+                    int ocAnimalNextUV = -1;
                     if (ocAnimalFrames > 1 && ocAnimalEasing > 0) {
                         float blend = fract(ocAnimalClock);
-                        vec3 next = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow,
-                            getvert(ivec2(0), ocAnimalSize.x, ocAnimalVertexRow,
-                                ocAnimalBaseVertex + ((ocAnimalFrame + 1) % ocAnimalFrames) * ocAnimalVertices).x);
+                        ivec2 nextVertex = getvert(ivec2(0), ocAnimalSize.x, ocAnimalVertexRow,
+                            ocAnimalBaseVertex + ((ocAnimalFrame + 1) % ocAnimalFrames) * ocAnimalVertices);
+                        ocAnimalNextUV = nextVertex.y;
+                        vec3 next = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow, nextVertex.x);
                         if (ocAnimalEasing == 3) {
                             vec3 next2 = getpos(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow,
                                 getvert(ivec2(0), ocAnimalSize.x, ocAnimalVertexRow,
@@ -150,7 +157,9 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                     ocAnimalDecoded.y = -ocAnimalDecoded.y;
                     Pos = ocAnimalOrigin + ocAnimalBasis * ocAnimalDecoded;
 
-                    vec2 ocAnimalTexUV = getuv(ivec2(0), ocAnimalSize.x, ocAnimalGeometryRow + ocAnimalPosRows, ocAnimalIndices.y);
+                    vec2 ocAnimalTexUV = oc_surface_uv(ivec2(0), modelFlags, ocAnimalSize.x, ocAnimalGeometryRow + ocAnimalPosRows,
+                        ocAnimalIndices.y, ocAnimalNextUV, ocAnimalEasing, fract(ocAnimalClock), ocSmoothNormal);
+                    ocSmoothNormal = oc_normal_transform(ocAnimalBasis, ocSmoothNormal * vec3(1,-1,1));
                     int ocAnimalOpposite = ocAnimalVertex - ocAnimalCorner + (ocAnimalCorner + 2) % 4;
                     int ocAnimalOppositeUV = getvert(ivec2(0), ocAnimalSize.x, ocAnimalVertexRow, ocAnimalOpposite).y;
                     vec2 ocAnimalUVMid = (ocAnimalTexUV + getuv(ivec2(0), ocAnimalSize.x,
@@ -168,11 +177,11 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                     ivec4 ocAnimalTexFlags = ivec4(texelFetch(Sampler0, ivec2(5,1), 0) * 255.0 + 0.5);
                     float ocAnimalTexDuration = max(float(ocAnimalTexClock.r * 65536 + ocAnimalTexClock.g * 256 + ocAnimalTexClock.b), 1.0);
                     if (ocAnimalTextures > 1) {
-                        int frame = int(ocAnimalTime / ocAnimalTexDuration) % ocAnimalTextures;
+                        int frame = (ocAnimalHeld >= 0 ? ocAnimalHeld : int(ocAnimalTime / ocAnimalTexDuration)) % ocAnimalTextures;
                         int next = (frame + 1) % ocAnimalTextures;
                         texCoord = (vec2(0, ocAnimalHeaderRows + frame * ocAnimalSize.y) + ocAnimalTexUV * vec2(ocAnimalSize)) / vec2(ocAnimalAtlas);
                         texCoord2 = (vec2(0, ocAnimalHeaderRows + next * ocAnimalSize.y) + ocAnimalTexUV * vec2(ocAnimalSize)) / vec2(ocAnimalAtlas);
-                        if ((ocAnimalTexFlags.r & 1) != 0) transition = fract(ocAnimalTime / ocAnimalTexDuration);
+                        if ((ocAnimalTexFlags.r & 1) != 0 && ocAnimalHeld < 0 && !ocAnimalEnd) transition = fract(ocAnimalTime / ocAnimalTexDuration);
                     } else if (ocAnimalTexFlags.g > 0) {
                         float midpoint = ocAnimalUVMid.y * float(ocAnimalSize.y);
                         // Version 1 exports at most four atlas strips, fitting
@@ -184,10 +193,10 @@ if (ocAnimalAtlas.x >= 14 && ocAnimalAtlas.y >= 2) {
                             int height = band0.b * 256 + band1.r;
                             int frames = max(band1.g, 1);
                             if (midpoint > float(y0) && midpoint < float(y0 + height)) {
-                                int frame = int(ocAnimalTime / ocAnimalTexDuration) % frames;
+                                int frame = (ocAnimalHeld >= 0 ? ocAnimalHeld : int(ocAnimalTime / ocAnimalTexDuration)) % frames;
                                 texCoord.y -= float(frame * height) / float(ocAnimalAtlas.y);
                                 texCoord2.y -= float(((frame + 1) % frames) * height) / float(ocAnimalAtlas.y);
-                                if ((ocAnimalTexFlags.r & 1) != 0) transition = fract(ocAnimalTime / ocAnimalTexDuration);
+                                if ((ocAnimalTexFlags.r & 1) != 0 && ocAnimalHeld < 0 && !ocAnimalEnd) transition = fract(ocAnimalTime / ocAnimalTexDuration);
                                 break;
                             }
                         }

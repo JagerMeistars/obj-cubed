@@ -11,6 +11,31 @@ const { loadObjcubed } = require('../helpers/load-plugin.cjs');
 
 const api = loadObjcubed();
 
+it('preserves distinct 64-character animation IDs in the dialog and generated datapack', () => {
+  const {loadColorPlugin} = require('../helpers/color-plugin.cjs');
+  const plugin = loadColorPlugin();
+  const prefix = 'fl.crw.t.on-' + 'x'.repeat(51);
+  const ids = [prefix + 'a', prefix + 'b'];
+  expect(ids[0]).toHaveLength(64);
+  plugin.context.Animation.all = ids.map(name => ({name, snapping:20, length:2}));
+  const state = plugin.openDialog();
+  expect(state.datapackAnimId).toBe(ids[0]);
+  expect(plugin.dialogOptions.component.template).toMatch(/v-model="datapackAnimId"[^>]*maxlength="64"/);
+  state.animationIndex = 1; state.onAnimChange();
+  expect(state.datapackAnimId).toBe(ids[1]);
+  const files = api.generateDatapackFiles(state.datapackAnimId, 3, 'demo', 'item_display', 'mainhand');
+  expect(files.has(`data/demo/function/${ids[1]}/play.mcfunction`)).toBe(true);
+  plugin.context.Animation.all[1].name += 'overflow';
+  state.datapackAnimId = 'other';
+  state.animEnd = state.animStart; state.animationEnabled = true;
+  expect(state.datapackAnimId).toBe(ids[1]);
+});
+
+it('rejects animation IDs that cannot name a datapack subfolder', () => {
+  for (const id of ['.', '..', 'clip.', 'CON.clip'])
+    expect(() => api.generateDatapackFiles(id, 3, 'demo', 'item_display', 'mainhand')).toThrow(/folder/);
+});
+
 // Execute the small scoreboard/tag subset used by stop, including nested
 // functions. The unchanged _apply_manual boundary records the frame it receives;
 // these are command-state tests, not a Minecraft runtime/performance benchmark.

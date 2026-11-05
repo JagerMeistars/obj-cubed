@@ -12,6 +12,13 @@ for(const scenario of manifest.scenarios){
  const gui=manifest.cases.filter(c=>c.scenario===scenario.name&&c.pipeline==='gui');
  checks.push({name:scenario.name+':gui-pins-frame0',passed:new Set(gui.map(c=>rows.get(c.id)?.actualSHA256)).size===1});
  for(const pipeline of ['item','entity','armor']){
+  if(scenario.controlled){
+   const nearby=(a,b,equal)=>{const key=id=>rows.get(scenario.name+'-'+pipeline+'-'+id)?.actualSHA256;
+    checks.push({name:scenario.name+':'+pipeline+':'+a+'-vs-'+b,passed:!!key(a)&&!!key(b)&&((key(a)===key(b))===equal)});};
+   nearby('set','set-later',true);nearby('play-start','play-wrap',true);nearby('play-start','play-next',false);
+   nearby('hold2','hold2-later',!scenario.geometry);nearby('once-ended','stop-last',true);
+   continue;
+  }
   const group=manifest.cases.filter(c=>c.scenario===scenario.name&&c.pipeline===pipeline&&c.geometryFrame===0);
   if(scenario.static)checks.push({name:scenario.name+':'+pipeline+':static-over-time',passed:new Set(group.map(c=>rows.get(c.id)?.actualSHA256)).size===1});
   const zero=group.find(c=>c.time===0),ft=scenario.ft??2;

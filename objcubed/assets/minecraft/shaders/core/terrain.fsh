@@ -19,6 +19,7 @@ layout(location = 6) in vec3 Pos;
 layout(location = 7) in float transition;
 layout(location = 8) flat in int isCustom;
 layout(location = 9) flat in int noshadow;
+layout(location = 11) in vec3 ocSmoothNormal;
 layout(location = 10) in float chunkVisibility;
 
 #ifndef OIT_ALPHA_ONLY

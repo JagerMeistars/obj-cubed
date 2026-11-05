@@ -6,7 +6,7 @@ const {loadObjcubedWithContext} = require('../helpers/load-plugin.cjs');
 const {loadColorPlugin} = require('../helpers/color-plugin.cjs');
 const {PNG} = require('pngjs');
 
-function fixture(specs, {animatedFormat = true} = {}) {
+function fixture(specs, {animatedFormat = true, memfs} = {}) {
   const warnings = [];
   const textures = specs.map((spec, i) => {
     const {w = 16, fh = 16, frames = 1, gridW = w, gridH = fh, metadata = true} = spec;
@@ -34,8 +34,8 @@ function fixture(specs, {animatedFormat = true} = {}) {
     get naturalWidth() {return this.entry.texture.width;}
     get naturalHeight() {return this.entry.texture.height;}
   }
-  const {api} = loadObjcubedWithContext({globals:{
-    Buffer, Image,
+  const {api} = loadObjcubedWithContext({requireImpl:id=>id==='fs' && memfs ? memfs : id==='path' ? require('node:path').posix : require(id),globals:{
+    Buffer, Image, Project:{name:'signals'},
     console:{log(){},error(){},warn(message){warnings.push(String(message));}},
     Blockbench:{showQuickMessage(message){warnings.push(String(message));}},
     Texture:{all:textures.map(t=>t.texture)}, Outliner:{root:[],elements:[]},
@@ -96,6 +96,28 @@ function bandPixel(decoded, band, frame, localRow) {
 }
 
 describe('animated atlas export: multiple strips, color and emission',()=>{
+  it('exports a controller for a static mesh with 2- and 3-frame bands without duplicating geometry',async()=>{
+    const memfs=require('../helpers/mem-fs.cjs').makeMemFs();
+    const f=fixture([{frames:2},{frames:3}],{memfs});
+    const cfg={...f.cfg,texDatapack:true,generateDatapack:true,cmdName:'signals',resourcePackDir:'/rp',datapackOutputDir:'/dp',
+      datapackAnimId:'signals',datapackTargetType:'item_display',datapackEquipSlot:'mainhand',colorbehavior:['time','time','time']};
+    const out=await f.api.buildOutput(cfg,[f.obj],'');
+    const d=decode(out);
+    expect(d.rd(0,1)[2]&16).toBe(16);
+    expect(d.bands.map(b=>b.frames)).toEqual([2,3]);
+    expect(out.nframes).toBe(1);
+    expect(d.rd(4,0).slice(0,3)).toEqual([0,0,30]); // 6 texture frames at 5 ticks each
+    await f.api.saveSingleOutput(out,{},cfg);
+    const fn=name=>memfs.writes.get(`/dp/objcubed/data/objcubed/function/signals/${name}.mcfunction`);
+    expect(fn('init')).toContain('#dur objcubed.signals 30');
+    expect(fn('texture_set')).toBeTruthy();expect(fn('texture_sync')).toBeTruthy();
+    expect(fn('texture_set')).not.toMatch(/function objcubed:signals\/(play|stop|set)\b/);
+    expect(fn('texture_set')).not.toMatch(/tag @s (add|remove) signals\.(auto|once)/);
+  });
+  it('rejects an unrepresentable texture-only clock before saving rather than wrapping into another playback mode',async()=>{
+    const f=fixture([{frames:3}]);
+    await expect(f.export({useAtlas:false,texDatapack:true,generateDatapack:true,texFrametime:6000})).rejects.toThrow(/17535/);
+  });
   it('stores four independent strips with unequal frame counts, tint flags and per-face emission',async()=>{
     const f=fixture([2,3,4,5].map((frames,i)=>({frames,emission:[15,0,7,0][i]})));
     const result=await f.export();
@@ -262,6 +284,19 @@ describe('animated atlas export: multiple strips, color and emission',()=>{
 });
 
 describe('texture animation controls use the same native frame contract',()=>{
+  it('makes a texture-only controller available in pack mode without a geometry animation',()=>{
+    const p=loadColorPlugin({animations:false});
+    Object.assign(p.context.Texture.all[0],{width:16,height:48,uv_width:16,uv_height:16,frameCount:3});
+    p.context.Format={animated_textures:true,per_texture_uv_size:true};
+    const state=p.openDialog();
+    expect(state.hasAnims).toBe(false);
+    state.texAnimEnabled=true;
+    expect(state.showDatapackOption).toBe(false);
+    state.texDatapack=true;
+    expect(state.showDatapackOption).toBe(true);
+    state.outputMode='files';
+    expect(state.showDatapackOption).toBe(false);
+  });
   it('reveals the animation controls for rectangular native frames',()=>{
     const p=loadColorPlugin();
     Object.assign(p.context.Texture.all[0],{width:16,height:24,uv_width:16,uv_height:8,frameCount:3});

@@ -67,6 +67,9 @@ bool oc_native_profile(out vec3 result,out vec2 coord,out int unlit) {
         origin=p[0]-basis*(vec3(-0.265625000,-0.515625000,0.265625000)*sizes);face=11;
     }
     vec3 target;if(face<0 || !oc_profile_geometry(id,face,OBJMC_VERTEX_ID%4,target,coord,unlit))return false;
+#ifdef OC_NATIVE_PROFILE_NORMALS
+    ocSmoothNormal=oc_normal_transform(basis,ocProfileNormal);
+#endif
     result=origin+basis*target;return true;
 #else
     return false;
